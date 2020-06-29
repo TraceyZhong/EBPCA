@@ -1,11 +1,11 @@
 import numpy as np 
 from AMP_gg import AMP_gg
 
-np.random.seed(1998)
+np.random.seed(402)
 
 n = 2000
-s = 1.8
 
+s = 1.8
 # Gaussian noise 
 print('Gaussian noise')
 for i in range(1):
@@ -18,7 +18,7 @@ for i in range(1):
     aligns = np.dot(np.transpose(U),ustar) / np.sqrt(Unormsq*n)
     print(aligns)
 '''
-
+s = 1
 # W = ODO' where D is uniform over +/- 1
 print('Noise with eigenvalues +/- 1')
 for i in range(1):
