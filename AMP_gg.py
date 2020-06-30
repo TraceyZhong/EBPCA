@@ -84,15 +84,14 @@ def AMP_gg(Y, s, ustar, iters = 10, rank = 1, reg=0.01):
     w, v = np.linalg.eigh(Y)
     # z = s + 1/s
     z = w[-1]
-    f = -v[:,-1]*np.sqrt(n)
+    f = v[:,-1]*np.sqrt(n)
     sign = 1 if np.inner(f, ustar)>0 else -1
     phi = sign * v[:,-1]
-    sqrtNphi = sign* f
+    sqrtNphi = sign*f
     # pstar and qstar by get_align is not very accurate
     # pstar = np.sqrt(1-1/s**2)
     pstar = get_align(phi, ustar)
-    print("Init align")
-    print(pstar)
+    print("Init align {}".format(pstar))
     qstar = np.sqrt(1- pstar**2)
 
     # some maths :)
@@ -109,7 +108,7 @@ def AMP_gg(Y, s, ustar, iters = 10, rank = 1, reg=0.01):
     # key objects
     F = np.reshape(sign*f,(-1,1))
     plot_save(F[:,0], mu[0], tSigma[0,0], 0)
-    t = 0
+    # t = 0
     # print("alpha {:.4f}; beta {:.4f}; mu {:.4f}; sigma {:.4f}".format(alpha[t], beta[t], mu[t], tSigma[t,t]))
     u = denoise(F, mu, tSigma)
     U = np.reshape(u, (-1,1))
@@ -131,7 +130,7 @@ def AMP_gg(Y, s, ustar, iters = 10, rank = 1, reg=0.01):
         F = np.hstack((F,np.reshape(f,(-1,1))))
         # update EUu and ELu
         EUu = np.append(EUu, get_EUu_t(ustar,u))
-        ELu = np.append(ELu, get_ELu_t(ustar,sqrtNphi))
+        ELu = np.append(ELu, get_ELu_t(sqrtNphi,u))
         # print("EUu {}".format(EUu))
         # print("ELu {}".format(ELu))
         # update alpha, beta, mu
