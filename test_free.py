@@ -6,8 +6,8 @@ from AMP_free import AMP_free
 np.random.seed(3872)
 
 n = 1000
-s = 1.4
-innerprod = 0.2
+s = 1.3
+innerprod = 0.9
 sigma = 1-innerprod**2
 
 '''
