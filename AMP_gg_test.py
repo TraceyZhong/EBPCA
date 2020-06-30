@@ -5,7 +5,8 @@ np.random.seed(402)
 
 n = 2000
 
-s = 1.8
+s = 1.3
+'''
 # Gaussian noise 
 print('Gaussian noise')
 for i in range(1):
@@ -33,4 +34,3 @@ for i in range(1):
   Unormsq = np.diag(np.dot(np.transpose(U),U))
   aligns = np.dot(np.transpose(U),ustar) / np.sqrt(Unormsq*n)
   print(aligns)
-'''

@@ -69,8 +69,8 @@ def get_mu(alpha, beta, pstar):
 def get_EUu_t(ustar, ut):
     return np.mean(ustar * ut)
 
-def get_ELu_t(ustar, sqrtNphi):
-    return np.mean(sqrtNphi * ustar)
+def get_ELu_t(sqrtNphi, ut):
+    return np.mean(sqrtNphi * ut)
 
 def denoise(F,mu,Sigma):
     Sinvmu = np.linalg.solve(Sigma,mu)
