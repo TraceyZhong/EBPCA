@@ -89,8 +89,8 @@ def AMP_gg(Y, s, ustar, iters = 10, rank = 1, reg=0.01):
     phi = sign * v[:,-1]
     sqrtNphi = sign* f
     # pstar and qstar by get_align is not very accurate
-    pstar = np.sqrt(1-1/s**2)
-    # pstar = get_align(phi, ustar)
+    # pstar = np.sqrt(1-1/s**2)
+    pstar = get_align(phi, ustar)
     print("Init align")
     print(pstar)
     qstar = np.sqrt(1- pstar**2)
@@ -117,10 +117,8 @@ def AMP_gg(Y, s, ustar, iters = 10, rank = 1, reg=0.01):
     # key objects
     Delta = np.zeros((iters+1,iters+1))
     Phi = np.zeros((iters+1,iters+1))
-    #u_tilde = u - np.inner(u,sqrtNphi)/n * sqrtNphi
     u_tilde = u-np.inner(u,phi)*phi
     Delta[0,0] = np.mean(u_tilde**2) # Tracey   
-
     # key objects
     EUu = np.array([])
     ELu = np.array([])
@@ -149,7 +147,7 @@ def AMP_gg(Y, s, ustar, iters = 10, rank = 1, reg=0.01):
         Sigma = Q.dot(np.diag(D)).dot(np.transpose(Q))
         tSigma = get_tSigma(Sigma, beta, qstar)
         # check if the states are correclty characterizing the distribution      
-        # plot_save(F[:,t], mu[t], tSigma[t,t], t)
+        plot_save(F[:,t], mu[t], tSigma[t,t], t)
 
         print("Iter {}: alpha {:.4f}; beta {:.4f}; mu {:.4f}; sigma {:.4f}".format(t, alpha[t], beta[t], mu[t], tSigma[t,t]))
         # compute u_{t+1}
