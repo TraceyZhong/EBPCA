@@ -125,7 +125,7 @@ def AMP_gg(Y, s, ustar, iters = 10, rank = 1, reg=0.01):
     for t in range(1, iters + 1):
         # print("At iter {}".format(t))
         b = compute_b(Phi,t,kappa)
-        # print("b {}".format(b))
+        print("b {}".format(b))
         f = Y.dot(U[:,-1])-U.dot(b)
         F = np.hstack((F,np.reshape(f,(-1,1))))
         # update EUu and ELu
@@ -142,6 +142,9 @@ def AMP_gg(Y, s, ustar, iters = 10, rank = 1, reg=0.01):
         # update Sigma thus tSigma
         Sigma = compute_Sigma(Delta,Phi,t,kappa)
         D,Q = np.linalg.eigh(Sigma[:t,:t])
+        # if (np.any(reg - D > 0)):
+        #     print("At iter {} D is below threshold".format(t))
+        #     print(D)
         D = np.maximum(D,reg)
         Sigma = Q.dot(np.diag(D)).dot(np.transpose(Q))
         tSigma = get_tSigma(Sigma, beta, qstar)
