@@ -18,7 +18,7 @@ if __name__ == "__main__":
     sigma = np.sqrt(1-init_align**2)
 
     sample_udenoiser = NonparEB(em_iter = 1000, to_save = True, to_show = False, fig_prefix = "nopareb_u_")
-    sample_vdenoiser = NonparEB(em_iter = 1000, to_save = True, to_show = False, fig_prefix = "nopareb_v_")
+    sample_vdenoiser = TestEB(to_save = True, to_show = False, fig_prefix = "nopareb_v_")
 
     def test(W,alpha,prefix, udenoiser, vdenoiser):
         ustar = np.random.binomial(1,0.5,size=m)*2-1
@@ -26,7 +26,9 @@ if __name__ == "__main__":
         X = alpha/n * np.outer(ustar,vstar) + W
         hist_save(np.linalg.svd(X)[1], '%s_singvals.png' % prefix)
         u = ustar * init_align + sigma * np.random.normal(size=m)
+
         (U,V) = ebamp_orthog(X,u,init_align,iters=niters,udenoiser = udenoiser, vdenoiser = vdenoiser)
+        
         Unormsq = np.diag(np.transpose(U).dot(U))
         Vnormsq = np.diag(np.transpose(V).dot(V))
         Ualigns = np.transpose(U).dot(ustar) / np.sqrt(Unormsq*m)
@@ -34,15 +36,15 @@ if __name__ == "__main__":
         print(Ualigns)
         print(Valigns)
 
-    # # Gaussian noise
-    # alpha = 2
-    # print('Gaussian noise, alpha = {}'.format(alpha))
-    # for i in range(ntrials):
-    #     prefix='figures/rect_gaussian_%d' % i
-    #     W = np.random.normal(size=(m,n))/np.sqrt(n)
-    #     udenoiser = NonparEB(em_iter = 1000, to_save = True, to_show = False, fig_prefix = "nopareb_gaus_u_")
-    #     vdenoiser = NonparEB(em_iter = 1000, to_save = True, to_show = False, fig_prefix = "nopareb_gaus_v_")
-    #     test(W,alpha,prefix,udenoiser,vdenoiser)
+    # Gaussian noise
+    alpha = 2
+    print('Gaussian noise, alpha = {}'.format(alpha))
+    for i in range(ntrials):
+        prefix='figures/rect_gaussian_%d' % i
+        W = np.random.normal(size=(m,n))/np.sqrt(n)
+        udenoiser = NonparEB(em_iter = 1000, to_save = True, to_show = False, fig_prefix = "nopareb_gaus_u_")
+        vdenoiser = TestEB(to_save = True, to_show = False, fig_prefix = "nopareb_gaus_v_")
+        test(W,alpha,prefix,udenoiser,vdenoiser)
 
     alpha = float(2)
     print('Noise with all singular values +1, alpha = 2')

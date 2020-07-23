@@ -39,8 +39,8 @@ class _BaseEmpiricalBayes(ABC):
         self.warm_start = False
 
     @abstractmethod
-    def fit(self, f, mu, sigma):
-        pass 
+    def estimate_prior(self,f, mu, sigma):
+        pass
 
     @abstractmethod
     def denoise(self, f, mu, sigma):
@@ -51,12 +51,17 @@ class _BaseEmpiricalBayes(ABC):
         pass 
     
     @abstractmethod
-    def get_marginal_dist(self, mu, sigma):
+    def get_margin_pdf(self, mu, sigma):
         pass 
     
+    def fit(self, f, mu, sigma, **kwargs):
+        self.estimate_prior(f,mu,sigma)
+        figname = kwargs.get("figname", "")
+        self.check_margin(f,mu,sigma,figname)
+
     def check_margin(self, f, mu, sigma, figname):
 
-            xgrid, pdf = self.get_marginal_dist(mu, sigma)
+            xgrid, pdf = self.get_margin_pdf(mu, sigma)
             
             fig, ax = plt.subplots()
             ax.hist(f, bins = 40, alpha = 0.5, density = True, color = "skyblue", label = "empirical dist")
@@ -81,19 +86,14 @@ class NonparEB(_BaseEmpiricalBayes):
         self.n_supp = 0
         self.em_iter = em_iter
         
-
-    def fit(self, f, mu, sigma, **kwargs):
-        # from section 6.2 in https://projecteuclid.org/euclid.aos/1245332828
-        # upper bound this number, otherwise it takes forever to run
+    def estimate_prior(self, f, mu, sigma):
         self.n_supp = min(int(np.sqrt(len(f/mu)) * (np.max(f/mu) - np.min(f/mu))**2/4), 1000)
         self.x_supp = np.linspace(np.min(f/mu), np.max(f/mu), self.n_supp)
         self.x_supp = np.concatenate([self.x_supp, [0]])
         self.n_supp += 1
         self.pi = np.repeat(1/self.n_supp, self.n_supp)
         self.pi = npmle_em(y_obs = f, mu = mu, sigma = sigma, x_grid = self.x_supp, n_np = self.n_supp, dim =  len(f), n_iter = self.em_iter, pi_t = self.pi)
-        figname = kwargs.get("figname", None)
-        self.check_margin(f, mu, sigma, figname = figname)
-
+               
     def denoise(self, f, mu, sigma):
         if ((self.x_supp is None) or (self.pi is None)):
             raise ValueError("denoise before fit is done.")
@@ -104,7 +104,7 @@ class NonparEB(_BaseEmpiricalBayes):
             raise ValueError("denoise before fit is done.")
         return vdf_nonpar(f, mu, sigma, (self.pi, self.x_supp))   
 
-    def get_marginal_dist(self, mu, sigma):
+    def get_margin_pdf(self, mu, sigma):
         if ((self.x_supp is None) or (self.pi is None)):
             raise ValueError("denoise before fit is done.")
         
@@ -122,9 +122,8 @@ class TestEB(_BaseEmpiricalBayes):
     def __init__(self, to_save = True, to_show = False, fig_prefix = "testeb"):
         _BaseEmpiricalBayes.__init__(self, to_save, to_show, fig_prefix)
 
-    def fit(self, f, mu,sigma, **kwargs):
-        figname = kwargs.get("figname", None)
-        self.plot_marginal_dist(f, mu, sigma, figname = figname)
+    def estimate_prior(self,f,mu,sigma):
+        pass
     
     def denoise(self, f, mu, sigma, prior_par = None):
         return np.tanh(f)
@@ -132,25 +131,15 @@ class TestEB(_BaseEmpiricalBayes):
     def ddenoise(self, f,mu, sigma, prior_par = None):
         return 1 - np.tanh(f)**2
 
-    def plot_marginal_dist(self, f, mu, sigma, figname):
-        sigmasq = sigma**2
-        fig, ax = plt.subplots(nrows = 1, ncols = 1, figsize = (7,5))
-        ax.hist(f, bins = 40, density = True)
-        xgrid = np.linspace(min(f)*1.1,max(f)*1.1,1000)
-        ygrid = two_point_normal_pdf(xgrid, mu, sigmasq)
-        ax.plot(xgrid, ygrid, color = 'orange')
-        ax.vlines(x = mu, ymin = 0, ymax = max(ygrid), color = 'orange')
-        ax.vlines(x = -mu, ymin = 0, ymax = max(ygrid), color = 'orange')
-        ax.set_title("{} mu {} sigma {}".format(figname, mu, sigma))
-        fig.savefig(self.fig_prefix + figname)
-
-def two_point_normal_pdf(x,mu,sigmasq):
-    pdf_plus = 1/np.sqrt(2*np.pi*sigmasq) * np.exp(-(x-mu)**2/(2*sigmasq))
-    pdf_minus = 1/np.sqrt(2*np.pi*sigmasq) * np.exp(-(x+mu)**2/(2*sigmasq))
-    return 0.5*pdf_plus+0.5*pdf_minus
-
-
-
+    def get_margin_pdf(self, mu, sigma):
+        xgrid = np.linspace(1.1*(-mu-sigma*3), (mu+sigma*3)*1.1, 1000)
+        def two_point_normal_pdf(x,mu,sigmasq):
+            pdf_plus = 1/np.sqrt(2*np.pi*sigmasq) * np.exp(-(x-mu)**2/(2*sigmasq))
+            pdf_minus = 1/np.sqrt(2*np.pi*sigmasq) * np.exp(-(x+mu)**2/(2*sigmasq))
+            return 0.5*pdf_plus+0.5*pdf_minus
+        ygrid = two_point_normal_pdf(xgrid, mu, sigma**2)
+        return xgrid, ygrid
+        
 
 @jit(nopython=True)
 def npmle_em(y_obs, mu, sigma, x_grid, n_np, dim, n_iter, pi_t):
