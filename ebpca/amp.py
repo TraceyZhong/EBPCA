@@ -12,7 +12,42 @@ from ebpca.empbayes import NonparEB
 
 
 
-def ebamp_orthog(X, u, innerprod, iters = 5, rank =1, reg = 0.001, udenoiser = NonparEB(), vdenoiser = NonparEB()):
+def ebamp_gaussian(X, u, init_align, iters = 5, rank = 1, udenoiser = NonparEB(), vdenoiser = NonparEB, v = None, v_init_align = None, signal = 0):
+    # Normalize u, v and initialize U V F G
+    (m,n) = X.shape
+    alpha = n/m
+    U = np.reshape(u,(-1,1))
+    V = np.reshape(v,(-1,1))
+
+    u = 1/(signal * alpha) * np.sqrt((signal**2*alpha + 1)/(signal**2 + 1)) * u / np.linalg.norm(u) * np.sqrt(m)
+    g = v/np.linalg.norm(v) * np.sqrt(n) 
+
+    mu = v_init_align
+    sigma_sq = 1 - mu**2
+    for t in range(iters):
+        print("at amp iter {}".format(t))
+        # denoise right singular vector gt to get vt
+        vdenoiser.fit(g, mu, np.sqrt(sigma_sq), figname='iter%02d.png' % (t))
+        v = vdenoiser.denoise(g, mu, np.sqrt(sigma_sq))
+        V = np.hstack((V,np.reshape(v,(-1,1))))
+        b = alpha * np.mean(vdenoiser.ddenoise(g,mu,np.sqrt(sigma_sq)))
+        # update left singular vector ft using vt
+        f = X.dot(v) - b*u
+        sigma_bar_sq = alpha * np.mean(v**2)
+        mu_bar = np.sqrt(np.mean(f**2) - sigma_bar_sq)
+        # denoise left singular vector ft to get ut
+        udenoiser.fit(f, mu_bar, np.sqrt(sigma_bar_sq), figname='iter%02d.png' % (t))
+        u = udenoiser.denoise(f, mu_bar, np.sqrt(sigma_bar_sq))
+        U = np.hstack((U, np.reshape(u, (-1,1))))
+        b_bar = np.mean(udenoiser.ddenoise(f, mu_bar, np.sqrt(sigma_bar_sq)))
+        # update right singular vector gt using ut
+        g = np.transpose(X).dot(u) - b_bar * v
+        sigma_sq = np.mean(u**2)
+        mu = np.sqrt(np.mean(g**2) - sigma_sq)
+    return U,V
+
+
+def ebamp_orthog(X, u, innerprod, iters = 5, rank =1, reg = 0.001, udenoiser = NonparEB(), vdenoiser = NonparEB(),*args, **kwargs):
     '''
     Input: denoiser is a empbayes object
     '''
@@ -56,7 +91,7 @@ def ebamp_orthog(X, u, innerprod, iters = 5, rank =1, reg = 0.001, udenoiser = N
         # transform and denoise
         margin = G.dot(Oinvnu)
         state = nu.dot(Oinvnu)
-        print("v itr {}, {}".format(t, state))
+        # print("v itr {}, {}".format(t, state))
         vdenoiser.fit(margin, mu = state, sigma = np.sqrt(state), figname='iter%02d.png' % (t))
         v = vdenoiser.denoise(margin, state, np.sqrt(state))
         # finish transform and denoise
