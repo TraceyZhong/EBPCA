@@ -51,7 +51,7 @@ class _BaseEmpiricalBayes(ABC):
         pass 
     
     @abstractmethod
-    def get_margin_pdf(self, mu, sigma):
+    def get_margin_pdf(self, mu, sigma, x):
         pass 
     
     def fit(self, f, mu, sigma, **kwargs):
@@ -60,9 +60,11 @@ class _BaseEmpiricalBayes(ABC):
         self.check_margin(f,mu,sigma,figname)
 
     def check_margin(self, f, mu, sigma, figname):
-
-            xgrid, pdf = self.get_margin_pdf(mu, sigma)
+            xmin = np.quantile(f,0.05); xmax = np.quantile(f,0.95)
+            xgrid = np.linspace(xmin - abs(xmin)/3, xmax + abs(xmax)/3)
             
+            pdf = [self.get_margin_pdf(mu, sigma, x) for x in xgrid]
+
             fig, ax = plt.subplots()
             ax.hist(f, bins = 40, alpha = 0.5, density = True, color = "skyblue", label = "empirical dist")
             ax.plot(xgrid, pdf, color = "grey", linestyle = "dashed", label = "theoretical density")
@@ -103,17 +105,12 @@ class NonparEB(_BaseEmpiricalBayes):
         if ((self.x_supp is None) or (self.pi is None)):
             raise ValueError("denoise before fit is done.")
         return vdf_nonpar(f, mu, sigma, (self.pi, self.x_supp))   
-
-    def get_margin_pdf(self, mu, sigma):
+    
+    def get_margin_pdf(self, mu, sigma, x):
         if ((self.x_supp is None) or (self.pi is None)):
             raise ValueError("denoise before fit is done.")
         
-        bound = np.max(self.x_supp.max()) + 3 * np.sqrt(sigma**2)
-        xgrid = np.arange(-bound, bound, 0.01)
-        pdf_func = np.vectorize(lambda x: np.sum(self.pi /np.sqrt(2*np.pi*sigma**2)*np.exp(-(x-self.x_supp*mu)**2/(2*sigma**2))))
-        pdf = pdf_func(xgrid)
-
-        return xgrid, pdf
+        return np.sum(self.pi /np.sqrt(2*np.pi*sigma**2)*np.exp(-(x-self.x_supp*mu)**2/(2*sigma**2)))
         
     
 
@@ -131,14 +128,11 @@ class TestEB(_BaseEmpiricalBayes):
     def ddenoise(self, f,mu, sigma, prior_par = None):
         return 1 - np.tanh(f)**2
 
-    def get_margin_pdf(self, mu, sigma):
-        xgrid = np.linspace(1.1*(-mu-sigma*3), (mu+sigma*3)*1.1, 1000)
-        def two_point_normal_pdf(x,mu,sigmasq):
-            pdf_plus = 1/np.sqrt(2*np.pi*sigmasq) * np.exp(-(x-mu)**2/(2*sigmasq))
-            pdf_minus = 1/np.sqrt(2*np.pi*sigmasq) * np.exp(-(x+mu)**2/(2*sigmasq))
-            return 0.5*pdf_plus+0.5*pdf_minus
-        ygrid = two_point_normal_pdf(xgrid, mu, sigma**2)
-        return xgrid, ygrid
+    def get_margin_pdf(self, mu, sigma, x):
+        sigmasq = sigma**2
+        pdf_plus = 1/np.sqrt(2*np.pi*sigmasq) * np.exp(-(x-mu)**2/(2*sigmasq))
+        pdf_minus = 1/np.sqrt(2*np.pi*sigmasq) * np.exp(-(x+mu)**2/(2*sigmasq))
+        return 0.5*pdf_plus+0.5*pdf_minus
         
 
 @jit(nopython=True)

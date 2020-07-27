@@ -23,6 +23,7 @@ import os
 
 import numpy as np
 import scipy.stats
+from scipy.optimize import fsolve
 import matplotlib.pyplot as plt
 from sklearn import preprocessing 
 
@@ -76,6 +77,28 @@ def _d_cauchy_transformation(z, mu, n_samples, n_features):
     db = -np.mean( (z**2 + mu[:n_features]**2)/ (z**2 - mu[:n_features]**2)**2)
     return da*b + db*a 
 
+def _phase_transition_threshold(mu, n_samples, n_features, tol = 0.01):
+    supp_max_plus = mu.max() + tol 
+    mu = np.pad(mu, (0,(max(n_features, n_samples) - len(mu))), constant_values = (0,0))
+    ct = _cauchy_transformation(supp_max_plus, mu, n_samples, n_features)
+    return 1/np.sqrt(ct)
+
+def signal_solver_gaussian(singval, mu = None, n_samples = 0, n_features = 0, **kwargs):
+    '''we require the noise variance to be 1/n_features
+    '''
+    aspect_ratio = n_samples/n_features
+    singval_limit = lambda d, y, s: (d*d + 1) * (d*d + y)/ (d*d) - s*s
+    theta = fsolve(singval_limit, x0 = singval, args = (aspect_ratio, singval))
+
+    sample_align = np.sqrt((theta**4 - aspect_ratio)/ (theta**2 + aspect_ratio)) / theta
+    feature_align = np.sqrt((theta**4 - aspect_ratio)/ (theta**2 + 1)) / theta
+
+    alpha = theta / np.sqrt(aspect_ratio)
+
+    return {"alpha": alpha, "sample_align":  sample_align, "feature_align": feature_align}
+
+
+
 def signal_solver(singval, mu, n_samples, n_features, rank = 0, supp_max = None, tol = 0.01):
     '''solve for singal values and estimate alignments
     Sample Usage
@@ -95,7 +118,7 @@ def signal_solver(singval, mu, n_samples, n_features, rank = 0, supp_max = None,
 
     Output
     -----
-    A dictionary of {alpha, align_sample, align_feature}
+    A dictionary of {alpha, sample_align, feature_align}
     '''
     # remove the leading k singular value
     mu = mu[rank:]
@@ -112,15 +135,15 @@ def signal_solver(singval, mu, n_samples, n_features, rank = 0, supp_max = None,
     dCauchy = _d_cauchy_transformation(singval, mu, n_samples, n_features)
     # alignment in the sample direction
     phi = np.mean(singval/(singval**2 - mu[:n_samples]**2))
-    align_sample = np.sqrt(abs(2 * phi/dCauchy))/theta 
+    sample_align = np.sqrt(abs(2 * phi/dCauchy))/theta 
 
     # alignment in the feature direction
     phi = np.mean(singval/(singval**2 - mu[:n_features]**2))
-    align_feature = np.sqrt(abs(2 * phi/dCauchy))/theta 
+    feature_align = np.sqrt(abs(2 * phi/dCauchy))/theta 
 
     alpha = theta / np.sqrt(n_samples/n_features)
 
-    return {"alpha": alpha, "align_sample":  align_sample, "align_feature": align_feature}
+    return {"alpha": alpha, "sample_align":  sample_align, "feature_align": feature_align}
 
 
 ## --- plot PC --- ##

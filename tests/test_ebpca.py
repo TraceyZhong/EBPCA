@@ -19,10 +19,20 @@ sigma = np.sqrt(1-init_align**2)
 sample_udenoiser = NonparEB(em_iter = 1000, to_save = True, to_show = False, fig_prefix = "nopareb_u_")
 sample_vdenoiser = TestEB(to_save = True, to_show = False, fig_prefix = "nopareb_v_")
 
+
+# We have a chubby Xfull with huge n:
+# Xfull  columnwise zero mean unit std
+# get ustar by svd(Xfull)*\sqrt{m}
+# regress out other PC, how to do, don't know yet
+# we subsample columns to a X with nice shape
+# get u by svd(X) * \sqrt{m}
+# 
+
+
 def test(W,alpha,prefix, udenoiser, vdenoiser):
-    ustar = np.random.binomial(1,0.5,size=m)*2-1
-    vstar = np.random.binomial(1,0.5,size=n)*2-1
-    X = alpha/n * np.outer(ustar,vstar) + W
+    ustar = np.random.binomial(1,0.5,size=m)*2-1 # svd * \sqrt{m}
+    vstar = np.random.binomial(1,0.5,size=n)*2-1 # remove 
+    X = alpha/n * np.outer(ustar,vstar) + W # real data normalization: 
     hist_save(np.linalg.svd(X)[1], '%s_singvals.png' % prefix)
     u = ustar * init_align + sigma * np.random.normal(size=m)
 
