@@ -5,12 +5,19 @@ from ebpca.pca import signal_solver_gaussian
 from ebpca.empbayes import NonparEB
 from ebpca.empbayes import TestEB
 
-np.random.seed(8921)
+np.random.seed(1921)
 
 niters = 5
 
 m = 1000
-n = 1000
+n = 500
+
+def get_alignment(u,v):
+    # consider u and v are one dimmensional
+    u = u.flatten()
+    v = v.flatten()
+    return u.dot(v)/(np.linalg.norm(u) * np.linalg.norm(v))
+
 
 def test(W, alpha):
     ustar = np.random.binomial(1,0.5,size=m)*2-1
@@ -22,9 +29,12 @@ def test(W, alpha):
     v = vh[0,:]
 
     res = signal_solver_gaussian(singval = s[0], n_samples= m, n_features= n)
+    estimates = res 
+    print("alpha [%.4f, %.4f], sample align = [%.4f, %.4f], feature align = [%.4f, %.4f]" % (alpha, estimates["alpha"], 
+            get_alignment(u, ustar), estimates["sample_align"], get_alignment(v, vstar), estimates["feature_align"] ))
 
-    udenoiser = NonparEB(em_iter = 500, to_save = True, to_show = False, fig_prefix = "nonpareb_u_")
-    vdenoiser = NonparEB(em_iter = 500, to_save = True, to_show = False, fig_prefix = "nonpareb_v_")
+    udenoiser = TestEB(to_save = True, to_show = False, fig_prefix = "nonpareb_u_")
+    vdenoiser = TestEB(to_save = True, to_show = False, fig_prefix = "nonpareb_v_")
 
     (U,V) = ebamp_gaussian(X, u, init_align= res["sample_align"], 
         v = v, v_init_align= res["feature_align"], signal= res["alpha"],

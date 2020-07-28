@@ -4,7 +4,7 @@ sys.path.insert(0, cur_dir + '/../')
 
 import numpy as np
 
-from ebpca.pca import signal_solver
+from ebpca.pca import signal_solver_gaussian
 
 n_trials = 3
 
@@ -23,12 +23,11 @@ def get_alignment(u,v):
 def test(W, alpha, noise_type):
     ustar = np.random.binomial(1,0.5,size=m)*2-1
     vstar = np.random.binomial(1,0.5,size=n)*2-1  
-    X = alpha/n * np.outer(ustar,vstar) + W
+    X = alpha/m * np.outer(ustar,vstar) + W
     u, s, vh = np.linalg.svd(X,full_matrices=False)
-    estimates = signal_solver(singval = s[0], mu = s[1:], n_samples=m, n_features=n)
-    print("alpha = [{alpha:.4f}, {alpha_hat:.4f}], sample align = [{sa:.4f}, {estsa:.4f}], feature align = [{fa:.4f}, {estfa:.4f}]"
-        .format(alpha = alpha, sa = get_alignment(u[:,0], ustar), fa = get_alignment(vh[0,:], vstar), 
-            alpha_hat = estimates["alpha"], estsa = estimates["align_sample"], estfa = estimates["align_feature"]))
+    estimates = signal_solver_gaussian(singval = s[0], mu = s[1:], n_samples=m, n_features=n)
+    print("alpha [%.4f, %.4f], sample align = [%.4f, %.4f], feature align = [%.4f, %.4f]" % (alpha, estimates["alpha"], 
+            get_alignment(u[:,0], ustar), estimates["sample_align"], get_alignment(vh[0,:], vstar), estimates["feature_align"] ))
 
 alpha = float(2)
 print('Gaussian noise, alpha = 2')
@@ -36,6 +35,7 @@ for i in range(n_trials):
     W = np.random.normal(size=(m,n))/np.sqrt(n)
     test(W,alpha, "Gaussian")
 
+'''
 alpha = float(2)
 print('Noise with all singular values +1, alpha = 2')
 for i in range(n_trials):
@@ -65,7 +65,7 @@ for i in range(n_trials):
 
 
 
-'''
+
 Sample Usage:
 
 estimates = signal_solver(singval, mu, n_samples, n_features)
