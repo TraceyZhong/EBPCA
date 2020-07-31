@@ -25,7 +25,7 @@ def ebamp_gaussian_old(X, u, init_align, iters = 5, rank = 1, udenoiser = Nonpar
     U = np.reshape(v,(-1,1))
     V = np.reshape(u,(-1,1))
 
-    u = 1/(signal * alpha) * np.sqrt((signal**2*alpha + 1)/(signal**2 + 1)) * u / np.linalg.norm(u) * np.sqrt(m)
+    u = 1/(signal * alpha) * np.sqrt((signal**2*alpha + 1)/(signal**2 + 1)) * u / np.linalg.norm(u) * np.sqrt(d)
     g = v/np.linalg.norm(v) * np.sqrt(n) 
 
     mu = v_init_align

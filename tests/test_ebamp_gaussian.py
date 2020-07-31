@@ -1,3 +1,8 @@
+import os,sys,inspect
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+sys.path.insert(0,parentdir) 
+
 import numpy as np
 
 from ebpca.amp import ebamp_gaussian
@@ -9,8 +14,8 @@ np.random.seed(1921)
 
 niters = 5
 
-m = 1000
-n = 500
+m = 900
+n = 1000
 
 def get_alignment(u,v):
     # consider u and v are one dimmensional
