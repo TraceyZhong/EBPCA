@@ -1,7 +1,4 @@
-import os,sys,inspect
-currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-parentdir = os.path.dirname(currentdir)
-sys.path.insert(0,parentdir) 
+import config
 
 import numpy as np
 
@@ -9,6 +6,7 @@ from ebpca.amp import ebamp_gaussian
 from ebpca.pca import signal_solver_gaussian
 from ebpca.empbayes import NonparEB
 from ebpca.empbayes import TestEB
+
 
 np.random.seed(1921)
 

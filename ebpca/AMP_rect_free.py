@@ -183,9 +183,9 @@ def AMP_rect_free(X,u,innerprod,iters=5,rank=1,reg=0.001,plot_prefix=None):
             g = np.transpose(X).dot(U[:,-1])
         else:
             b = compute_b(Phi,Psi,gamma,t,kappa)
-            print("itr {}, b {}".format(t,b))
+            
             g = np.transpose(X).dot(U[:,-1])-V.dot(b)
-            print("itr {}, g {}".format(t,g))
+            
         G = np.hstack((G,np.reshape(g,(-1,1))))
         # Update Omega
         #     (For numerical stability, ensure lambda_min(Omega) >= reg)

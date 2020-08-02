@@ -1,3 +1,5 @@
+import config
+
 import numpy as np
 from tests.debug import hist_save
 
@@ -16,7 +18,7 @@ n = 4000
 init_align = 0.5
 sigma = np.sqrt(1-init_align**2)
 
-sample_udenoiser = NonparEB(em_iter = 1000, to_save = True, to_show = False, fig_prefix = "nopareb_u_")
+sample_udenoiser = TestEB(to_save = True, to_show = False, fig_prefix = "nopareb_u_")
 sample_vdenoiser = TestEB(to_save = True, to_show = False, fig_prefix = "nopareb_v_")
 
 

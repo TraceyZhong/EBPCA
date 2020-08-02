@@ -1,10 +1,10 @@
-import sys, os
-cur_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, cur_dir + '/../')
+import config
 
 import numpy as np
 
 from ebpca.pca import signal_solver_gaussian
+from ebpca.pca import signal_solver
+
 
 n_trials = 3
 
@@ -23,7 +23,7 @@ def get_alignment(u,v):
 def test(W, alpha, noise_type):
     ustar = np.random.binomial(1,0.5,size=m)*2-1
     vstar = np.random.binomial(1,0.5,size=n)*2-1  
-    X = alpha/m * np.outer(ustar,vstar) + W
+    X = alpha/n * np.outer(ustar,vstar) + W
     u, s, vh = np.linalg.svd(X,full_matrices=False)
     estimates = signal_solver_gaussian(singval = s[0], mu = s[1:], n_samples=m, n_features=n)
     print("alpha [%.4f, %.4f], sample align = [%.4f, %.4f], feature align = [%.4f, %.4f]" % (alpha, estimates["alpha"], 
