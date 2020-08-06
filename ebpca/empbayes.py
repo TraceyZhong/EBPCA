@@ -111,8 +111,100 @@ class NonparEB(_BaseEmpiricalBayes):
             raise ValueError("denoise before fit is done.")
         
         return np.sum(self.pi /np.sqrt(2*np.pi*sigma**2)*np.exp(-(x-self.x_supp*mu)**2/(2*sigma**2)))
+
+
+class PointNormalEB(_BaseEmpiricalBayes):
+
+    def __init__(self, em_iter = 1000, to_save = True, to_show = False, fig_prefix = "pointnormaleb"):
+        _BaseEmpiricalBayes.__init__(self, to_save, to_show, fig_prefix)
+        self.pi = 0.5
+        self.mu_x = 0
+        self.sigma_x = 1
+        self.em_iter = em_iter
+        self.tol = 1e-6
+
+    def estimate_prior(self, f, mu, sigma):
+        sigma_y = sigma
+        mu_y = mu
+        itr = 0
+        stagnant = False
+        while (itr <= self.em_iter) and not stagnant:
+            p_y_point = (1-self.pi) * _gaussian_pdf(f, 0, sigma_y)
+            sigma_y_tilde = np.sqrt(self.sigma_x**2 * mu_y**2 + sigma_y**2)
+            p_y_normal = self.pi * _gaussian_pdf(f, 0, sigma_y_tilde)
+            # M setp 
+            w_tilde = p_y_normal / (p_y_normal + p_y_point)
+            new_pi = np.mean(w_tilde)
+            sigma_x_tmp = np.inner(w_tilde, f**2) / np.sum(w_tilde)
+            if sigma_x_tmp > sigma_y**2:
+                new_sigma_x = np.sqrt(sigma_x_tmp - sigma_y**2) / mu_y
+            else:
+                new_sigma_x = 0
+                # print('Squared sigma_x is estimated to be 0')
+            itr += 1
+            if (abs(new_pi - self.pi)/ max(new_pi, self.pi) < self.tol) and (abs(new_sigma_x - self.sigma_x)/ max(new_sigma_x, self.sigma_x)< self.tol) :
+                stagnant = True 
+            self.pi = new_pi 
+            self.sigma_x = new_sigma_x
+
+
+    def denoise(self, f, mu, sigma):
+        mu_y = mu
+        sigma_y = sigma
+        mu_y_tilde = PointNormalEB._eval_mu_y_tilde(self.mu_x, mu_y)
+        sigma_y_tilde = PointNormalEB._eval_sigma_y_tilde(mu_y, self.sigma_x, sigma_y)
+        mu_x_tilde = PointNormalEB._eval_mu_x_tilde(f, self.mu_x, self.sigma_x, mu_y, sigma_y)
+        py = (1 - self.pi) * _gaussian_pdf(f, 0, sigma_y) + self.pi * _gaussian_pdf(f, mu_y_tilde, sigma_y_tilde)
+
+        return (self.pi * _gaussian_pdf(f, mu_y_tilde, sigma_y_tilde) * mu_x_tilde / py)
+
+
+    def ddenoise(self, f, mu, sigma):
+        mu_y = mu
+        sigma_y = sigma
+        mu_y_tilde = PointNormalEB._eval_mu_y_tilde(self.mu_x, mu_y)
+        sigma_y_tilde = PointNormalEB._eval_sigma_y_tilde(mu_y, self.sigma_x, sigma_y)
+        mu_x_tilde = PointNormalEB._eval_mu_x_tilde(f, self.mu_x, self.sigma_x, mu_y, sigma_y)
+        py = (1 - self.pi) * _gaussian_pdf(f, 0, sigma_y) + self.pi * _gaussian_pdf(f, mu_y_tilde, sigma_y_tilde)
+
+        # phi(y; mu_y_tilde, sigma_y_tilde)
+        phi = _gaussian_pdf(f, mu_y_tilde, sigma_y_tilde)
+
+        # derivative of p(y)
+        d_py = (1 - self.pi) * _gaussian_pdf(f, 0, sigma_y) * (- f / sigma_y**2) + self.pi * phi * (- (f - mu_y_tilde) / sigma_y_tilde**2)
         
-    
+        # derivative of phi(y; mu_y_tilde, sigma_y_tilde) * mu_x_tilde
+        d_tmp = (phi * (- (f - mu_y_tilde) / sigma_y_tilde**2)) * mu_x_tilde + phi * (mu_y * self.sigma_x**2) / (mu_y**2 * self.sigma_x**2 + sigma_y**2)
+        
+        return self.pi * (- phi * mu_x_tilde / py**2 * d_py + 1 / py * d_tmp)
+
+
+    def get_margin_pdf(self, mu, sigma, x):
+        mu_y = mu
+        sigma_y = sigma
+        mu_y_tilde = PointNormalEB._eval_mu_y_tilde(self.mu_x, mu_y)
+        sigma_y_tilde = PointNormalEB._eval_sigma_y_tilde(mu_y, self.sigma_x, sigma_y)
+        py = (1 - self.pi) * _gaussian_pdf(x, 0, sigma_y) + self.pi * _gaussian_pdf(x, mu_y_tilde, sigma_y_tilde)
+        return py
+
+    @staticmethod
+    def _eval_mu_y_tilde(mu_x, mu_y):
+        return mu_x * mu_y
+   
+    @staticmethod
+    def _eval_mu_x_tilde( y, mu_x, sigma_x, mu_y, sigma_y):
+        return (y * mu_y * sigma_x**2 + mu_x * sigma_y**2) / (mu_y**2 * sigma_x**2 + sigma_y**2)
+
+    @staticmethod
+    def _eval_sigma_y_tilde(mu_y, sigma_x, sigma_y):
+        return np.sqrt(sigma_y**2 + mu_y**2 * sigma_x**2)
+
+    @staticmethod
+    def _eval_sigma_x_tilde(mu_y, sigma_x, sigma_y):
+        return sigma_x * sigma_y * np.sqrt(1 / (mu_y**2 * sigma_x**2 + sigma_y**2))
+
+
+ 
 
 class TestEB(_BaseEmpiricalBayes):
 
@@ -211,3 +303,7 @@ def vdf_nonpar(y, mu, sigma, prior_pars):
         return (E2 - E1**2)
     
     return np.array([df(yi, x, pi, mu, sigma) for yi in y])
+
+
+def _gaussian_pdf(x, mu, sigma):
+    return (1 / np.sqrt(2 * np.pi)) * (1 / sigma) * np.exp(-(x - mu)**2 / (2 * sigma**2))
