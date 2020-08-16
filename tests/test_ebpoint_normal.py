@@ -14,9 +14,9 @@ def get_alignment(u,v):
 
 denoiser = PointNormalEB(em_iter = 1000)
 
-size = 1000
+size = 2000
 
-pi = 0.1
+pi = 1
 
 sigma_x = 0.5
 
@@ -29,11 +29,11 @@ sigma = 0.2
 
 y = mu*x + np.random.normal(scale = sigma, size = size) 
 
-denoiser.fit(y, mu, sigma)
+# denoiser.fit(y, mu, sigma)
 
 print(denoiser.pi)
 print(denoiser.sigma_x)
 
 denoised = denoiser.denoise(y, mu, sigma)
 
-print("Alignment: before {}, after {}".format(get_alignment(x, y), get_alignment(denoised, x)))
+print("Alignment: before {}, after {}".format(np.std(y), np.std(denoised)))

@@ -10,6 +10,7 @@ Typical usage example:
 from abc import ABC, abstractmethod
 
 import numpy as np 
+from scipy.stats import multivariate_normal
 import matplotlib.pyplot as plt
 from numba import jit
 
@@ -60,21 +61,90 @@ class _BaseEmpiricalBayes(ABC):
         self.check_margin(f,mu,sigma,figname)
 
     def check_margin(self, f, mu, sigma, figname):
-            xmin = np.quantile(f,0.05); xmax = np.quantile(f,0.95)
-            xgrid = np.linspace(xmin - abs(xmin)/3, xmax + abs(xmax)/3)
-            
-            pdf = [self.get_margin_pdf(mu, sigma, x) for x in xgrid]
+        xmin = np.quantile(f,0.05); xmax = np.quantile(f,0.95)
+        xgrid = np.linspace(xmin - abs(xmin)/3, xmax + abs(xmax)/3)
+        
+        pdf = [self.get_margin_pdf(mu, sigma, x) for x in xgrid]
 
-            fig, ax = plt.subplots()
+        fig, ax = plt.subplots()
+        ax.hist(f, bins = 40, alpha = 0.5, density = True, color = "skyblue", label = "empirical dist")
+        ax.plot(xgrid, pdf, color = "grey", linestyle = "dashed", label = "theoretical density")
+        ax.legend()
+        ax.set_title("marginal for non-parametric prior \n mu={mu}, sigma={sigma}".format(mu=mu,sigma = sigma))
+        if self.to_show:
+            plt.show()
+        if self.to_save:
+            fig.savefig(self.fig_prefix + figname)
+        plt.close()
+
+class _BaseEmpiricalBayesHD(ABC):
+    '''Use empirical Bayes to estimate the prior and denoise observations.
+    
+    Given the prior family of X, mu, sigm and Y s.t. Y ~ mu X + sigma Z, estimate X.
+
+    Attributes
+    -----
+    to_plot: 
+    to_save:
+    fig_prefix:
+
+
+    Methods
+    -----
+    fit: (data, mu, sigma) -> dist parameters
+    denoise(f, prior_par) -> denoised data
+    ddenoise(f, prior_par)-> derivated of the denoising functions evaluated at data 
+    '''
+    def __init__(self, to_save = True, to_show = False, fig_prefix = "figures/"):
+        self.to_save = to_save
+        self.to_show = to_show
+        self.fig_prefix = "figures/"+fig_prefix
+        self.warm_start = False
+        self.dim = 1
+
+    @abstractmethod
+    def estimate_prior(self,f, mu, cov):
+        pass
+
+    @abstractmethod
+    def denoise(self, f, mu, cov):
+        pass 
+
+    @abstractmethod
+    def ddenoise(self, f, mu, cov):
+        pass 
+    
+    @abstractmethod
+    def get_margin_pdf(self, mu, cov, dim, x):
+        pass 
+    
+    def fit(self, f, mu, cov, **kwargs):
+        self.estimate_prior(f,mu,cov)
+        figname = kwargs.get("figname", "")
+        self.check_margin(f,mu,cov,figname)
+
+    def check_margin(self, fs, mu, cov, figname):
+
+        fig, axes = plt.subplots( nrows = self.dim, ncols = 1, figsize = (self.dim * 7, 5))
+
+        for dim in range(self.dim):
+            f = fs[:,dim]    
+            xmin = np.quantile(f,0.05, axis = 0); xmax = np.quantile(f,0.95, axis = 0)
+            xgrid = np.linspace(xmin - abs(xmin)/3, xmax + abs(xmax)/3, num = 100)
+        
+            pdf = [self.get_margin_pdf(mu, cov, dim,x) for x in xgrid]
+
+            ax = axes[dim]
             ax.hist(f, bins = 40, alpha = 0.5, density = True, color = "skyblue", label = "empirical dist")
             ax.plot(xgrid, pdf, color = "grey", linestyle = "dashed", label = "theoretical density")
             ax.legend()
-            ax.set_title("marginal for non-parametric prior \n mu={mu}, sigma={sigma}".format(mu=mu,sigma = sigma))
-            if self.to_show:
-                plt.show()
-            if self.to_save:
-                fig.savefig(self.fig_prefix + figname)
-            plt.close()
+            ax.set_title("marginal for non-parametric prior dim{dim} \n mu={mu}, cov={cov}".format(dim = dim, mu=mu,cov = cov))
+        
+        if self.to_show:
+            plt.show()
+        if self.to_save:
+            fig.savefig(self.fig_prefix + figname)
+        plt.close()
 
 
 class NonparEB(_BaseEmpiricalBayes):
@@ -140,9 +210,10 @@ class PointNormalEB(_BaseEmpiricalBayes):
                 new_sigma_x = np.sqrt(sigma_x_tmp - sigma_y**2) / mu_y
             else:
                 new_sigma_x = 0
-                # print('Squared sigma_x is estimated to be 0')
+                # ('Squared sigma_x is estimated to be 0')
             itr += 1
             if (abs(new_pi - self.pi)/ max(new_pi, self.pi) < self.tol) and (abs(new_sigma_x - self.sigma_x)/ max(new_sigma_x, self.sigma_x)< self.tol) :
+                print("stagnant at {}".format(itr))
                 stagnant = True 
             self.pi = new_pi 
             self.sigma_x = new_sigma_x
@@ -165,6 +236,7 @@ class PointNormalEB(_BaseEmpiricalBayes):
         mu_y_tilde = PointNormalEB._eval_mu_y_tilde(self.mu_x, mu_y)
         sigma_y_tilde = PointNormalEB._eval_sigma_y_tilde(mu_y, self.sigma_x, sigma_y)
         mu_x_tilde = PointNormalEB._eval_mu_x_tilde(f, self.mu_x, self.sigma_x, mu_y, sigma_y)
+        
         py = (1 - self.pi) * _gaussian_pdf(f, 0, sigma_y) + self.pi * _gaussian_pdf(f, mu_y_tilde, sigma_y_tilde)
 
         # phi(y; mu_y_tilde, sigma_y_tilde)
@@ -203,6 +275,101 @@ class PointNormalEB(_BaseEmpiricalBayes):
     def _eval_sigma_x_tilde(mu_y, sigma_x, sigma_y):
         return sigma_x * sigma_y * np.sqrt(1 / (mu_y**2 * sigma_x**2 + sigma_y**2))
 
+class NonparEBHD(_BaseEmpiricalBayesHD):
+
+    def __init__(self, em_iter = 1000, to_save = True, to_show = False, fig_prefix = "nonparebhd",  **kwargs):
+        _BaseEmpiricalBayesHD.__init__(self, to_save, to_show, fig_prefix)
+        self.nsample = None
+        self.nsupp = None
+        self.em_iter = em_iter
+        self.pi = None
+        self.init = False 
+        self.Z = None
+
+    def _check_init(self,f, mu, cov):
+        # check initialization
+        self.dim = len(mu)
+        self.nsample = len(f)
+        self.nsupp = len(f)
+        self.pi = np.full((self.nsupp,),1/self.nsupp)
+        self.Z = f
+        self.init = True
+    
+    def estimate_prior(self,f, mu, cov):
+        # check initialization
+        
+        self._check_init(f,mu,cov)
+        covInv = np.linalg.inv(cov)
+        self.pi = _npmle_em_hd(f, self.Z, mu, covInv, self.em_iter, self.nsample, self.nsupp, self.dim)
+        
+
+    # @jit(nopython = True)
+    def _npmle_em(self, f, mu ,cov):
+        
+        def _get_phi(f, z, mu, covInv):
+            return np.exp(-(covInv.dot(f - mu.dot(z)).dot(f - mu.dot(z)))/2)
+        
+        covInv = np.linalg.inv(cov)
+        for _ in range(self.em_iter):
+            # W_ij = f(xi|zj)
+            W = np.empty(shape = (self.nsample, self.nsupp), order = 'F')
+            for i in range(self.nsample):
+                for j in range(self.nsupp):
+                    W[i,j] = _get_phi(f[i], self.Z[j], mu,covInv)
+            
+            denom = W.dot(self.pi)
+            self.pi = self.pi * (W / denom[:, np.newaxis]).mean(axis = 0)
+
+    def denoise(self, f, mu, cov):
+        # check initialization
+        self._check_init(f,mu,cov)
+
+        def _get_phi(f, z, mu, covInv):
+            return np.exp(-(covInv.dot(f - mu.dot(z)).dot(f - mu.dot(z)))/2)
+        
+        covInv = np.linalg.inv(cov)
+        res = np.empty(shape = (self.nsample, self.dim))
+        for i in range(self.nsample):
+            phi = np.array([_get_phi(f[i], self.Z[j], mu, covInv) for j in range(self.nsupp)])
+            num = np.array([self.pi[j] * phi[j]*self.Z[j] for j in range(self.nsupp)]).sum(axis = 0)
+            denum = np.inner(self.pi , phi)
+            # print("num {}, denum {}".format(num, denum))
+            res[i] = num/denum
+        return res
+       
+
+    def ddenoise(self, f, mu, cov):
+
+        self._check_init(f,mu,cov)
+        
+        covInv = np.linalg.inv(cov)
+        def _get_phi(f, z, mu, covInv):
+            return np.exp(-(covInv.dot(f - mu.dot(z)).dot(f - mu.dot(z)))/2)
+        
+        res = np.empty(shape = (self.nsample, self.dim, self.dim))
+
+        for i in range(self.nsample):   
+            phi = np.array([_get_phi(f[i], self.Z[j], mu, covInv) for j in range(self.nsupp)])
+            E1 = [np.outer(self.Z[j], mu.dot(self.Z[j])) * self.pi[j] * phi[j] for j in range(self.nsupp)]
+            E1 = np.array(E1).sum(axis = 0).dot(covInv)
+            E2 = np.array([self.Z[j] * self.pi[j] * phi[j] for j in range(self.nsupp)]).sum(axis = 0)
+            E2 = np.outer(E2, mu.dot(E2)).dot(covInv)
+            denom = np.inner(self.pi , phi)
+            res[i,:] = E1 / denom - E2/ denom**2
+        
+        return res
+        
+
+    def get_margin_pdf(self, mu, cov, dim, x):
+        locs =  np.array([mu.dot(z) for z in self.Z])[:,dim] # mu.dot(z), the dimth element
+        scalesq = cov[dim,dim]
+        return np.sum(self.pi /np.sqrt(2*np.pi*scalesq) * np.exp(-(x - locs)**2/(2*scalesq)) )
+
+        
+        
+
+
+        
 
  
 
@@ -299,11 +466,50 @@ def vdf_nonpar(y, mu, sigma, prior_pars):
     def df(y, x, pi, mu, sigma):
         phi = np.exp(-(y - mu * x)**2 / (2*sigma**2))
         E1 = np.inner(x*pi, phi) / np.inner(pi, phi)
-        E2 = np.inner(x**2*pi, phi) / np.inner(pi, phi)
-        return (E2 - E1**2)
+        E2 = mu*np.inner(x**2*pi, phi)/(sigma**2) / np.inner(pi, phi)
+        return (E2 - E1**2*mu/(sigma**2))
     
     return np.array([df(yi, x, pi, mu, sigma) for yi in y])
 
 
 def _gaussian_pdf(x, mu, sigma):
     return (1 / np.sqrt(2 * np.pi)) * (1 / sigma) * np.exp(-(x - mu)**2 / (2 * sigma**2))
+
+@jit(nopython = True)
+def my_dot(mat, vec, ndim):
+    res = np.array([0.0]*ndim)
+    for i in range(ndim):
+        for j in range(ndim):
+            res[i] += mat[i,j] * vec[j]
+    return res
+
+@jit(nopython=True)
+def my_inner(veca, vecb, ndim):
+    res = 0
+    for i in range(ndim):
+        res += veca[i] * vecb[i]
+    return res
+
+@jit(nopython=True)
+def _npmle_em_hd(f, Z, mu, covInv, em_iter, nsample, nsupp, ndim):
+    # pi = np.full((nsupp,), 1/nsupp, dtype= float)
+    pi = np.array([1/nsupp] * nsupp)
+    
+    for _ in range(em_iter):
+        # W_ij = f(xi|zj)
+        W = np.empty(shape = (nsample, nsupp),)
+        for i in range(nsample):
+            for j in range(nsupp):
+                vec = f[i] - my_dot(mu, Z[j], ndim)
+                res = np.exp(-np.sum(my_dot(covInv, vec, ndim) * vec)/2)
+                W[i,j] = res
+        
+        denom = my_dot(W, pi, nsupp) # denom[i] = \sum_j pi[j]*W[i,j]
+        # print("denom shape {}".format(denom.shape))
+
+        for j in range(nsupp):
+            pi[j] = pi[j]*np.mean(W[:,j]/denom)
+        
+        # pi = np.array([pi[j]*np.mean(W[:,j]/denom) for j in range(nsupp)])
+        # pi = np.mean(pi * (W / denom[:, np.newaxis]), axis = 0) # use normal representation
+    return pi
