@@ -292,7 +292,9 @@ class NonparEBHD(_BaseEmpiricalBayesHD):
         self.nsample = len(f)
         self.nsupp = len(f)
         self.pi = np.full((self.nsupp,),1/self.nsupp)
-        self.Z = f
+        
+        self.Z = f.dot(np.linalg.pinv(mu).T)
+        
         self.init = True
     
     def estimate_prior(self,f, mu, cov):
@@ -301,7 +303,6 @@ class NonparEBHD(_BaseEmpiricalBayesHD):
         self._check_init(f,mu,cov)
         covInv = np.linalg.inv(cov)
         self.pi = _npmle_em_hd(f, self.Z, mu, covInv, self.em_iter, self.nsample, self.nsupp, self.dim)
-        
 
     # @jit(nopython = True)
     def _npmle_em(self, f, mu ,cov):
