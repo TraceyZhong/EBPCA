@@ -79,7 +79,7 @@ def ebamp_gaussian(X, u, init_align, iters = 5, rank = 1, udenoiser = NonparEB()
     for t in range(iters):
         print("at amp iter {}".format(t))
         # denoise right singular vector gt to get vt
-        vdenoiser.fit(g, mu, np.sqrt(sigma_sq), figname='iter%02d.png' % (t))
+        vdenoiser.fit(g, mu, np.sqrt(sigma_sq), figname='_v_iter%02d.png' % (t))
         v = vdenoiser.denoise(g, mu, np.sqrt(sigma_sq))
         V = np.hstack((V,np.reshape(v,(-1,1))))
         b = alpha * np.mean(vdenoiser.ddenoise(g,mu,np.sqrt(sigma_sq)))
@@ -88,7 +88,7 @@ def ebamp_gaussian(X, u, init_align, iters = 5, rank = 1, udenoiser = NonparEB()
         sigma_bar_sq = alpha * np.mean(v**2)
         mu_bar = np.sqrt(np.mean(f**2) - sigma_bar_sq)
         # denoise left singular vector ft to get ut
-        udenoiser.fit(f, mu_bar, np.sqrt(sigma_bar_sq), figname='iter%02d.png' % (t))
+        udenoiser.fit(f, mu_bar, np.sqrt(sigma_bar_sq), figname='_u_iter%02d.png' % (t))
         u = udenoiser.denoise(f, mu_bar, np.sqrt(sigma_bar_sq))
         U = np.hstack((U, np.reshape(u, (-1,1))))
         b_bar = np.mean(udenoiser.ddenoise(f, mu_bar, np.sqrt(sigma_bar_sq)))
@@ -117,6 +117,8 @@ def ebamp_gaussian_hd(X, u, v, v_init_align, signals, u_init_align = None, rank 
     k = rank
     gamma = d/n
 
+    print("n: {n}, d:{d}, k:{k}, gamma{gamma}".format( n=n, d=d, k=k, gamma=gamma))
+
     # normalize u and v
     f = u/ np.sqrt((u**2).sum(axis = 0)) * np.sqrt(n)
     g = v/np.sqrt((v**2).sum(axis = 0)) * np.sqrt(d)
@@ -135,19 +137,28 @@ def ebamp_gaussian_hd(X, u, v, v_init_align, signals, u_init_align = None, rank 
     for t in range(iters):
         print("at amp iter {}".format(t))
         # denoise right singular vector gt to get vt
-        vdenoiser.fit(g, mu, sigma_sq, figname='iter%02d.png' % (t))
+        print("before denoise, g shape {}".format(g.shape))
+        vdenoiser.fit(g, mu, sigma_sq, figname='_v_iter%02d.png' % (t))
+        print("finish fit")
         v = vdenoiser.denoise(g, mu, sigma_sq)
+        print("v shape {}".format(v.shape))
+        print("finish denoise")
         V = np.dstack((V, np.reshape(v,(-1,k,1)) ))
         b = gamma * np.mean(vdenoiser.ddenoise(g,mu,sigma_sq) , axis = 0)
+        print("finshi ddenoise")
         # update left singular vector ft using vt
         f = X.dot(v) - u.dot(b) # TODO not sure if the matrix multiplication direction is correct
         sigma_bar_sq = v.T @ v / n
         mu_bar = scipy.linalg.sqrtm(f.T @ f / n - sigma_bar_sq)        
         # denoise left singular vector ft to get ut
-        udenoiser.fit(f, mu_bar, sigma_bar_sq, figname='iter%02d.png' % (t))
+        print("before denoise, f shape {}".format(f.shape))
+        udenoiser.fit(f, mu_bar, sigma_bar_sq, figname='_u_iter%02d.png' % (t))
+        print("finish fit")
         u = udenoiser.denoise(f, mu_bar, sigma_bar_sq)
+        print("finish denoise")
         U = np.dstack((U, np.reshape(u,(-1,k,1))))
         b_bar = np.mean(udenoiser.ddenoise(f, mu_bar, sigma_bar_sq), axis = 0)
+        print("finish ddenoise")
         # update left singular vector gt using ut
         g = np.transpose(X).dot(u) - v.dot(b_bar)
         sigma_sq = u.T @ u / n
