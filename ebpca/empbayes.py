@@ -117,11 +117,16 @@ class _BaseEmpiricalBayesHD(ABC):
     @abstractmethod
     def get_margin_pdf(self, mu, cov, dim, x):
         pass 
+
+    @abstractmethod
+    def check_prior(self, figname):
+        pass
     
     def fit(self, f, mu, cov, **kwargs):
         self.estimate_prior(f,mu,cov)
         figname = kwargs.get("figname", "")
         self.check_margin(f,mu,cov,figname)
+        self.check_prior(figname)
 
     def check_margin(self, fs, mu, cov, figname):
 
@@ -359,6 +364,18 @@ class NonparEBHD(_BaseEmpiricalBayesHD):
             res[i,:] = E1 / denom - E2/ denom**2
         
         return res
+
+    def check_prior(self, figname):
+        # can only be used when two dimension
+        fig, ax = plt.subplots(nrows = 1, ncols = 1, figsize = (7, 5))
+        ax.scatter(self.Z[:,0], self.Z[:,1], s = self.pi*len(self.pi) ,marker = ".")
+        ax.set_title("check prior, {}".format(figname))
+        if self.to_show:
+            plt.show()
+        if self.to_save:
+            fig.savefig(self.fig_prefix + "_prior" +figname)
+        plt.close()        
+
         
 
     def get_margin_pdf(self, mu, cov, dim, x):
@@ -477,10 +494,11 @@ def _gaussian_pdf(x, mu, sigma):
     return (1 / np.sqrt(2 * np.pi)) * (1 / sigma) * np.exp(-(x - mu)**2 / (2 * sigma**2))
 
 @jit(nopython = True)
-def my_dot(mat, vec, ndim):
-    res = np.array([0.0]*ndim)
-    for i in range(ndim):
-        for j in range(ndim):
+def my_dot(mat, vec):
+    nrow, ncol = mat.shape
+    res = np.array([0.0]*nrow)
+    for i in range(nrow):
+        for j in range(ncol):
             res[i] += mat[i,j] * vec[j]
     return res
 
@@ -501,11 +519,11 @@ def _npmle_em_hd(f, Z, mu, covInv, em_iter, nsample, nsupp, ndim):
         W = np.empty(shape = (nsample, nsupp),)
         for i in range(nsample):
             for j in range(nsupp):
-                vec = f[i] - my_dot(mu, Z[j], ndim)
-                res = np.exp(-np.sum(my_dot(covInv, vec, ndim) * vec)/2)
+                vec = f[i] - my_dot(mu, Z[j])
+                res = np.exp(-np.sum(my_dot(covInv, vec) * vec)/2)
                 W[i,j] = res
         
-        denom = my_dot(W, pi, nsupp) # denom[i] = \sum_j pi[j]*W[i,j]
+        denom = my_dot(W, pi) # denom[i] = \sum_j pi[j]*W[i,j]
         # print("denom shape {}".format(denom.shape))
 
         for j in range(nsupp):

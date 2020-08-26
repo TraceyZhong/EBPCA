@@ -55,7 +55,7 @@ def ebamp_gaussian_old(X, u, init_align, iters = 5, rank = 1, udenoiser = Nonpar
     return U,V
 
 
-def ebamp_gaussian(X, u, init_align, iters = 5, rank = 1, udenoiser = NonparEB(), vdenoiser = NonparEB, v = None, v_init_align = None, signal = 0):
+def ebamp_gaussian(X, u, init_align, iters = 5, rank = 1, udenoiser = NonparEB(), vdenoiser = NonparEB(), v = None, v_init_align = None, signal = 0):
     # Normalize u, v and initialize U V
     # n is the direction of features, must be the inverse scale of the variance.
     X = np.transpose(X) # shape becomes A = n*d 
@@ -99,7 +99,70 @@ def ebamp_gaussian(X, u, init_align, iters = 5, rank = 1, udenoiser = NonparEB()
     # return U,V, need to change direction back
     return V,U
 
-def ebamp_gaussian_hd(X, u, v, v_init_align, signals, u_init_align = None, rank = 1, iters = 5, reg = 0.0001, udenoiser = NonparEBHD(), vdenoiser = NonparEBHD()):
+def ebamp_gaussian_hd(X, u, v, init_aligns, signals, iters = 5, rank = 2, udenoiser = NonparEBHD(), vdenoiser = NonparEBHD()):
+    '''HD ebamp gaussian
+    if u has shape (n, k), set iters
+    return U has shape (n, k, iters+1) # with the additional init u.
+    '''
+
+    X = np.transpose(X)
+    (n,d) = X.shape
+    gamma = d/n 
+    k = rank 
+    # swap u and v
+    u,v = v,u
+    v_init_aligns = init_aligns
+
+    # normalize u and v
+    f = u/ np.sqrt((u**2).sum(axis = 0)) * np.sqrt(n)
+    g = v/np.sqrt((v**2).sum(axis = 0)) * np.sqrt(d)
+
+    # initialize U,V TODO new axis
+    U = f[:,:, np.newaxis]
+    V = g[:,:,np.newaxis]
+
+    u = f * 1/(signals * gamma) * np.sqrt((signals**2*gamma + 1)/(signals**2 + 1))
+
+    # initial states TODO
+    mu = np.diag(v_init_aligns)
+    sigma_sq = np.diag(1 - v_init_aligns**2)
+    # initial correction TODO 
+
+    for t in range(iters):
+        print("at amp iter {}".format(t))
+        # denoise right singular vector gt to get vt
+        print("before denoise, g shape {}".format(g.shape))
+        vdenoiser.fit(g, mu, sigma_sq, figname='_v_iter%02d.png' % (t))
+        print("finish fit")
+        v = vdenoiser.denoise(g, mu, sigma_sq)
+        print("v shape {}".format(v.shape))
+        print("finish denoise")
+        V = np.dstack((V, np.reshape(v,(-1,k,1)) ))
+        b = gamma * np.mean(vdenoiser.ddenoise(g,mu,sigma_sq) , axis = 0)
+        print("finshi ddenoise")
+        # update left singular vector ft using vt
+        f = X.dot(v) - u.dot(b) # TODO not sure if the matrix multiplication direction is correct
+        sigma_bar_sq = v.T @ v / n
+        mu_bar = scipy.linalg.sqrtm(f.T @ f / n - sigma_bar_sq)        
+        # denoise left singular vector ft to get ut
+        print("before denoise, f shape {}".format(f.shape))
+        udenoiser.fit(f, mu_bar, sigma_bar_sq, figname='_u_iter%02d.png' % (t))
+        print("finish fit")
+        u = udenoiser.denoise(f, mu_bar, sigma_bar_sq)
+        print("finish denoise")
+        U = np.dstack((U, np.reshape(u,(-1,k,1))))
+        b_bar = np.mean(udenoiser.ddenoise(f, mu_bar, sigma_bar_sq), axis = 0)
+        print("finish ddenoise")
+        # update left singular vector gt using ut
+        g = np.transpose(X).dot(u) - v.dot(b_bar)
+        sigma_sq = u.T @ u / n
+        mu = scipy.linalg.sqrtm(g.T @ g / d - sigma_sq)
+    # sway u,v
+    return V, U
+
+
+
+def ebamp_gaussian_mon_noiselevel(X, u, v, v_init_align, signals, u_init_align = None, rank = 1, iters = 5, reg = 0.0001, udenoiser = NonparEBHD(), vdenoiser = NonparEBHD()):
     '''ebamp high dimension based on MonAMP, assume that 
     X = \sum_i alpha u * v.T + W in R(n,d), W ~ N(1,1/d)
     Input
@@ -109,7 +172,10 @@ def ebamp_gaussian_hd(X, u, v, v_init_align, signals, u_init_align = None, rank 
     V: right singular vectors: ndarry (d, k)
     u_init_align: ndarray(k,)
     v_init_align: ndarry(k,)
-    IMP: in this algorithm, we keep cov as state
+    
+    IMP
+    ------ 
+    in this algorithm, we keep cov as state
     '''
     # parameters of the algorithm
     n = np.shape(u)[0]

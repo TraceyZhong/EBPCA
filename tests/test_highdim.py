@@ -1,41 +1,67 @@
-import config 
-
-
 import numpy as np
 from scipy.stats import multivariate_normal
 
 from ebpca.empbayes import NonparEBHD
+from ebpca.amp import ebamp_gaussian_hd 
+# from ebpca.pca import signal_solver_gaussian
 
-def normalize_col(x):
-    return x/np.sqrt(np.sum(x**2, axis = 0))
+def get_dist_of_subspaces(U,V,rank):
+    '''some random distance measurement
+    U,V: ndarray (n,rank)
+    '''
+    Qu, _ = np.linalg.qr(U, mode = 'reduced')
+    Qv, _ = np.linalg.qr(V, mode = 'reduced')
+    C = Qu.T @ Qv  
+    _, cos_thetas, _ = np.linalg.svd(C)
+    return np.sqrt(np.mean(cos_thetas**2))
 
-denoiser = NonparEBHD(em_iter = 50, to_save= True)
+n = 1000
+p = 1000
+rank = 2
 
-mu = np.array([[1,0], [0,1]])
-cov = np.array([[1,0], [0,1]])
-m = 500
+# signal 
+# mu = np.array([[1,0], [0,1]])
+def test():
+    # ustar = np.random.binomial(1,0.5, size = rank * n).reshape((n,rank)) * 2-1
+    # vstar = np.random.binomial(1,0.5, size = rank * n).reshape((n,rank)) * 2-1
+    ustar1 = np.repeat(np.array([1,-1]), int(n/2))
+    ustar2 = np.repeat(np.array([1,-1,0,0]), int(n/4))
+    ustar = np.vstack((ustar1, ustar2)).T
+    vstar1 = np.repeat(np.array([1,-1]), int(p/2))
+    vstar2 = np.repeat(np.array([1,-1,0,0]), int(p/4))
+    vstar = np.vstack((vstar1, vstar2)).T
 
-# z = np.linspace([0,0], [50,50], num = 50)
+    signals = np.array([2,1.5])
 
-z = np.array([np.array([1,1])]*m)
-x = (mu.dot(z.T) + np.random.normal(size = 2*m).reshape((2,m)) ).T
+    W = np.random.normal(size = n * p).reshape((n,p))/ np.sqrt(p)
+
+    X = ustar * signals @ vstar.T/n + W
+
+    u, _, vh = np.linalg.svd(X)
+
+    u_hat = u[:,:2]
+
+    v_hat = vh[:2,:].T
+    # get
+
+    v_init_align = np.diag(v_hat.T @ vstar) / np.sqrt(np.diag(vstar.T @ vstar))
+
+    print(v_init_align)
 
 
-denoiser.fit(x, mu, cov)
+    udenoiser = NonparEBHD(em_iter=5)
+    vdenoiser = NonparEBHD(em_iter=5)
 
-u = denoiser.ddenoise(x, mu, cov)
-print(u.shape)
+    U, _ = ebamp_gaussian_hd(X, u_hat, v_hat, v_init_align, signals, iters = 2, rank = 2, udenoiser=udenoiser, vdenoiser= vdenoiser)
 
-'''
+    iters = U.shape[-1]
 
-u = normalize_col(u)
-z = normalize_col(z)
-x = normalize_col(x)
+    res = []
+    for i in range(iters):
+        ans = get_dist_of_subspaces(U[:,:,i], ustar, rank)
+        res.append(ans)
 
-Ualigns = np.diag(np.transpose(u).dot(z)) / np.sqrt(m)
-Xaligns = np.diag(np.transpose(x).dot(z)) / np.sqrt(m)
-print("ualigns")
-print(Ualigns)
-print("xaligns")
-print(Xaligns)
-'''
+    print(res)
+
+
+test()
