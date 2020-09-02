@@ -10,7 +10,9 @@ Typical usage example:
 from abc import ABC, abstractmethod
 
 import numpy as np 
+import scipy
 from scipy.stats import multivariate_normal
+from scipy.optimize import Bounds
 import matplotlib.pyplot as plt
 from numba import jit
 
@@ -280,6 +282,71 @@ class PointNormalEB(_BaseEmpiricalBayes):
     def _eval_sigma_x_tilde(mu_y, sigma_x, sigma_y):
         return sigma_x * sigma_y * np.sqrt(1 / (mu_y**2 * sigma_x**2 + sigma_y**2))
 
+class NonparEBHDGD(_BaseEmpiricalBayesHD):
+    
+    def __init__(self, ftol = 1e-6, nsupp_ratio = 0.1, to_save = True, to_show = False, fig_prefix = "nonparebhdgd", **kwargs):
+        _BaseEmpiricalBayesHD.__init__(self, to_save, to_show, fig_prefix)
+        self.nsample = None
+        self.nsupp = None
+        self.ftol = ftol
+        self.nsupp_ratio = nsupp_ratio
+        self.pi = None
+        self.Z = None
+
+    def _check_init(self,f, mu, cov):
+        # check initialization
+        self.dim = len(mu)
+        self.nsample = len(f)
+        self.nsupp = int(self.nsupp_ratio * self.nsample)
+        self.pi = np.full((self.nsupp,),1/self.nsupp)
+        self.Z = f[np.random.choice(f.shape[0], self.nsupp, replace=False), :].dot(np.linalg.pinv(mu).T)
+    
+    def estimate_prior(self,f, mu, cov):
+        self._check_init(f,mu,cov)
+        covInv = np.linalg.inv(cov)
+        self.pi = _gradient_descent_slsqp(f, mu, covInv, self.Z, self.pi, self.ftol)
+
+    def denoise(self, f, mu, cov):
+        covInv = np.linalg.inv(cov)
+        P = get_P(f,self.Z, mu, covInv, self.pi)
+        return P @ self.Z 
+
+
+    def ddenoise(self, f, mu, cov):
+        covInv = np.linalg.inv(cov)
+        P = get_P(f, self.Z, mu, covInv, self.pi)
+        ZouterMZ = np.einsum("ijk, kl -> ijl" ,matrix_outer(self.Z, self.Z.dot(mu.T)), covInv) 
+        E1 = np.einsum("ij, jkl -> ikl", P, ZouterMZ)
+        E2a = P @ self.Z # shape (I * rank)
+        E2 = np.einsum("ijk, kl -> ijl" ,matrix_outer(E2a, E2a.dot(mu.T)), covInv)  # shape (I * rank)
+
+        return E1 - E2
+
+    def check_prior(self, figname):
+        # can only be used when two dimension
+        fig, ax = plt.subplots(nrows = 1, ncols = 1, figsize = (7, 5))
+        ax.scatter(self.Z[:,0], self.Z[:,1], s = self.pi*len(self.pi) ,marker = ".")
+        ax.set_title("check prior, {}".format(figname))
+        if self.to_show:
+            plt.show()
+        if self.to_save:
+            fig.savefig(self.fig_prefix + "_prior" +figname)
+        plt.close()        
+
+    def get_margin_pdf(self, mu, cov, dim, x):
+        locs =  np.array([mu.dot(z) for z in self.Z])[:,dim] # mu.dot(z), the dimth element
+        scalesq = cov[dim,dim]
+        return np.sum(self.pi /np.sqrt(2*np.pi*scalesq) * np.exp(-(x - locs)**2/(2*scalesq)) )
+
+
+
+        
+
+
+
+
+
+
 class NonparEBHD(_BaseEmpiricalBayesHD):
 
     def __init__(self, em_iter = 1000, to_save = True, to_show = False, fig_prefix = "nonparebhd",  **kwargs):
@@ -288,7 +355,6 @@ class NonparEBHD(_BaseEmpiricalBayesHD):
         self.nsupp = None
         self.em_iter = em_iter
         self.pi = None
-        self.init = False 
         self.Z = None
 
     def _check_init(self,f, mu, cov):
@@ -309,22 +375,6 @@ class NonparEBHD(_BaseEmpiricalBayesHD):
         covInv = np.linalg.inv(cov)
         self.pi = _npmle_em_hd(f, self.Z, mu, covInv, self.em_iter, self.nsample, self.nsupp, self.dim)
 
-    # @jit(nopython = True)
-    def _npmle_em(self, f, mu ,cov):
-        
-        def _get_phi(f, z, mu, covInv):
-            return np.exp(-(covInv.dot(f - mu.dot(z)).dot(f - mu.dot(z)))/2)
-        
-        covInv = np.linalg.inv(cov)
-        for _ in range(self.em_iter):
-            # W_ij = f(xi|zj)
-            W = np.empty(shape = (self.nsample, self.nsupp), order = 'F')
-            for i in range(self.nsample):
-                for j in range(self.nsupp):
-                    W[i,j] = _get_phi(f[i], self.Z[j], mu,covInv)
-            
-            denom = W.dot(self.pi)
-            self.pi = self.pi * (W / denom[:, np.newaxis]).mean(axis = 0)
 
     def denoise(self, f, mu, cov):
         # check initialization
@@ -493,6 +543,8 @@ def vdf_nonpar(y, mu, sigma, prior_pars):
 def _gaussian_pdf(x, mu, sigma):
     return (1 / np.sqrt(2 * np.pi)) * (1 / sigma) * np.exp(-(x - mu)**2 / (2 * sigma**2))
 
+## --- high dim funcs --- ##
+
 @jit(nopython = True)
 def my_dot(mat, vec):
     nrow, ncol = mat.shape
@@ -532,3 +584,81 @@ def _npmle_em_hd(f, Z, mu, covInv, em_iter, nsample, nsupp, ndim):
         # pi = np.array([pi[j]*np.mean(W[:,j]/denom) for j in range(nsupp)])
         # pi = np.mean(pi * (W / denom[:, np.newaxis]), axis = 0) # use normal representation
     return pi
+
+# W[i,j] = f(x_i | z_j)
+@jit(nopython = True)
+def get_W(f, z, mu, covInv):
+    nsample = f.shape[0]
+    nsupp = z.shape[0]
+    W = np.empty(shape = (nsample, nsupp),)
+    for i in range(nsample):
+        for j in range(nsupp):
+            vec = f[i] - my_dot(mu, z[j])
+            res = np.exp(-np.sum(my_dot(covInv, vec) * vec)/2)
+            W[i,j] = res
+    return W
+
+# P[i,j] = P(Z_j | X_i)
+def get_P(f,z,mu,covInv, pi):
+    W = get_W(f,z,mu,covInv)
+    denom = W.dot(pi) # denom[i] = \sum_j pi[j] * W[i,j]
+    num = W * pi # W*pi[i,j] = pi[j] * W[i,j] 
+    return num / denom[:, np.newaxis]
+
+
+# W*pi[i,j] = pi[j] * W[i,j] 
+# sum_j pi[j] W[i,j] = np.sum(W*pi, axis = 1) 
+@jit(nopython = True)
+def negloglik(pi, f, z, mu, covInv):
+    W = get_W(f, z, mu, covInv)
+    return -np.sum(np.log( np.sum(W * pi, axis = 1)))
+
+@jit(nopython = True)
+def loglik(pi, f, z, mu, covInv):
+    W = get_W(f, z, mu, covInv)
+    return np.sum(np.log( np.sum(W * pi, axis = 1)))
+
+# @jit(nopython = True)
+def dnegloglik(pi, f, z, mu, covInv):
+    W = get_W(f, z, mu, covInv)
+    res = np.sum( W / np.sum(W*pi, axis = 1)[:,np.newaxis], axis = 0)
+    if np.isnan(res).any():
+        raise ValueError("dloglik has nan value")
+    return -res
+    # -np.maximum(np.minimum(res, MAX_FLOAT), MIN_FLOAT)
+
+
+# @jit(nopython = True)
+def ddnegloglik(pi, f, z, mu, covInv):
+    W = get_W(f, z, mu, covInv)
+    normedW = W / np.sum(W*pi, axis = 1)[:,np.newaxis]
+    # return my_m_dot(np.transpose(normedW), normedW)
+    res = normedW.T @ normedW
+    if np.isnan(res).any():
+        raise ValueError("dloglik has nan value")
+    return res
+    # np.maximum(np.minimum(res, MAX_FLOAT), MIN_FLOAT)
+
+def _gradient_descent_slsqp(f, mu, covInv, Z, pi, ftol):
+    # trust region constrained algorithm
+    nsupp = Z.shape[0]
+    bounds = Bounds( [0.001e-12] * nsupp, [1]* nsupp)
+    # Idm = scipy.sparse.csc_matrix(np.identity(nsupp))
+    # linear_constraint = LinearConstraint(np.ones((1,nsupp)), 1, 1)
+    eq_cons = {
+    'type' : 'eq',
+    'fun': lambda x: x.sum() - 1,
+    'jac': lambda x: np.ones(len(x))
+    }
+
+    ## --- Solving the optimization problem --- ##
+    res = scipy.optimize.minimize(negloglik, pi, args = (f, Z, mu, covInv),  method = "SLSQP", 
+            jac = dnegloglik, options = {'disp': True, "ftol": ftol},
+            constraints = [eq_cons],
+            bounds = bounds
+            # ,callback = callbackF
+        )
+
+    return res.x
+
+matrix_outer = lambda A, B: np.einsum("bi,bo->bio", A, B)

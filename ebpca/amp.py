@@ -99,7 +99,7 @@ def ebamp_gaussian(X, u, init_align, iters = 5, rank = 1, udenoiser = NonparEB()
     # return U,V, need to change direction back
     return V,U
 
-def ebamp_gaussian_hd(X, u, v, init_aligns, signals, iters = 5, rank = 2, udenoiser = NonparEBHD(), vdenoiser = NonparEBHD()):
+def ebamp_gaussian_hd(X, u, v, init_aligns, signals, iters = 5, rank = 2, udenoiser = NonparEBHD(), vdenoiser = NonparEBHD(), mutev = False ):
     '''HD ebamp gaussian
     if u has shape (n, k), set iters
     return U has shape (n, k, iters+1) # with the additional init u.
@@ -132,7 +132,7 @@ def ebamp_gaussian_hd(X, u, v, init_aligns, signals, iters = 5, rank = 2, udenoi
         print("at amp iter {}".format(t))
         # denoise right singular vector gt to get vt
         print("before denoise, g shape {}".format(g.shape))
-        vdenoiser.fit(g, mu, sigma_sq, figname='_v_iter%02d.png' % (t))
+        vdenoiser.fit(g, mu, sigma_sq, figname='_u_iter%02d.png' % (t))
         print("finish fit")
         v = vdenoiser.denoise(g, mu, sigma_sq)
         print("v shape {}".format(v.shape))
@@ -141,23 +141,32 @@ def ebamp_gaussian_hd(X, u, v, init_aligns, signals, iters = 5, rank = 2, udenoi
         b = gamma * np.mean(vdenoiser.ddenoise(g,mu,sigma_sq) , axis = 0)
         print("finshi ddenoise")
         # update left singular vector ft using vt
-        f = X.dot(v) - u.dot(b) # TODO not sure if the matrix multiplication direction is correct
+        f = X.dot(v) - u.dot(b)
         sigma_bar_sq = v.T @ v / n
         mu_bar = scipy.linalg.sqrtm(f.T @ f / n - sigma_bar_sq)        
         # denoise left singular vector ft to get ut
-        print("before denoise, f shape {}".format(f.shape))
-        udenoiser.fit(f, mu_bar, sigma_bar_sq, figname='_u_iter%02d.png' % (t))
-        print("finish fit")
-        u = udenoiser.denoise(f, mu_bar, sigma_bar_sq)
-        print("finish denoise")
-        U = np.dstack((U, np.reshape(u,(-1,k,1))))
-        b_bar = np.mean(udenoiser.ddenoise(f, mu_bar, sigma_bar_sq), axis = 0)
-        print("finish ddenoise")
+        if mutev == False:
+            print("before denoise, f shape {}".format(f.shape))
+            udenoiser.fit(f, mu_bar, sigma_bar_sq, figname='_v_iter%02d.png' % (t))
+            print("finish fit")
+            u = udenoiser.denoise(f, mu_bar, sigma_bar_sq)
+            print("finish denoise")
+            U = np.dstack((U, np.reshape(u,(-1,k,1))))
+            b_bar = np.mean(udenoiser.ddenoise(f, mu_bar, sigma_bar_sq), axis = 0)
+            print("finish ddenoise")
+        if mutev == True:
+            # in this case, u is the derived f
+            u = f
+            # u fit pass
+            # u denoise pass 
+            U = np.dstack((U, np.reshape(u,(-1,k,1))))
+            # u ddenoise
+            b_bar = np.identity(2)
         # update left singular vector gt using ut
         g = np.transpose(X).dot(u) - v.dot(b_bar)
         sigma_sq = u.T @ u / n
         mu = scipy.linalg.sqrtm(g.T @ g / d - sigma_sq)
-    # sway u,v
+    # swap u,v
     return V, U
 
 

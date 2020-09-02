@@ -97,6 +97,39 @@ def signal_solver_gaussian(singval, mu = None, n_samples = 0, n_features = 0, **
 
     return {"alpha": alpha, "sample_align":  sample_align, "feature_align": feature_align}
 
+def sqrtmplaw(x, n_samples = 0, n_features = 0):
+    '''we require the noise variance to be 1/n_features
+    '''
+    aspect_ratio = n_samples/n_features
+    lambda_plus = (1+np.sqrt(aspect_ratio))**2
+    lambda_minus = (1 - np.sqrt(aspect_ratio))**2
+    if x**2 < lambda_minus or x**2 > lambda_plus:
+        return 0
+    else: 
+        return 1/(np.pi * aspect_ratio * x) * np.sqrt((lambda_plus - x**2)*(x**2 - lambda_minus))
+
+def sqrtMPlaw(arr, n, p):
+    return [sqrtmplaw(x, n, p) for x in arr]
+
+
+def check_gaussian_spectra(mu, n_samples, n_features, to_show = True, to_save = True):
+    '''we require the noise variance to be 1/n_features
+    '''
+    mu = np.pad(mu, n_samples - len(mu))[:n_samples]
+    
+    fig, ax = plt.subplots()
+    ax.hist(mu, density = True, bins = 50, label = "sample singular values")
+    x = np.linspace(0.01, mu.max(), num = 50)
+    ax.plot(x, sqrtMPlaw(x, n_samples, n_features), label = "MP law prediction of spectral distribution")
+    ax.legend()
+    ax.set_title("noise spectra")
+    if to_save:
+        fig.savefig("figures/noise_guassian_check.pdf")
+    if to_show:
+        plt.show()
+
+
+    
 
 
 def signal_solver(singval, mu, n_samples, n_features, rank = 0, supp_max = None, tol = 0.01):
