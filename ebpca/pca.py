@@ -112,7 +112,7 @@ def sqrtMPlaw(arr, n, p):
     return [sqrtmplaw(x, n, p) for x in arr]
 
 
-def check_gaussian_spectra(mu, n_samples, n_features, to_show = True, to_save = True):
+def check_gaussian_spectra(mu, n_samples, n_features, to_show = False, to_save = True):
     '''we require the noise variance to be 1/n_features
     '''
     mu = np.pad(mu, n_samples - len(mu))[:n_samples]
