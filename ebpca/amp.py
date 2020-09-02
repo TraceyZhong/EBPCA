@@ -55,7 +55,7 @@ def ebamp_gaussian_old(X, u, init_align, iters = 5, rank = 1, udenoiser = Nonpar
     return U,V
 
 
-def ebamp_gaussian(X, u, init_align, iters = 5, rank = 1, udenoiser = NonparEB(), vdenoiser = NonparEB(), v = None, v_init_align = None, signal = 0):
+def ebamp_gaussian(X, u, init_align, iters = 5, rank = 1, udenoiser = NonparEB(), vdenoiser = NonparEB(), mutev = False, v = None, v_init_align = None, signal = 0):
     # Normalize u, v and initialize U V
     # n is the direction of features, must be the inverse scale of the variance.
     X = np.transpose(X) # shape becomes A = n*d 
@@ -87,11 +87,16 @@ def ebamp_gaussian(X, u, init_align, iters = 5, rank = 1, udenoiser = NonparEB()
         f = X.dot(v) - b*u
         sigma_bar_sq = alpha * np.mean(v**2)
         mu_bar = np.sqrt(np.mean(f**2) - sigma_bar_sq)
+        if not mutev:
         # denoise left singular vector ft to get ut
-        udenoiser.fit(f, mu_bar, np.sqrt(sigma_bar_sq), figname='_u_iter%02d.png' % (t))
-        u = udenoiser.denoise(f, mu_bar, np.sqrt(sigma_bar_sq))
-        U = np.hstack((U, np.reshape(u, (-1,1))))
-        b_bar = np.mean(udenoiser.ddenoise(f, mu_bar, np.sqrt(sigma_bar_sq)))
+            udenoiser.fit(f, mu_bar, np.sqrt(sigma_bar_sq), figname='_u_iter%02d.png' % (t))
+            u = udenoiser.denoise(f, mu_bar, np.sqrt(sigma_bar_sq))
+            U = np.hstack((U, np.reshape(u, (-1,1))))
+            b_bar = np.mean(udenoiser.ddenoise(f, mu_bar, np.sqrt(sigma_bar_sq)))
+        if mutev:
+            u = f
+            U = np.hstack((U, np.reshape(u, (-1,1))))
+            b_bar = 1
         # update right singular vector gt using ut
         g = np.transpose(X).dot(u) - b_bar * v
         sigma_sq = np.mean(u**2)
@@ -145,7 +150,7 @@ def ebamp_gaussian_hd(X, u, v, init_aligns, signals, iters = 5, rank = 2, udenoi
         sigma_bar_sq = v.T @ v / n
         mu_bar = scipy.linalg.sqrtm(f.T @ f / n - sigma_bar_sq)        
         # denoise left singular vector ft to get ut
-        if mutev == False:
+        if not mutev:
             print("before denoise, f shape {}".format(f.shape))
             udenoiser.fit(f, mu_bar, sigma_bar_sq, figname='_v_iter%02d.png' % (t))
             print("finish fit")
@@ -154,7 +159,7 @@ def ebamp_gaussian_hd(X, u, v, init_aligns, signals, iters = 5, rank = 2, udenoi
             U = np.dstack((U, np.reshape(u,(-1,k,1))))
             b_bar = np.mean(udenoiser.ddenoise(f, mu_bar, sigma_bar_sq), axis = 0)
             print("finish ddenoise")
-        if mutev == True:
+        if mutev:
             # in this case, u is the derived f
             u = f
             # u fit pass
