@@ -344,10 +344,75 @@ class NonparEBHDGD(_BaseEmpiricalBayesHD):
 
 
 
-
-
-
 class NonparEBHD(_BaseEmpiricalBayesHD):
+
+    def __init__(self, em_iter = 1000, to_save = True, to_show = False, fig_prefix = "nonparebhd",  **kwargs):
+        _BaseEmpiricalBayesHD.__init__(self, to_save, to_show, fig_prefix)
+        self.nsample = None
+        self.nsupp = None
+        self.em_iter = em_iter
+        self.pi = None
+        self.Z = None
+
+    def _check_init(self,f, mu, cov):
+        # check initialization
+        self.dim = len(mu)
+        self.nsample = len(f)
+        self.nsupp = len(f)
+        self.pi = np.full((self.nsupp,),1/self.nsupp)
+        
+        self.Z = f.dot(np.linalg.pinv(mu).T)
+        
+        self.init = True
+    
+    def estimate_prior(self,f, mu, cov):
+        # check initialization
+        
+        self._check_init(f,mu,cov)
+        covInv = np.linalg.inv(cov)
+        self.pi = _npmle_em_hd(f, self.Z, mu, covInv, self.em_iter, self.nsample, self.nsupp, self.dim)
+
+
+    def denoise(self, f, mu, cov):
+        covInv = np.linalg.inv(cov)
+        P = get_P(f,self.Z, mu, covInv, self.pi)
+        return P @ self.Z 
+
+
+    def ddenoise(self, f, mu, cov):
+        covInv = np.linalg.inv(cov)
+        P = get_P(f, self.Z, mu, covInv, self.pi)
+        ZouterMZ = np.einsum("ijk, kl -> ijl" ,matrix_outer(self.Z, self.Z.dot(mu.T)), covInv) 
+        E1 = np.einsum("ij, jkl -> ikl", P, ZouterMZ)
+        E2a = P @ self.Z # shape (I * rank)
+        E2 = np.einsum("ijk, kl -> ijl" ,matrix_outer(E2a, E2a.dot(mu.T)), covInv)  # shape (I * rank)
+
+        return E1 - E2
+
+    def check_prior(self, figname):
+        # can only be used when two dimension
+        fig, ax = plt.subplots(nrows = 1, ncols = 1, figsize = (7, 5))
+        ax.scatter(self.Z[:,0], self.Z[:,1], s = self.pi*len(self.pi) ,marker = ".")
+        ax.set_title("check prior, {}".format(figname))
+        if self.to_show:
+            plt.show()
+        if self.to_save:
+            fig.savefig(self.fig_prefix + "_prior" +figname)
+        plt.close()        
+
+        
+
+    def get_margin_pdf(self, mu, cov, dim, x):
+        locs =  np.array([mu.dot(z) for z in self.Z])[:,dim] # mu.dot(z), the dimth element
+        scalesq = cov[dim,dim]
+        return np.sum(self.pi /np.sqrt(2*np.pi*scalesq) * np.exp(-(x - locs)**2/(2*scalesq)) )
+
+        
+        
+
+
+
+class NonparEBHD_old(_BaseEmpiricalBayesHD):
 
     def __init__(self, em_iter = 1000, to_save = True, to_show = False, fig_prefix = "nonparebhd",  **kwargs):
         _BaseEmpiricalBayesHD.__init__(self, to_save, to_show, fig_prefix)
