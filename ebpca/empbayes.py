@@ -284,11 +284,12 @@ class PointNormalEB(_BaseEmpiricalBayes):
 
 class NonparEBHDGD(_BaseEmpiricalBayesHD):
     
-    def __init__(self, ftol = 1e-6, nsupp_ratio = 0.1, to_save = True, to_show = False, fig_prefix = "nonparebhdgd", **kwargs):
+    def __init__(self, ftol = 1e-6, nsupp_ratio = 0.1, maxiter = 100, to_save = True, to_show = False, fig_prefix = "nonparebhdgd", **kwargs):
         _BaseEmpiricalBayesHD.__init__(self, to_save, to_show, fig_prefix)
         self.nsample = None
         self.nsupp = None
         self.ftol = ftol
+        self.maxiter = maxiter
         self.nsupp_ratio = nsupp_ratio
         self.pi = None
         self.Z = None
@@ -304,7 +305,7 @@ class NonparEBHDGD(_BaseEmpiricalBayesHD):
     def estimate_prior(self,f, mu, cov):
         self._check_init(f,mu,cov)
         covInv = np.linalg.inv(cov)
-        self.pi = _gradient_descent_slsqp(f, mu, covInv, self.Z, self.pi, self.ftol)
+        self.pi = _gradient_descent_slsqp(f, mu, covInv, self.Z, self.pi, self.ftol, self.maxiter)
 
     def denoise(self, f, mu, cov):
         covInv = np.linalg.inv(cov)
@@ -346,10 +347,11 @@ class NonparEBHDGD(_BaseEmpiricalBayesHD):
 
 class NonparEBHD(_BaseEmpiricalBayesHD):
 
-    def __init__(self, em_iter = 1000, to_save = True, to_show = False, fig_prefix = "nonparebhd",  **kwargs):
+    def __init__(self, em_iter = 1000, nsupp_ratio = 0.1, to_save = True, to_show = False, fig_prefix = "nonparebhd",  **kwargs):
         _BaseEmpiricalBayesHD.__init__(self, to_save, to_show, fig_prefix)
         self.nsample = None
         self.nsupp = None
+        self.nsupp_ratio = nsupp_ratio
         self.em_iter = em_iter
         self.pi = None
         self.Z = None
@@ -358,12 +360,10 @@ class NonparEBHD(_BaseEmpiricalBayesHD):
         # check initialization
         self.dim = len(mu)
         self.nsample = len(f)
-        self.nsupp = len(f)
+        self.nsupp = int(self.nsupp_ratio * self.nsample)
         self.pi = np.full((self.nsupp,),1/self.nsupp)
-        
-        self.Z = f.dot(np.linalg.pinv(mu).T)
-        
-        self.init = True
+        self.Z = f[np.random.choice(f.shape[0], self.nsupp, replace=False), :].dot(np.linalg.pinv(mu).T)
+    
     
     def estimate_prior(self,f, mu, cov):
         # check initialization
@@ -414,24 +414,23 @@ class NonparEBHD(_BaseEmpiricalBayesHD):
 
 class NonparEBHD_old(_BaseEmpiricalBayesHD):
 
-    def __init__(self, em_iter = 1000, to_save = True, to_show = False, fig_prefix = "nonparebhd",  **kwargs):
+    def __init__(self, em_iter = 1000, nsupp_ratio = 0.1,to_save = True, to_show = False, fig_prefix = "nonparebhd",  **kwargs):
         _BaseEmpiricalBayesHD.__init__(self, to_save, to_show, fig_prefix)
         self.nsample = None
         self.nsupp = None
         self.em_iter = em_iter
         self.pi = None
         self.Z = None
+        self.nsupp_ratio = nsupp_ratio
 
     def _check_init(self,f, mu, cov):
         # check initialization
         self.dim = len(mu)
         self.nsample = len(f)
-        self.nsupp = len(f)
+        self.nsupp = int(self.nsupp_ratio * self.nsample)
         self.pi = np.full((self.nsupp,),1/self.nsupp)
-        
-        self.Z = f.dot(np.linalg.pinv(mu).T)
-        
-        self.init = True
+        self.Z = f[np.random.choice(f.shape[0], self.nsupp, replace=False), :].dot(np.linalg.pinv(mu).T)
+    
     
     def estimate_prior(self,f, mu, cov):
         # check initialization
@@ -704,7 +703,7 @@ def ddnegloglik(pi, f, z, mu, covInv):
     return res
     # np.maximum(np.minimum(res, MAX_FLOAT), MIN_FLOAT)
 
-def _gradient_descent_slsqp(f, mu, covInv, Z, pi, ftol):
+def _gradient_descent_slsqp(f, mu, covInv, Z, pi, ftol, maxiter):
     # trust region constrained algorithm
     nsupp = Z.shape[0]
     bounds = Bounds( [0.001e-12] * nsupp, [1]* nsupp)
@@ -718,7 +717,7 @@ def _gradient_descent_slsqp(f, mu, covInv, Z, pi, ftol):
 
     ## --- Solving the optimization problem --- ##
     res = scipy.optimize.minimize(negloglik, pi, args = (f, Z, mu, covInv),  method = "SLSQP", 
-            jac = dnegloglik, options = {'disp': True, "ftol": ftol},
+            jac = dnegloglik, options = {'disp': True, "ftol": ftol, "maxiter": maxiter},
             constraints = [eq_cons],
             bounds = bounds
             # ,callback = callbackF
