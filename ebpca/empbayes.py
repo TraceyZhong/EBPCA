@@ -630,14 +630,16 @@ def _npmle_em_hd(f, Z, mu, covInv, em_iter, nsample, nsupp, ndim):
     # pi = np.full((nsupp,), 1/nsupp, dtype= float)
     pi = np.array([1/nsupp] * nsupp)
     
+    W = get_W(f, Z, mu, covInv)
+
     for _ in range(em_iter):
-        # W_ij = f(xi|zj)
-        W = np.empty(shape = (nsample, nsupp),)
-        for i in range(nsample):
-            for j in range(nsupp):
-                vec = f[i] - my_dot(mu, Z[j])
-                res = np.exp(-np.sum(my_dot(covInv, vec) * vec)/2)
-                W[i,j] = res
+        # # W_ij = f(xi|zj)
+        # W = np.empty(shape = (nsample, nsupp),)
+        # for i in range(nsample):
+        #     for j in range(nsupp):
+        #         vec = f[i] - my_dot(mu, Z[j])
+        #         res = np.exp(-np.sum(my_dot(covInv, vec) * vec)/2)
+        #         W[i,j] = res
         
         denom = my_dot(W, pi) # denom[i] = \sum_j pi[j]*W[i,j]
         # print("denom shape {}".format(denom.shape))
