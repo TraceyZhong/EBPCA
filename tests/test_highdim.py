@@ -2,7 +2,9 @@ import numpy as np
 from scipy.stats import multivariate_normal
 
 from ebpca.empbayes import NonparEBHD
+from ebpca.empbayes import NonparEBHDGD
 from ebpca.amp import ebamp_gaussian_hd 
+
 # from ebpca.pca import signal_solver_gaussian
 
 def get_dist_of_subspaces(U,V,rank):
@@ -13,9 +15,9 @@ def get_dist_of_subspaces(U,V,rank):
     Qv, _ = np.linalg.qr(V, mode = 'reduced')
     C = Qu.T @ Qv  
     _, cos_thetas, _ = np.linalg.svd(C)
-    return np.sqrt(np.mean(cos_thetas**2))
+    return np.sqrt(np.mean(cos_thetas[:rank]**2))
 
-n = 1000
+n = 2500
 p = 1000
 rank = 2
 
@@ -49,8 +51,8 @@ def test():
     print(v_init_align)
 
 
-    udenoiser = NonparEBHD(em_iter=5)
-    vdenoiser = NonparEBHD(em_iter=5)
+    udenoiser = NonparEBHDGD(ftol = 1e-3, nsupp_ratio = 1)
+    vdenoiser = NonparEBHDGD(ftol = 1e-3, nsupp_ratio = 1)
 
     U, _ = ebamp_gaussian_hd(X, u_hat, v_hat, v_init_align, signals, iters = 2, rank = 2, udenoiser=udenoiser, vdenoiser= vdenoiser)
 

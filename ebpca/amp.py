@@ -4,9 +4,12 @@ EBAMP
 ==========
 finally we are here, think.
 '''
+# TODO can remove time
+import time
 
 import numpy as np
 import scipy
+
 
 from ebpca.AMP_rect_free import cumulants_from_moments, compute_moments, compute_a, compute_b, compute_Omega, compute_Sigma
 from ebpca.empbayes import NonparEB, NonparEBHD
@@ -174,11 +177,100 @@ def ebamp_gaussian_hd(X, u, v, init_aligns, signals, iters = 5, rank = 2, udenoi
     # swap u,v
     return V, U
 
+def ebamp_gaussian_hd_for_test(X, u, v, init_aligns , signals, iters = 5, rank = 2, udenoiser = NonparEBHD(), vdenoiser = NonparEBHD(), mutev = False ):
+    '''HD ebamp gaussian
+    if u has shape (n, k), set iters
+    return U has shape (n, k, iters+1) # with the additional init u.
+    '''
+
+    X = np.transpose(X)
+    (n,d) = X.shape
+    gamma = d/n 
+    k = rank 
+    # swap u and v
+    u,v = v,u
+    v_init_aligns = init_aligns
+
+    # normalize u and v
+    f = u/ np.sqrt((u**2).sum(axis = 0)) * np.sqrt(n)
+    g = v/np.sqrt((v**2).sum(axis = 0)) * np.sqrt(d)
+
+    # initialize U,V TODO new axis
+    U = f[:,:, np.newaxis]
+    V = g[:,:,np.newaxis]
+
+    u = f * 1/(signals * gamma) * np.sqrt((signals**2*gamma + 1)/(signals**2 + 1))
+
+    # initial states TODO
+    mu = np.diag(v_init_aligns)
+    sigma_sq = np.diag(1 - v_init_aligns**2)
+    # initial correction TODO 
+
+    fit_time_elapse = 0
+    denoise_time_elapse = 0
+    ddenoise_time_elapse = 0
+
+    for t in range(iters):
+        print("at amp iter {}".format(t))
+        # denoise right singular vector gt to get vt
+        print("before denoise, g shape {}".format(g.shape))
+        start = time.time()
+        vdenoiser.fit(g, mu, sigma_sq, figname='_u_iter%02d.png' % (t))
+        end = time.time()
+        fit_time_elapse += (end - start)
+        print("finish fit")
+        start = time.time()
+        v = vdenoiser.denoise(g, mu, sigma_sq)
+        nnan = np.count_nonzero(np.isnan(v))
+        ninf = np.count_nonzero(np.isinf(v))
+        print("v number of ninf is {}, nnan is {}".format(ninf, nnan))
+        end = time.time()
+        denoise_time_elapse += (end-start)
+        print("v shape {}".format(v.shape))
+        print("finish denoise")
+        V = np.dstack((V, np.reshape(v,(-1,k,1)) ))
+        start = time.time()
+        b = gamma * np.mean(vdenoiser.ddenoise(g,mu,sigma_sq) , axis = 0)
+        end = time.time()
+        ddenoise_time_elapse += (end - start)
+        print("finshi ddenoise")
+        # update left singular vector ft using vt
+        f = X.dot(v) - u.dot(b)        
+        ninf = np.count_nonzero(np.isinf(f))
+        nnan = np.count_nonzero(np.isnan(f))
+        print("f number of ninf is{}, nan is {}".format(ninf, nnan))
+        sigma_bar_sq = v.T @ v / n
+        mu_bar = scipy.linalg.sqrtm(f.T @ f / n - sigma_bar_sq)        
+        # denoise left singular vector ft to get ut
+        if not mutev:
+            print("before denoise, f shape {}".format(f.shape))
+            udenoiser.fit(f, mu_bar, sigma_bar_sq, figname='_v_iter%02d.png' % (t))
+            print("finish fit")
+            u = udenoiser.denoise(f, mu_bar, sigma_bar_sq)
+            print("finish denoise")
+            U = np.dstack((U, np.reshape(u,(-1,k,1))))
+            b_bar = np.mean(udenoiser.ddenoise(f, mu_bar, sigma_bar_sq), axis = 0)
+            print("finish ddenoise")
+        if mutev:
+            # in this case, u is the derived f
+            u = f
+            # u fit pass
+            # u denoise pass 
+            U = np.dstack((U, np.reshape(u,(-1,k,1))))
+            # u ddenoise
+            b_bar = np.identity(2)
+        # update left singular vector gt using ut
+        g = np.transpose(X).dot(u) - v.dot(b_bar)
+        sigma_sq = u.T @ u / n
+        mu = scipy.linalg.sqrtm(g.T @ g / d - sigma_sq)
+    # swap u,v
+    print("Time elapse: fit {fit}, denoise {denoise}, ddenoise {ddenoise}".format(fit = fit_time_elapse, denoise = denoise_time_elapse, ddenoise = ddenoise_time_elapse))
+    return V, U
 
 
 def ebamp_gaussian_mon_noiselevel(X, u, v, v_init_align, signals, u_init_align = None, rank = 1, iters = 5, reg = 0.0001, udenoiser = NonparEBHD(), vdenoiser = NonparEBHD()):
     '''ebamp high dimension based on MonAMP, assume that 
-    X = \sum_i alpha u * v.T + W in R(n,d), W ~ N(1,1/d)
+    X = \sum_i alpha u * v.T + W in R(n,d), W ~ N(1,1/n)
     Input
     ------
     X: original matrix: ndarry of shape (n_samples, n_features) = (n,d)
