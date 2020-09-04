@@ -114,17 +114,23 @@ def sqrtMPlaw(arr, n, p):
 
 def check_gaussian_spectra(mu, n_samples, n_features, to_show = False, to_save = True):
     '''we require the noise variance to be 1/n_features
+    mu must be sorted in descending order
     '''
-    mu = np.pad(mu, n_samples - len(mu))[:n_samples]
+    shorter_side = min(n_samples, n_features)
+    mu = np.pad(mu, (0,n_samples - len(mu)))[:n_samples]
     
     fig, ax = plt.subplots()
-    ax.hist(mu, density = True, bins = 50, label = "sample singular values")
+    ax.hist(mu[:shorter_side], density = True, bins = 50, label = "sample singular values")
     x = np.linspace(0.01, mu.max(), num = 50)
-    ax.plot(x, sqrtMPlaw(x, n_samples, n_features), label = "MP law prediction of spectral distribution")
+    if n_samples > n_features:
+        scaler = n_samples / n_features
+    else:
+        scaler = 1
+    ax.plot(x, scaler*np.array(sqrtMPlaw(x, n_samples, n_features)), label = "MP law prediction of spectral distribution")
     ax.legend()
     ax.set_title("noise spectra")
     if to_save:
-        fig.savefig("figures/noise_guassian_check.pdf")
+        fig.savefig("./figures/noise_guassian_check.pdf")
     if to_show:
         plt.show()
 

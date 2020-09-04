@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from ebpca.pca import check_gaussian_spectra
 
 n = 500
-p = 600 
+p = 500 
 
 X = np.random.normal(size = n*p).reshape(n,p) / np.sqrt(p)
 
