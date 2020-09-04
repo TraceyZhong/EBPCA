@@ -3,7 +3,6 @@
 Empirical Bayes Methods
 ==========
 This module supports empirical Bayes estimation for various prior.
-
 Typical usage example:
 '''
 
@@ -14,6 +13,7 @@ import scipy
 from scipy.stats import multivariate_normal
 from scipy.optimize import Bounds
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 from numba import jit
 
 
@@ -21,14 +21,11 @@ class _BaseEmpiricalBayes(ABC):
     '''Use empirical Bayes to estimate the prior and denoise observations.
     
     Given the prior family of X, mu, sigm and Y s.t. Y ~ mu X + sigma Z, estimate X.
-
     Attributes
     -----
     to_plot: 
     to_save:
     fig_prefix:
-
-
     Methods
     -----
     fit: (data, mu, sigma) -> dist parameters
@@ -83,14 +80,11 @@ class _BaseEmpiricalBayesHD(ABC):
     '''Use empirical Bayes to estimate the prior and denoise observations.
     
     Given the prior family of X, mu, sigm and Y s.t. Y ~ mu X + sigma Z, estimate X.
-
     Attributes
     -----
     to_plot: 
     to_save:
     fig_prefix:
-
-
     Methods
     -----
     fit: (data, mu, sigma) -> dist parameters
@@ -326,7 +320,7 @@ class NonparEBHDGD(_BaseEmpiricalBayesHD):
     def check_prior(self, figname):
         # can only be used when two dimension
         fig, ax = plt.subplots(nrows = 1, ncols = 1, figsize = (7, 5))
-        ax.scatter(self.Z[:,0], self.Z[:,1], s = self.pi*len(self.pi) ,marker = ".")
+        ax.scatter(self.Z[:,0], self.Z[:,1], s = self.pi*len(self.pi),marker = ".")
         ax.set_title("check prior, {}".format(figname))
         if self.to_show:
             plt.show()
@@ -392,7 +386,7 @@ class NonparEBHD(_BaseEmpiricalBayesHD):
     def check_prior(self, figname):
         # can only be used when two dimension
         fig, ax = plt.subplots(nrows = 1, ncols = 1, figsize = (7, 5))
-        ax.scatter(self.Z[:,0], self.Z[:,1], s = self.pi*len(self.pi) ,marker = ".")
+        ax.scatter(self.Z[:,0], self.Z[:,1], s = self.pi * len(self.pi), c = self.pi / (np.max(self.pi)), cmap = plt.get_cmap("Blues"), alpha = 0.5, marker = ".")
         ax.set_title("check prior, {}".format(figname))
         if self.to_show:
             plt.show()
