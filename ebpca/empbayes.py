@@ -358,6 +358,144 @@ class NonparEBHD(_BaseEmpiricalBayesHD):
         self.pi = np.full((self.nsupp,),1/self.nsupp)
         self.Z = f[np.random.choice(f.shape[0], self.nsupp, replace=False), :].dot(np.linalg.pinv(mu).T)
     
+    def use_known_prior(self,Z,pi, nsample, ndim):
+        self.dim = ndim
+        self.nsample = nsample
+        self.nsupp = len(Z)
+        self.Z = Z
+        self.pi = pi
+
+    
+    def estimate_prior(self,f, mu, cov):
+        # check initialization
+        
+        self._check_init(f,mu,cov)
+        covInv = np.linalg.inv(cov)
+        self.pi = _npmle_em_hd(f, self.Z, mu, covInv, self.em_iter, self.nsample, self.nsupp, self.dim)
+
+
+    def denoise(self, f, mu, cov):
+        covInv = np.linalg.inv(cov)
+        P = get_P(f,self.Z, mu, covInv, self.pi)
+        return P @ self.Z 
+
+
+    def ddenoise(self, f, mu, cov):
+        covInv = np.linalg.inv(cov)
+        P = get_P(f, self.Z, mu, covInv, self.pi)
+        ZouterMZ = np.einsum("ijk, kl -> ijl" ,matrix_outer(self.Z, self.Z.dot(mu.T)), covInv) 
+        E1 = np.einsum("ij, jkl -> ikl", P, ZouterMZ)
+        E2a = P @ self.Z # shape (I * rank)
+        E2 = np.einsum("ijk, kl -> ijl" ,matrix_outer(E2a, E2a.dot(mu.T)), covInv)  # shape (I * rank)
+
+        return E1 - E2
+
+    def check_prior(self, figname):
+        # can only be used when two dimension
+        fig, ax = plt.subplots(nrows = 1, ncols = 1, figsize = (7, 5))
+        ax.scatter(self.Z[:,0], self.Z[:,1], s = self.pi * len(self.pi), c = self.pi / (np.max(self.pi)), cmap = plt.get_cmap("Blues"), alpha = 0.5, marker = ".")
+        ax.set_title("check prior {}".format(figname))
+        if self.to_show:
+            plt.show()
+        if self.to_save:
+            fig.savefig(self.fig_prefix + "_prior" +figname)
+        plt.close()        
+
+        
+
+    def get_margin_pdf(self, mu, cov, dim, x):
+        locs =  np.array([mu.dot(z) for z in self.Z])[:,dim] # mu.dot(z), the dimth element
+        scalesq = cov[dim,dim]
+        return np.sum(self.pi /np.sqrt(2*np.pi*scalesq) * np.exp(-(x - locs)**2/(2*scalesq)) )
+
+
+class NonparEBHDTest(_BaseEmpiricalBayesHD):
+
+    def __init__(self, em_iter = 1000, nsupp_ratio = 0.1, to_save = True, to_show = False, fig_prefix = "nonparebhdtest",  **kwargs):
+        _BaseEmpiricalBayesHD.__init__(self, to_save, to_show, fig_prefix)
+        self.nsample = None
+        self.nsupp = None
+        self.nsupp_ratio = nsupp_ratio
+        self.em_iter = em_iter
+        self.pi = None
+        self.Z = None
+        self.iterPerRound = 20
+
+    def _check_init(self,f, mu, cov):
+        # check initialization
+        self.dim = len(mu)
+        self.nsample = len(f)
+        self.nsupp = int(self.nsupp_ratio * self.nsample)
+        self.pi = np.full((self.nsupp,),1/self.nsupp)
+        self.Z = f[np.random.choice(f.shape[0], self.nsupp, replace=False), :].dot(np.linalg.pinv(mu).T)
+    
+    def use_known_prior(self,Z,pi, nsample, ndim):
+        self.dim = ndim
+        self.nsample = nsample
+        self.nsupp = len(Z)
+        self.Z = Z
+        self.pi = pi
+
+    def use_known_support(self, Z, nsample, ndim):
+        self.dim = ndim
+        self.nsample = nsample 
+        self.nsupp = len(Z)
+        self.Z = Z
+        pi = np.random.uniform(size = self.nsupp)
+        self.pi = pi/sum(pi)
+
+    def use_grid(self,Z,nsample, ndim):
+        self.dim = ndim
+        self.nsample = nsample
+        xx = np.linspace(min(Z[:,0]), max(Z[:,0]), num = 30)
+        yy = np.linspace(min(Z[:,1]), max(Z[:,1]), num = 30)
+        self.Z = span_grid(xx,yy)
+        self.nsupp = len(self.Z)
+        self.pi = np.full(self.nsupp, 1/self.nsupp)
+
+    def test_estimate_prior(self, f, mu, cov, knowledge, Z = None, pi = None):
+
+        if knowledge == 2:
+            method = "knownPrior"
+            self.use_known_prior(Z, pi, len(f), len(mu))
+        if knowledge == 0:
+            method = "ignorant"
+            self._check_init(f,mu,cov)
+        if knowledge == 1:
+            method = "knownPriorSup"
+            self.use_known_support(Z,len(f), len(mu))     
+        if knowledge == 3:
+            method = "gridSpan"
+            self.use_grid(Z, len(f), len(mu))
+        
+
+        covInv = np.linalg.inv(cov)    
+
+        em_rounds = int(self.em_iter / self.iterPerRound)
+        Pi = np.empty(shape = (self.nsupp, em_rounds + 1), order = 'F')
+        Denoised = np.empty(shape = (self.nsample, self.dim, em_rounds + 1), order = 'F')
+        Pi[:,0] = self.pi
+        Denoised[:,:,0] = self.denoise(f,mu,cov)
+
+        for iRound in range(em_rounds):
+            self.pi = _npmle_em_hd_warm(f, self.Z, self.pi , mu, covInv, self.iterPerRound, self.nsample, self.nsupp, self.dim)
+            Pi[:, iRound + 1] = self.pi
+            Denoised[:,:, iRound + 1] = self.denoise(f,mu,cov)
+
+        np.save(self.fig_prefix + method + "Z.npy", self.Z)
+        np.save(self.fig_prefix + method + "Pi.npy", Pi) 
+        np.save(self.fig_prefix + method + "Denoised.npy", Denoised) # 
+
+    def check_denoised(self, denoised, figname):
+        fig, ax = plt.subplots(nrows = 1, ncols = 1, figsize = (7, 5))
+        ax.scatter(denoised[:,0], denoised[:,1])
+        ax.set_title("check denoised {}".format(figname))
+        if self.to_show:
+            plt.show()
+        if self.to_save:
+            fig.savefig(self.fig_prefix + "_denoised_" +figname)
+        plt.close()        
+
     
     def estimate_prior(self,f, mu, cov):
         # check initialization
@@ -401,7 +539,6 @@ class NonparEBHD(_BaseEmpiricalBayesHD):
         scalesq = cov[dim,dim]
         return np.sum(self.pi /np.sqrt(2*np.pi*scalesq) * np.exp(-(x - locs)**2/(2*scalesq)) )
 
-        
         
 
 
@@ -645,6 +782,32 @@ def _npmle_em_hd(f, Z, mu, covInv, em_iter, nsample, nsupp, ndim):
         # pi = np.mean(pi * (W / denom[:, np.newaxis]), axis = 0) # use normal representation
     return pi
 
+@jit(nopython=True)
+def _npmle_em_hd_warm(f, Z, pi, mu, covInv, em_iter, nsample, nsupp, ndim):
+    # pi = np.full((nsupp,), 1/nsupp, dtype= float)
+    pi = pi
+    
+    W = get_W(f, Z, mu, covInv)
+
+    for _ in range(em_iter):
+        # # W_ij = f(xi|zj)
+        # W = np.empty(shape = (nsample, nsupp),)
+        # for i in range(nsample):
+        #     for j in range(nsupp):
+        #         vec = f[i] - my_dot(mu, Z[j])
+        #         res = np.exp(-np.sum(my_dot(covInv, vec) * vec)/2)
+        #         W[i,j] = res
+        
+        denom = my_dot(W, pi) # denom[i] = \sum_j pi[j]*W[i,j]
+        # print("denom shape {}".format(denom.shape))
+
+        for j in range(nsupp):
+            pi[j] = pi[j]*np.mean(W[:,j]/denom)
+        
+        # pi = np.array([pi[j]*np.mean(W[:,j]/denom) for j in range(nsupp)])
+        # pi = np.mean(pi * (W / denom[:, np.newaxis]), axis = 0) # use normal representation
+    return pi
+
 # W[i,j] = f(x_i | z_j)
 @jit(nopython = True)
 def get_W(f, z, mu, covInv):
@@ -722,3 +885,7 @@ def _gradient_descent_slsqp(f, mu, covInv, Z, pi, ftol, maxiter):
     return res.x
 
 matrix_outer = lambda A, B: np.einsum("bi,bo->bio", A, B)
+
+def span_grid(xx, yy):
+    xv, yv = np.meshgrid(xx, yy, sparse = False)
+    return np.dstack([xv, yv]).reshape((len(xx)*len(yy),2))
