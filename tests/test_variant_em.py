@@ -16,11 +16,11 @@ def test(zTruthVar, covInvMispec, em_iter):
     zTruth = np.vstack((ustar1, ustar2)).T + np.random.normal(scale= zTruthVar/10, size = nsample*rank).reshape((nsample, rank))
     zTruth = zTruth / np.sqrt(np.diag(zTruth.T @ zTruth)) * np.sqrt(nsample)
 
-    # muTruth = np.array([[1,2], [3,0]])
-    # covTruth = np.array([[1, 0.3],[0.3, 1]])
+    muTruth = np.array([[2,0], [0,1.5]])
+    covTruth = np.array([[1, 0.1],[0.1, 1]])
 
-    muTruth = np.array([[2,0], [0,2]])
-    covTruth = np.array([[1,0],[0,1]])
+    # muTruth = np.array([[2,0], [0,2]])
+    # covTruth = np.array([[1,0],[0,1]])
 
     f = zTruth.dot(muTruth.T) + np.random.multivariate_normal([0,0], covTruth, size=nsample)
 
@@ -42,12 +42,10 @@ def test(zTruthVar, covInvMispec, em_iter):
     axes[1].set_title("noisy F")
     fig.savefig("./figures/" + figPrefix + 'Truth.png')
 
-# what information do we have to get it? Z truth NoiseLevel
-# cov_err
-
 
 
 ## --- get animation --- ##
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib import animation 
@@ -98,8 +96,8 @@ def animateAllMethods(zTruthVar, covInvMispec, em_iter):
     for method in ["knownPrior", "ignorant", "knownPriorSup", "gridSpan"]:
         animateEachMethod(figPrefix, method)
 
-test(2,0,100)
-animateAllMethods(2,0,100)
+# test(2,0,1000)
+animateAllMethods(2,0,1000)
 
 
 
