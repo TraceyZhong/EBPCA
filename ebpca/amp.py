@@ -107,7 +107,7 @@ def ebamp_gaussian(X, u, init_align, iters = 5, rank = 1, udenoiser = NonparEB()
     # return U,V, need to change direction back
     return V,U
 
-def ebamp_gaussian_hd(X, u, v, init_aligns, signals, iters = 5, rank = 2, udenoiser = NonparEBHD(), vdenoiser = NonparEBHD(), mutev = False ):
+def ebamp_gaussian_hd(X, u, v, init_aligns, signals, iters = 5, rank = 2, udenoiser = NonparEBHD(), vdenoiser = NonparEBHD(), mutev = False):
     '''HD ebamp gaussian
     if u has shape (n, k), set iters
     return U has shape (n, k, iters+1) # with the additional init u.
@@ -174,6 +174,76 @@ def ebamp_gaussian_hd(X, u, v, init_aligns, signals, iters = 5, rank = 2, udenoi
         g = np.transpose(X).dot(u) - v.dot(b_bar)
         sigma_sq = u.T @ u / n
         mu = scipy.linalg.sqrtm(g.T @ g / d - sigma_sq)
+    # swap u,v
+    return V, U
+
+def ebamp_gaussian_hd_no_rotation(X, u, v, init_aligns, signals, iters = 5, rank = 2, udenoiser = NonparEBHD(), vdenoiser = NonparEBHD(), mutev = False ):
+    '''HD ebamp gaussian
+    if u has shape (n, k), set iters
+    return U has shape (n, k, iters+1) # with the additional init u.
+    '''
+
+    X = np.transpose(X)
+    (n,d) = X.shape
+    gamma = d/n 
+    k = rank 
+    # swap u and v
+    u,v = v,u
+    v_init_aligns = init_aligns
+
+    # normalize u and v
+    f = u/ np.sqrt((u**2).sum(axis = 0)) * np.sqrt(n)
+    g = v/np.sqrt((v**2).sum(axis = 0)) * np.sqrt(d)
+
+    # initialize U,V TODO new axis
+    U = f[:,:, np.newaxis]
+    V = g[:,:,np.newaxis]
+
+    u = f * 1/(signals * gamma) * np.sqrt((signals**2*gamma + 1)/(signals**2 + 1))
+
+    # initial states TODO
+    mu = np.diag(v_init_aligns)
+    sigma_sq = np.diag(1 - v_init_aligns**2)
+    # initial correction TODO 
+
+    for t in range(iters):
+        print("at amp iter {}".format(t))
+        # denoise right singular vector gt to get vt
+        print("before denoise, g shape {}".format(g.shape))
+        vdenoiser.fit(g, mu, sigma_sq, figname='_u_iter%02d.png' % (t))
+        print("finish fit")
+        v = vdenoiser.denoise(g, mu, sigma_sq)
+        print("v shape {}".format(v.shape))
+        print("finish denoise")
+        V = np.dstack((V, np.reshape(v,(-1,k,1)) ))
+        b = gamma * np.mean(vdenoiser.ddenoise(g,mu,sigma_sq) , axis = 0)
+        print("finshi ddenoise")
+        # update left singular vector ft using vt
+        f = X.dot(v) - u.dot(b)
+        sigma_bar_sq = v.T @ v / n # non_rotation version
+        mu_bar = sigma_bar_sq * signals # non_rotation version    
+        # denoise left singular vector ft to get ut
+        if not mutev:
+            print("before denoise, f shape {}".format(f.shape))
+            udenoiser.fit(f, mu_bar, sigma_bar_sq, figname='_v_iter%02d.png' % (t))
+            print("finish fit")
+            u = udenoiser.denoise(f, mu_bar, sigma_bar_sq)
+            print("finish denoise")
+            U = np.dstack((U, np.reshape(u,(-1,k,1))))
+            b_bar = np.mean(udenoiser.ddenoise(f, mu_bar, sigma_bar_sq), axis = 0)
+            print("finish ddenoise")
+        if mutev:
+            # in this case, u is the derived f
+            u = f
+            # u fit pass
+            # u denoise pass 
+            U = np.dstack((U, np.reshape(u,(-1,k,1))))
+            # u ddenoise
+            b_bar = np.identity(2)
+        # update left singular vector gt using ut
+        g = np.transpose(X).dot(u) - v.dot(b_bar)
+        sigma_sq = u.T @ u / n # non_rotation version
+        mu = sigma_sq * signals # non_rotation version
     # swap u,v
     return V, U
 
