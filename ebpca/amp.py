@@ -129,7 +129,7 @@ def ebamp_gaussian_hd(X, u, v, init_aligns, signals, iters = 5, rank = 2, udenoi
     U = f[:,:, np.newaxis]
     V = g[:,:,np.newaxis]
 
-    u = f * 1/(signals * gamma) * np.sqrt((signals**2*gamma + 1)/(signals**2 + 1))
+    u = f * 1/(signals * np.sqrt(gamma)) * np.sqrt((signals**2*gamma + 1)/(signals**2 + 1))
 
     # initial states TODO
     mu = np.diag(v_init_aligns)
@@ -199,7 +199,7 @@ def ebamp_gaussian_hd_no_rotation(X, u, v, init_aligns, signals, iters = 5, rank
     U = f[:,:, np.newaxis]
     V = g[:,:,np.newaxis]
 
-    u = f * 1/(signals * gamma) * np.sqrt((signals**2*gamma + 1)/(signals**2 + 1))
+    u = f * 1/(signals * np.sqrt(gamma)) * np.sqrt((signals**2*gamma + 1)/(signals**2 + 1))
 
     # initial states TODO
     mu = np.diag(v_init_aligns)
@@ -217,7 +217,9 @@ def ebamp_gaussian_hd_no_rotation(X, u, v, init_aligns, signals, iters = 5, rank
         print("finish denoise")
         V = np.dstack((V, np.reshape(v,(-1,k,1)) ))
         b = gamma * np.mean(vdenoiser.ddenoise(g,mu,sigma_sq) , axis = 0)
-        print("finshi ddenoise")
+        print("I want to look at b")
+        print(b)
+        print("finish ddenoise")
         # update left singular vector ft using vt
         f = X.dot(v) - u.dot(b)
         sigma_bar_sq = v.T @ v / n # non_rotation version
