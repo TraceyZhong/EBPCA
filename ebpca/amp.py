@@ -50,7 +50,7 @@ def ebamp_gaussian(X, u, v, init_pars, iters = 5,
         mu_bar = np.sqrt(np.mean(f**2) - sigma_bar_sq)
         if not mutev:
         # denoise left singular vector ft to get ut
-            udenoiser.fit(f, mu_bar, np.sqrt(sigma_bar_sq), figname='_u_iter%02d.png' % (t))
+            udenoiser.fit(f, mu_bar, np.sqrt(sigma_bar_sq), figname='_u_iter%02d_' % (t))
             u = udenoiser.denoise(f, mu_bar, np.sqrt(sigma_bar_sq))
             U = np.hstack((U, np.reshape(u, (-1,1))))
             b_bar = np.mean(udenoiser.ddenoise(f, mu_bar, np.sqrt(sigma_bar_sq)))

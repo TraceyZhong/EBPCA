@@ -97,7 +97,7 @@ if __name__ == '__main__':
         print(init_pars["alpha"][0])
         U_est, V_est = ebamp_gaussian(A, u, vh, init_pars, iters=iters,
                                       udenoiser=udenoiser, vdenoiser=vdenoiser,
-                                      figprefix='%i_' % s_star)
+                                      figprefix='s_%.1f' % s_star)
 
         print([get_alignment(U_est[:, i], u_star) for i in range(U_est.shape[1])])
 
