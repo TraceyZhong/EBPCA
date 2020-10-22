@@ -102,10 +102,10 @@ class _BaseEmpiricalBayes(ABC):
         for dim in range(self.rank):
             if self.rank == 1:
                 self.plot_margin_uni(axes, f, dim, mu, cov)
-                axes.set_title("mu=%.2f, cov=%.2f" % (dim, mu, cov))
+                axes.set_title("mu=%.2f, cov=%.2f" % (mu, cov))
             else:
                 self.plot_margin_uni(axes[dim], f[:, dim], dim, mu, cov)
-                axes[dim].set_title("mu=%.2f, cov=%.2f" % \
+                axes[dim].set_title("PC %i, mu=%.2f, cov=%.2f" % \
                                     (dim, mu[dim, dim], cov[dim, dim]))
         # plt.suptitle('marginal distribution')
         if self.to_show:
