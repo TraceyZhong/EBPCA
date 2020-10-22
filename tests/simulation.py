@@ -1,11 +1,14 @@
 import numpy as np
 from scipy.linalg import svd
+import os
+import sys
+sys.path.extend(['/gpfs/ysm/project/zf59/cs/empiricalbayespca/generalAMP'])
+
 from ebpca.empbayes import NonparEB
 from ebpca.amp import ebamp_gaussian
 from ebpca.pca import signal_solver_gaussian
-# rank-1 simulation
 
-## simulate \theta according to prior models
+# rank-1 simulation
 
 def get_alignment(theta, theta_hat):
     prod = np.inner(theta, theta_hat) / \
@@ -58,9 +61,12 @@ def simulate_rank1_model(u, v, s):
     return A
 
 if __name__ == '__main__':
-
+    
     # test AMP
+    # sanity check: AMP works and the marginals are correct
     figprefix = 'figures/simulation/univariate/'
+    if not os.path.exists(figprefix):
+        os.mkdir(figprefix)
     n = 1000
     alpha = 1.2
     d = int(n * alpha)
@@ -68,7 +74,9 @@ if __name__ == '__main__':
     iters = 10
 
     for prior in ['Uniform', 'Two_points', 'Point_normal']:
-        # sanity check for NPMLE
+        if not os.path.exists(figprefix + prior):
+            os.mkdir(figprefix + prior)
+        # simulate data by the AMP model
         u_star = simulate_prior(prior, n)
         v_star = simulate_prior(prior, d)
         A = simulate_rank1_model(u_star, v_star, s_star)

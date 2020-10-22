@@ -9,6 +9,8 @@ Typical usage example:
 from abc import ABC, abstractmethod
 
 import numpy as np
+import matplotlib as mpl
+mpl.use('Agg')
 import matplotlib.pyplot as plt
 from numba import jit
 import mosek
