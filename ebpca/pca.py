@@ -83,7 +83,7 @@ def _phase_transition_threshold(mu, n_samples, n_features, tol = 0.01):
     ct = _cauchy_transformation(supp_max_plus, mu, n_samples, n_features)
     return 1/np.sqrt(ct)
 
-def signal_solver_gaussian(singval, mu = None, n_samples = 0, n_features = 0, **kwargs):
+def signal_solver_gaussian_original(singval, mu = None, n_samples = 0, n_features = 0, **kwargs):
     '''we require the noise variance to be 1/n_features
     '''
     aspect_ratio = n_samples/n_features
@@ -96,6 +96,22 @@ def signal_solver_gaussian(singval, mu = None, n_samples = 0, n_features = 0, **
     alpha = theta / np.sqrt(aspect_ratio)
 
     return {"alpha": alpha, "sample_align":  sample_align, "feature_align": feature_align}
+
+def signal_solver_gaussian(singval, mu = None, n_samples = 0, n_features = 0, **kwargs):
+    '''we require the noise variance to be 1/n_features
+    '''
+    aspect_ratio = n_samples/n_features
+    print("s should be at least {} to satisfy the super critical condition.".format(1/aspect_ratio**(1/4)))
+    print("singval should be at least {} to satisfy the super critical condition.".format(1 + np.sqrt(aspect_ratio)))
+    greek_lambda = singval / np.sqrt(aspect_ratio)
+    s = np.sqrt((greek_lambda**2 * aspect_ratio - 1 - aspect_ratio + \
+        np.sqrt((greek_lambda**2*aspect_ratio - 1 - aspect_ratio)**2 - 4*aspect_ratio) \
+            ) / (2*aspect_ratio))
+    theta = s * np.sqrt(aspect_ratio)
+    sample_align = np.sqrt((theta**4 - aspect_ratio)/ (theta**2 + aspect_ratio)) / theta
+    feature_align = np.sqrt((theta**4 - aspect_ratio)/ (theta**2 + 1)) / theta
+
+    return {"alpha": s, "sample_align":  sample_align, "feature_align": feature_align}
 
 def sqrtmplaw(x, n_samples = 0, n_features = 0):
     '''we require the noise variance to be 1/n_features
