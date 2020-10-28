@@ -73,6 +73,8 @@ def ebamp_gaussian_active(pcapack, iters = 5, udenoiser = NonparEB(), \
             # print("This is b_bar")
             # print(b_bar)
             # print("finish ddenoise")
+            sigma_sq = u.T @ u / n
+            mu = sigma_sq * signals # non_rotation version
         if mutev:
             # in this case, u is f
             u = f
@@ -84,8 +86,6 @@ def ebamp_gaussian_active(pcapack, iters = 5, udenoiser = NonparEB(), \
         # update left singular vector gt using ut
         # print("X shape={}, u shape={}, v shape = {} b_bar shape ={}".format(X.shape, u.shape, v.shape, b_bar.shape))
         g = np.transpose(X).dot(u) - v.dot(b_bar)
-        mu = mu_bar * signals # non_rotation version
-        sigma_sq = mu_bar @ mu_bar.T + sigma_bar_sq # non_rotation version # this is wrong...
     # swap u,v
     return V, U
 
@@ -273,6 +273,8 @@ def ebamp_gaussian_hd(X, u, v, init_pars, iters = 5, rank = 2,
             U = np.dstack((U, np.reshape(u,(-1,k,1))))
             b_bar = np.mean(udenoiser.ddenoise(f, mu_bar, sigma_bar_sq), axis = 0)
             # print("finish ddenoise")
+            sigma_sq = u.T @ u / n # non_rotation version
+            mu = sigma_sq * signals # non_rotation version
         if mutev:
             # in this case, u is the derived f
             u = f
