@@ -3,7 +3,7 @@ from scipy.stats import multivariate_normal
 
 from ebpca.empbayes import NonparEBHD
 from ebpca.empbayes import NonparEBHDGD
-from ebpca.amp import ebamp_gaussian_hd 
+from ebpca.amp import ebamp_gaussian_hd
 
 # from ebpca.pca import signal_solver_gaussian
 
@@ -16,6 +16,15 @@ def get_dist_of_subspaces(U,V,rank):
     C = Qu.T @ Qv  
     _, cos_thetas, _ = np.linalg.svd(C)
     return np.sqrt(np.mean(cos_thetas[:rank]**2))
+
+def get_alignment(U,V):
+    # normalize U and V
+    U = U/np.sqrt((U**2).sum(axis = 0))
+    V = V/np.sqrt((V**2).sum(axis = 0))
+    COR = np.transpose(U) @ V
+    return np.sqrt(np.sum(np.diag(COR))) / len(COR)
+
+
 
 n = 2500
 p = 1000

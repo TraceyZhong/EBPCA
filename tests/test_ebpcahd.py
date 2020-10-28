@@ -54,7 +54,7 @@ def test_noRotation(signals,m,n, withRotation = False, rank = 2):
     W = np.random.normal(size = (m,n))
     Y = (ustar * signals) @ vstar.T/n + W / np.sqrt(n)
 
-    F, S, G = np.linalg.svd(Y)
+    F, S, Gh = np.linalg.svd(Y)
 
     lowRanks = [signal_solver_gaussian(S[i], None, m,n) for i in [0,1]]
     init_aligns = np.array([sol["sample_align"] for sol in lowRanks]).reshape((2,))
@@ -63,7 +63,7 @@ def test_noRotation(signals,m,n, withRotation = False, rank = 2):
     
     denoiser = TestEBHD(fig_prefix="testebhd")
     # with rotation
-    U, _ = ebamp_gaussian_hd(Y, F[:,:2], G[:,:2], init_aligns, est_signals, udenoiser = denoiser, vdenoiser = denoiser)
+    U, _ = ebamp_gaussian_hd(Y, F[:,:2], Gh[:2,:].T, init_aligns, est_signals, udenoiser = denoiser, vdenoiser = denoiser)
     
     iters = U.shape[-1]
     res = []
@@ -73,7 +73,7 @@ def test_noRotation(signals,m,n, withRotation = False, rank = 2):
     resRotated = res
 
     # without rotation
-    U, _ = ebamp_gaussian_hd_no_rotation(Y, F[:,:2], G[:,:2], init_aligns, est_signals, udenoiser = denoiser, vdenoiser = denoiser)
+    U, _ = ebamp_gaussian_hd_no_rotation(Y, F[:,:2], Gh[:2,:].T, init_aligns, est_signals, udenoiser = denoiser, vdenoiser = denoiser)
     iters = U.shape[-1]
     resNormal = []
     for i in range(iters):

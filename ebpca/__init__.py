@@ -1,4 +1,5 @@
 import os
+from collections import namedtuple
 
 if not os.path.exists("figures"):
     os.makedirs("figures")
@@ -6,4 +7,4 @@ if not os.path.exists("figures"):
 from . import amp
 from . import pca
 from . import empbayes
-
+from . import preprocessing
