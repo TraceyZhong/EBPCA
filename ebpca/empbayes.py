@@ -172,8 +172,10 @@ class NonparEBChecker(NonparEBActive):
         NonparEBActive.__init__(self, optimizer, ftol, nsupp_ratio, em_iter, maxiter, to_save, to_show, fig_prefix, **kwargs)
         self.trueZ = truePriorLoc
         self.truePi = truePriorWeight 
+        self.redirectd = False
 
     def get_margin_pdf_from_true_prior(self, x, mu, cov, dim):
+        # re-direct Z
         loc = self.trueZ.dot(mu.T)[:, dim]
         scalesq = cov[dim, dim]
         return np.sum(self.truePi / np.sqrt(2 * np.pi * scalesq) * np.exp(-(x - loc) ** 2 / (2 * scalesq)))
@@ -184,9 +186,9 @@ class NonparEBChecker(NonparEBActive):
         xgrid = np.linspace(xmin - abs(xmin) / 3, xmax + abs(xmax) / 3, num=100)
         # evaluate marginal pdf
         pdf = [self.get_margin_pdf(x, mu, cov, dim) for x in xgrid]
-        print("why is this not correct")
-        print(self.trueZ.dot(mu.T)[:, dim])
-        print(self.truePi)
+        # print("why is this not correct")
+        # print(self.trueZ.dot(mu.T)[:, dim])
+        # print(self.truePi)
         truePdf = [self.get_margin_pdf_from_true_prior(x, mu, cov, dim) for x in xgrid]
         ax.hist(f, bins=40, alpha=0.5, density=True, color="skyblue", label="empirical dist")
         ax.plot(xgrid, pdf, color="grey", linestyle="dashed", label="theoretical density")
@@ -226,7 +228,7 @@ class _BaseEmpiricalBayes(ABC):
         self.Z = kwargs.get("Z_star", None)
         self.pi = kwargs.get("pi_star", None)
         if self.Z is not None:
-            print('plot marginal with true prior')
+            # print('plot marginal with true prior')
             self.check_margin(f, mu, cov, figname + '_true_prior')
         # initialize denoiser parameters based on observed data
         self._check_init(f, mu)
@@ -259,8 +261,8 @@ class _BaseEmpiricalBayes(ABC):
         start = time.time()
         self.pi = _mosek_npmle(f, self.Z, mu, covInv, self.tol)
         end = time.time()
-        print('mosek elapsed %.2f s' % (end - start))
-        print('pi est max:{}, min:{}'.format(np.max(self.pi), np.min(self.pi)))
+        # print('mosek elapsed %.2f s' % (end - start))
+        # print('pi est max:{}, min:{}'.format(np.max(self.pi), np.min(self.pi)))
         return self.pi
 
     def get_margin_pdf(self, x, mu, cov, dim):
@@ -376,7 +378,7 @@ class PointNormalEB(_BaseEmpiricalBayes):
                 # ('Squared sigma_x is estimated to be 0')
             itr += 1
             if (abs(new_pi - self.pi)/ max(new_pi, self.pi) < self.tol) and (abs(new_sigma_x - self.sigma_x)/ max(new_sigma_x, self.sigma_x)< self.tol) :
-                print("stagnant at {}".format(itr))
+                # print("stagnant at {}".format(itr))
                 stagnant = True
             self.pi = new_pi
             self.sigma_x = new_sigma_x
@@ -629,7 +631,7 @@ def _mosek_npmle(f, Z, mu, covInv, tol):
     M = fusion.Model('NPMLE')
     # https://docs.mosek.com/9.2/pythonapi/solver-parameters.html
     M.getTask().putdouparam(mosek.dparam.intpnt_co_tol_rel_gap, tol)
-    print('mosek tolerance: %f' % M.getTask().getdouparam(mosek.dparam.intpnt_co_tol_rel_gap) )
+    # print('mosek tolerance: %f' % M.getTask().getdouparam(mosek.dparam.intpnt_co_tol_rel_gap) )
     logg = M.variable(n)
     g = M.variable('g', n, fusion.Domain.greaterThan(0.))  # w = exp(v)
     f = M.variable('f', m, fusion.Domain.greaterThan(0.))
@@ -644,13 +646,13 @@ def _mosek_npmle(f, Z, mu, covInv, tol):
     M.solve()
 
     symname, desc = mosek.Env.getcodedesc(mosek.rescode(int(M.getSolverIntInfo("optimizeResponse"))))
-    print("   Termination code: {0} {1}".format(symname, desc))
+    # print("   Termination code: {0} {1}".format(symname, desc))
 
     pi = f.level()
 
     # normalize the negative values due to numerical issues
-    print('Minimal pi value: {:.2f}'.format(np.min(pi)))
-    print('Sum of estimated pi: {:.2f}'.format(np.sum(pi)))
+    # print('Minimal pi value: {:.2f}'.format(np.min(pi)))
+    # print('Sum of estimated pi: {:.2f}'.format(np.sum(pi)))
     # address negative values due to numerical instability
     pi[pi < 0] = 0
     pi = pi / np.sum(pi)

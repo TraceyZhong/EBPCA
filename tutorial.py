@@ -11,6 +11,14 @@ from ebpca.pca import get_pca
 def normalize_pc(U):
     return U/np.sqrt((U**2).sum(axis = 0)) * np.sqrt(len(U))
 
+def redirect_pc(U, Ustar):
+    M = U.T @ Ustar
+    s = np.ones(len(M))
+    for i in range(len(M)):
+        if M[i,i] < 0:
+            s[i] = -1
+    return U * s
+
 def get_dist_of_subspaces(U,V,rank):
     '''some random distance measurement
     U,V: ndarray (n,rank)
