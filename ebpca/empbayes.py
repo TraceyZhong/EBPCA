@@ -5,18 +5,194 @@ Empirical Bayes Methods
 This module supports empirical Bayes estimation for various prior.
 Typical usage example:
 '''
+import sys
+import time
 
 from abc import ABC, abstractmethod
 
 import numpy as np
 import matplotlib as mpl
-mpl.use('Agg')
+# mpl.use('Agg')
+from matplotlib import rcParams
+# import matplotlib.gridspec as gridspec
+rcParams['text.latex.preamble'] = r'\usepackage{amsmath,amsymbol}'
 import matplotlib.pyplot as plt
 from numba import jit
 import mosek
 import mosek.fusion as fusion
-import sys
-import time
+
+
+
+class _BaseEmpiricalBayesActive(ABC):
+    
+    def __init__(self, to_save = False, to_show = False, fig_prefix = ""):
+        self.to_save = to_save
+        self.to_show = to_show
+        self.fig_prefix = "figures/"+fig_prefix
+        self.rank = 0
+
+        # self.warm_start = False
+
+    @abstractmethod
+    def estimate_prior(self,f, mu, cov):
+        pass
+
+    @abstractmethod
+    def denoise(self, f, mu, cov):
+        pass 
+
+    @abstractmethod
+    def ddenoise(self, f, mu, cov):
+        pass 
+    
+    @abstractmethod
+    def get_margin_pdf(self, mu, cov, dim, x):
+        pass 
+
+    @abstractmethod
+    def check_prior(self, figname):
+        pass
+
+    def fit(self, f, mu, cov, **kwargs):
+        self.estimate_prior(f,mu,cov)
+        figname = kwargs.get("figname", "")
+        if (self.to_show or self.to_save):
+            self.check_margin(f,mu,cov,figname)
+            # self.check_prior(figname)
+
+    def check_margin(self, fs, mu, cov, figname):
+        # calm down, think waht is the dimension of s
+        if self.rank == 1:
+            fig, ax = plt.subplots(nrows=self.rank, ncols=1, figsize=(7, 3))
+            axes = [ax]
+
+        if self.rank > 1:
+            fig, axes = plt.subplots(ncols=1, nrows=self.rank+1, figsize = (7, 3*self.rank+2), \
+                gridspec_kw={'height_ratios': [3]*self.rank +[2] }, constrained_layout=True)
+            # last row shows M and Sigma
+            ax = axes[-1]
+            ax.axis("off")
+            writeMat(ax, mu, "M", vCenter = 0.25)
+            writeMat(ax, cov, r"$\Sigma$", vCenter = 0.75)
+
+        
+        for dim in range(self.rank):
+            self.plot_each_margin(axes[dim], fs[:, dim], dim, mu, cov)
+            axes[dim].set_title("PC %i, mu=%.2f, cov=%.2f" % \
+                                (dim + 1, mu[dim, dim], cov[dim, dim]))
+        if self.to_show:
+            plt.show()
+        if self.to_save:
+            fig.savefig(self.fig_prefix +figname)
+        plt.close()
+
+    def plot_each_margin(self, ax, f, dim, mu, cov):
+        # span the grid to be plotted
+        xmin = np.quantile(f, 0.05, axis=0)
+        xmax = np.quantile(f, 0.95, axis=0)
+        xgrid = np.linspace(xmin - abs(xmin) / 3, xmax + abs(xmax) / 3, num=100)
+        # evaluate marginal pdf
+        pdf = [self.get_margin_pdf(x, mu, cov, dim) for x in xgrid]
+        ax.hist(f, bins=40, alpha=0.5, density=True, color="skyblue", label="empirical dist")
+        ax.plot(xgrid, pdf, color="grey", linestyle="dashed", label="theoretical density")
+        ax.legend()
+
+class NonparEBActive(_BaseEmpiricalBayesActive):
+    
+    def __init__(self, optimizer = "EM", ftol = 1e-6, nsupp_ratio = 1, em_iter = 10, maxiter = 100, to_save = False, to_show = False, fig_prefix = "nonpareb", **kwargs):
+        _BaseEmpiricalBayesActive.__init__(self, to_save, to_show, fig_prefix)
+        # check if parameters are valid
+        if optimizer in ["EM", "Mosek"]:
+            self.optimizer = optimizer
+        else:
+            raise ValueError("Supported Optimizers are EM or Mosek.")
+        self.nsample = None
+        self.nsupp = None
+        self.em_iter = em_iter
+        self.ftol = ftol
+        self.maxiter = maxiter
+        self.nsupp_ratio = nsupp_ratio
+        self.pi = None
+        self.Z = None
+
+    def _check_init(self, f, mu, cov):
+        self.rank = len(mu)
+        self.nsample = len(f)
+        self.nsupp = int(self.nsupp_ratio * self.nsample)
+        self.pi = np.full((self.nsupp,),1/self.nsupp)
+        if self.nsupp_ratio == 1:
+            self.Z = f.dot(np.linalg.pinv(mu).T)
+        else:
+            self.Z = f[np.random.choice(f.shape[0], self.nsupp, replace=False), :].dot(np.linalg.pinv(mu).T)
+
+    def check_prior(self, figname):
+        # can only be used when two dimension
+        if self.rank == 2:
+            fig, ax = plt.subplots(nrows = 1, ncols = 1, figsize = (7, 5))
+            ax.scatter(self.Z[:,0], self.Z[:,1], s = self.pi*len(self.pi),marker = ".")
+            ax.set_title("check prior, {}".format(figname))
+            if self.to_show:
+                plt.show()
+            if self.to_save:
+                fig.savefig(self.fig_prefix + "_prior" +figname)
+            plt.close()         
+
+    def estimate_prior(self,f, mu, cov):
+        # check initialization  
+        self._check_init(f,mu,cov)
+        covInv = np.linalg.inv(cov)
+        if self.optimizer == "EM":
+            self.pi = _npmle_em_hd(f, self.Z, mu, covInv, self.em_iter, self.nsample, self.nsupp, self.rank)
+        if self.optimizer == "Mosek":
+            self.pi = _mosek_npmle(f, self.Z, mu, covInv, self.ftol)
+
+    def get_margin_pdf(self, x, mu, cov, dim):
+        loc = self.Z.dot(mu.T)[:, dim]
+        # loc = np.array([mu.dot(z) for z in self.Z])[:, dim]
+        scalesq = cov[dim, dim]
+        return np.sum(self.pi / np.sqrt(2 * np.pi * scalesq) * np.exp(-(x - loc) ** 2 / (2 * scalesq)))
+
+    def denoise(self, f, mu, cov):
+        covInv = np.linalg.inv(cov)
+        P = get_P(f,self.Z, mu, covInv, self.pi)
+        return P @ self.Z 
+
+    def ddenoise(self, f, mu, cov):
+        covInv = np.linalg.inv(cov)
+        P = get_P(f, self.Z, mu, covInv, self.pi)
+        ZouterMZ = np.einsum("ijk, kl -> ijl" ,matrix_outer(self.Z, self.Z.dot(mu.T)), covInv) 
+        E1 = np.einsum("ij, jkl -> ikl", P, ZouterMZ)
+        E2a = P @ self.Z # shape (I * rank)
+        E2 = np.einsum("ijk, kl -> ijl" ,matrix_outer(E2a, E2a.dot(mu.T)), covInv)  # shape (I * rank)
+
+        return E1 - E2
+
+class NonparEBChecker(NonparEBActive):
+    def __init__(self, truePriorLoc, truePriorWeight, optimizer = "EM", ftol = 1e-6, nsupp_ratio = 1, em_iter = 10, maxiter = 100, to_save = False, to_show = False, fig_prefix = "nonparebck", **kwargs):
+        NonparEBActive.__init__(self, optimizer, ftol, nsupp_ratio, em_iter, maxiter, to_save, to_show, fig_prefix, **kwargs)
+        self.trueZ = truePriorLoc
+        self.truePi = truePriorWeight 
+
+    def get_margin_pdf_from_true_prior(self, x, mu, cov, dim):
+        loc = self.trueZ.dot(mu.T)[:, dim]
+        scalesq = cov[dim, dim]
+        return np.sum(self.truePi / np.sqrt(2 * np.pi * scalesq) * np.exp(-(x - loc) ** 2 / (2 * scalesq)))
+
+    def plot_each_margin(self, ax, f, dim, mu, cov):
+        xmin = np.quantile(f, 0.05, axis=0)
+        xmax = np.quantile(f, 0.95, axis=0)
+        xgrid = np.linspace(xmin - abs(xmin) / 3, xmax + abs(xmax) / 3, num=100)
+        # evaluate marginal pdf
+        pdf = [self.get_margin_pdf(x, mu, cov, dim) for x in xgrid]
+        print("why is this not correct")
+        print(self.trueZ.dot(mu.T)[:, dim])
+        print(self.truePi)
+        truePdf = [self.get_margin_pdf_from_true_prior(x, mu, cov, dim) for x in xgrid]
+        ax.hist(f, bins=40, alpha=0.5, density=True, color="skyblue", label="empirical dist")
+        ax.plot(xgrid, pdf, color="grey", linestyle="dashed", label="theoretical density")
+        ax.plot(xgrid, truePdf, color="red", linestyle="dashed", label="reference density")
+        ax.legend()
+            
 
 
 class _BaseEmpiricalBayes(ABC):
@@ -170,7 +346,6 @@ class NonparEBHD(_BaseEmpiricalBayes):
         E2 = np.einsum("ijk, kl -> ijl", matrix_outer(E2a, E2a.dot(mu.T)), covInv)  # shape (I * rank)
         return E1 - E2
 
-
 class PointNormalEB(_BaseEmpiricalBayes):
 
     def __init__(self, em_iter = 1000, to_save = True, to_show = False, fig_prefix = "pointnormaleb"):
@@ -263,6 +438,20 @@ class PointNormalEB(_BaseEmpiricalBayes):
     def _eval_sigma_x_tilde(mu_y, sigma_x, sigma_y):
         return sigma_x * sigma_y * np.sqrt(1 / (mu_y**2 * sigma_x**2 + sigma_y**2))
 
+@jit(nopython=True)
+def _npmle_em_hd(f, Z, mu, covInv, em_iter, nsample, nsupp, ndim):
+    # pi = np.full((nsupp,), 1/nsupp, dtype= float)
+    pi = np.array([1/nsupp] * nsupp)
+    
+    W = get_my_W(f, Z, mu, covInv)
+
+    for _ in range(em_iter):
+        denom = my_dot(W, pi) # denom[i] = \sum_j pi[j]*W[i,j]
+
+        for j in range(nsupp):
+            pi[j] = pi[j]*np.mean(W[:,j]/denom)
+        
+    return pi
 
 def vf_nonpar(y, mu, sigma, prior_pars):
     """
@@ -338,6 +527,18 @@ def get_W(f, z, mu, covInv):
         W = get_W_multivar(f, z, mu, covInv)
     else:
         W = get_W_univar(f, z, mu, covInv)
+    return W
+
+@jit(nopython = True)
+def get_my_W(f, z, mu, covInv):
+    nsample = f.shape[0]
+    nsupp = z.shape[0]
+    W = np.empty(shape = (nsample, nsupp),)
+    for i in range(nsample):
+        for j in range(nsupp):
+            vec = f[i] - my_dot(mu, z[j])
+            res = np.exp(-np.sum(my_dot(covInv, vec) * vec)/2)
+            W[i,j] = res
     return W
 
 def get_W_univar(f, z, mu, covInv):
@@ -455,3 +656,35 @@ def _mosek_npmle(f, Z, mu, covInv, tol):
     pi = pi / np.sum(pi)
 
     return pi
+
+def genMatLoc(mat, hCenter, vCenter):
+    # vertical location is col
+    # horizontal location is row
+    nrow = mat.shape[0]
+    ncol = mat.shape[1]
+    hLoc = np.array([0.1]*nrow) * np.arange(nrow) 
+    hLoc = hLoc - hLoc.mean() + hCenter
+    vLoc = np.array([0.1]*ncol) * np.arange(ncol) 
+    vLoc = vLoc - vLoc.mean() + vCenter    
+    return 1- hLoc, vLoc
+
+def writeMat(ax, mat, symbol, hCenter = 0.5, vCenter=0.5):
+    hL, vL= genMatLoc(mat, hCenter, vCenter)
+    # write symbol
+    ax.text(min(vL) - 0.05, hCenter, symbol + " =", horizontalalignment = "right")
+    # plot the bracket 
+    # left bracket
+    # xloc = min(vL) - 0.035
+    # ax.axvline(x = xloc, ymin = min(hL), ymax = max(hL), c="black", lw = 1)
+    # ax.axhline(y = min(hL), xmin = xloc, xmax = xloc + 0.01, c="black", lw = 1)
+    # ax.axhline(y = max(hL), xmin = xloc, xmax = xloc + 0.01, c="black", lw = 1)
+    # # right bracket 
+    # xloc = max(vL) + 0.05
+    # ax.axvline(x = xloc, ymin = min(hL), ymax = max(hL), c="black", lw = 1)
+    # ax.axhline(y = min(hL), xmin = xloc, xmax = xloc - 0.01, c="black", lw = 1)
+    # ax.axhline(y = max(hL), xmin = xloc, xmax = xloc - 0.01, c="black", lw = 1)
+    # write the matrix
+    for i in range(mat.shape[0]):
+        for j in range(mat.shape[1]):
+            ax.text(vL[j], hL[i], "%.2f" % mat[i,j], verticalalignment = "center")
+

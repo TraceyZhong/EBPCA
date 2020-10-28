@@ -20,12 +20,16 @@ Typical usage example:
 
 '''
 import os
+from collections import namedtuple
 
 import numpy as np
 import scipy.stats
 from scipy.optimize import fsolve
 import matplotlib.pyplot as plt
 from sklearn import preprocessing 
+
+PcaPack = namedtuple("PCAPack", ["X", "U", "V", "mu", "K", \
+    "n_samples", "n_features", "signals", "sample_aligns", "feature_aligns"])
 
 ## --- standarize data --- ##
 
@@ -62,6 +66,49 @@ def transform(X, data_label = None):
     plot_pc(X, data_label)
 
     return {"data": X, "mu": s, "n_samples": X.shape[0], "n_features": X.shape[1]}
+
+## --- get pca pack and check goe spectra --- ##
+
+def get_pca(X, K = 0):
+    if K == 0:
+        raise(ValueError("# PC can not be zero."))
+    n_samples, n_features = X.shape
+    U, Lambdas, Vh = np.linalg.svd(X, full_matrices = False)
+    U = U[:,:K]
+    Lambda = Lambdas[:K]
+    Vh = Vh[:K,:]
+    sol = signal_solver_gaussian(Lambda, None, n_samples, n_features)
+    pca_pack = PcaPack(X = X, U = U, V = Vh.transpose(), mu = Lambdas[K:], \
+        n_samples = n_samples, n_features = n_features, \
+        K = K, signals = sol["signal"], sample_aligns= sol["sample_align"], \
+            feature_aligns= sol["feature_align"])
+    return pca_pack
+
+def check_residual_spectrum(pca_pack, to_show = False, to_save = False):
+    '''we require the noise variance to be 1/n_features
+    mu must be sorted in descending order
+    '''
+    mu = pca_pack.mu
+    n_samples = pca_pack.n_samples
+    n_features = pca_pack.n_features
+
+    shorter_side = min(n_samples, n_features)
+    mu = np.pad(mu, (0,n_samples - len(mu)))[:n_samples]
+    
+    fig, ax = plt.subplots()
+    ax.hist(mu[:shorter_side], density = True, bins = 50, label = "sample singular values")
+    x = np.linspace(0.01, mu.max(), num = 50)
+    if n_samples > n_features:
+        scaler = n_samples / n_features
+    else:
+        scaler = 1
+    ax.plot(x, scaler*np.array(sqrtMPlaw(x, n_samples, n_features)), label = "MP law prediction of spectral distribution")
+    ax.legend()
+    ax.set_title("Residual Spectrum")
+    if to_save:
+        fig.savefig("./figures/residual_check.pdf")
+    if to_show:
+        plt.show()
 
 ## --- solve signal --- ##
 
@@ -111,7 +158,7 @@ def signal_solver_gaussian(singval, mu = None, n_samples = 0, n_features = 0, **
     sample_align = np.sqrt((theta**4 - aspect_ratio)/ (theta**2 + aspect_ratio)) / theta
     feature_align = np.sqrt((theta**4 - aspect_ratio)/ (theta**2 + 1)) / theta
 
-    return {"alpha": s, "sample_align":  sample_align, "feature_align": feature_align}
+    return {"signal": s, "sample_align":  sample_align, "feature_align": feature_align}
 
 def sqrtmplaw(x, n_samples = 0, n_features = 0):
     '''we require the noise variance to be 1/n_features
@@ -126,33 +173,6 @@ def sqrtmplaw(x, n_samples = 0, n_features = 0):
 
 def sqrtMPlaw(arr, n, p):
     return [sqrtmplaw(x, n, p) for x in arr]
-
-
-def check_gaussian_spectra(mu, n_samples, n_features, to_show = False, to_save = True):
-    '''we require the noise variance to be 1/n_features
-    mu must be sorted in descending order
-    '''
-    shorter_side = min(n_samples, n_features)
-    mu = np.pad(mu, (0,n_samples - len(mu)))[:n_samples]
-    
-    fig, ax = plt.subplots()
-    ax.hist(mu[:shorter_side], density = True, bins = 50, label = "sample singular values")
-    x = np.linspace(0.01, mu.max(), num = 50)
-    if n_samples > n_features:
-        scaler = n_samples / n_features
-    else:
-        scaler = 1
-    ax.plot(x, scaler*np.array(sqrtMPlaw(x, n_samples, n_features)), label = "MP law prediction of spectral distribution")
-    ax.legend()
-    ax.set_title("noise spectra")
-    if to_save:
-        fig.savefig("./figures/noise_guassian_check.pdf")
-    if to_show:
-        plt.show()
-
-
-    
-
 
 def signal_solver(singval, mu, n_samples, n_features, rank = 0, supp_max = None, tol = 0.01):
     '''solve for singal values and estimate alignments
