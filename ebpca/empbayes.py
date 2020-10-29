@@ -141,6 +141,7 @@ class NonparEBActive(_BaseEmpiricalBayesActive):
         # check initialization  
         self._check_init(f,mu,cov)
         covInv = np.linalg.inv(cov)
+        print("Start Estimating the prior")
         if self.optimizer == "EM":
             self.pi = _npmle_em_hd(f, self.Z, mu, covInv, self.em_iter, self.nsample, self.nsupp, self.rank)
         if self.optimizer == "Mosek":
@@ -175,7 +176,6 @@ class NonparEBChecker(NonparEBActive):
         self.redirectd = False
 
     def get_margin_pdf_from_true_prior(self, x, mu, cov, dim):
-        # re-direct Z
         loc = self.trueZ.dot(mu.T)[:, dim]
         scalesq = cov[dim, dim]
         return np.sum(self.truePi / np.sqrt(2 * np.pi * scalesq) * np.exp(-(x - loc) ** 2 / (2 * scalesq)))
@@ -195,7 +195,15 @@ class NonparEBChecker(NonparEBActive):
         ax.plot(xgrid, truePdf, color="red", linestyle="dashed", label="reference density")
         ax.legend()
             
-
+class NonparBayes(NonparEBActive):
+    def __init__(self, truePriorLoc, truePriorWeight, optimizer = "EM", ftol = 1e-6, nsupp_ratio = 1, em_iter = 10, maxiter = 100, to_save = False, to_show = False, fig_prefix = "nonparebck", **kwargs):
+        NonparEBActive.__init__(self, optimizer, ftol, nsupp_ratio, em_iter, maxiter, to_save, to_show, fig_prefix, **kwargs)
+        self.Z = truePriorLoc
+        self.pi = truePriorWeight
+        self.rank = truePriorLoc.shape[1]
+    
+    def estimate_prior(self, f,mu,cov):
+        pass
 
 class _BaseEmpiricalBayes(ABC):
     '''Use empirical Bayes to estimate the prior and denoise observations.

@@ -25,6 +25,7 @@ def normalize_obs(Y, K = 0):
     # print("Y shape {}, U {}, Lambda {}, Vh {}".format(Y.shape, U.shape, Lambda.shape, Vh.shape))
     R = Y - U * Lambda @ Vh
     tauSq = np.sum(R**2) / n_samples
+    print("estimated tau={}".format(np.sqrt(tauSq)))
     return Y / np.sqrt(tauSq)
 
 def normalize_pc(U):

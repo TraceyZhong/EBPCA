@@ -11,7 +11,9 @@ from ebpca.pca import get_pca
 def normalize_pc(U):
     return U/np.sqrt((U**2).sum(axis = 0)) * np.sqrt(len(U))
 
-def redirect_pc(U, Ustar):
+def redirect_pc(pc, reference):
+    U = pc 
+    Ustar  = reference
     M = U.T @ Ustar
     s = np.ones(len(M))
     for i in range(len(M)):

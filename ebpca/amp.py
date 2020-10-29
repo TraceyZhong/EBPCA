@@ -30,13 +30,15 @@ def ebamp_gaussian_active(pcapack, iters = 5, udenoiser = NonparEB(), \
 
     # normalize u and v
     f = u/ np.sqrt((u**2).sum(axis = 0)) * np.sqrt(n)
+    print("norm f {}".format(np.sum(f**2)))
     g = v/np.sqrt((v**2).sum(axis = 0)) * np.sqrt(d)
 
     # initialize U,V TODO new axis
     U = f[:,:, np.newaxis]
     V = g[:,:,np.newaxis]
-
+    # k4 = np.sqrt((l**2*alpha + 1)/(l**2 + 1)) / (l*np.sqrt(alpha)) # 
     u = f * 1/(signals * np.sqrt(gamma)) * np.sqrt((signals**2*gamma + 1)/(signals**2 + 1))
+    print("norm u_init {}".format(np.sum(u**2)))
 
     # initial states TODO
     mu = np.diag(v_init_aligns)
@@ -48,6 +50,7 @@ def ebamp_gaussian_active(pcapack, iters = 5, udenoiser = NonparEB(), \
         # denoise right singular vector gt to get vt
         # print("before denoise, g shape {}".format(g.shape))
         vdenoiser.fit(g, mu, sigma_sq, figname='_u_iter%02d.png' % (t))
+        print("mu={}, simg_sq={}".format(mu, sigma_sq))
         # print("finish fit")
         v = vdenoiser.denoise(g, mu, sigma_sq)
         # print("v shape {}".format(v.shape))
@@ -58,10 +61,26 @@ def ebamp_gaussian_active(pcapack, iters = 5, udenoiser = NonparEB(), \
         # print(b)
         # print("finish ddenoise")
         # update left singular vector ft using vt
-        f = X.dot(v) - u.dot(b)
+        f = X.dot(v) - u.dot(b.T)
+        print("X shape {}".format(X.shape))
+        print("v shape {}".format(v.shape))
+        print("Xv {}".format(np.sum((X.dot(v))**2)))
+        print("ub {}".format(np.sum((u.dot(b.T))**2)))
+        print("X norm {}".format(np.sum(X**2)))
+        print("f norm {}".format(np.sum(f**2)))
+        print("v norm {}".format(np.sum(v**2)))
+        print("u norm {}".format(np.sum(u**2)))
+        print("b norm {}".format(np.sum(b**2)))
         sigma_bar_sq = v.T @ v / n # non_rotation version
+        # tmp
+        mu_bar = scipy.linalg.sqrtm(np.mean(f**2) - sigma_bar_sq)
+        print("fz mubar {}".format(mu_bar))
         mu_bar = sigma_bar_sq * signals # non_rotation version    
+        print("mubar {}".format(mu_bar))
         # denoise left singular vector ft to get ut
+        print("step {}".format(t))
+        print("mubar: {}".format(mu_bar))
+        print("sigmabarsq: {}".format(sigma_bar_sq))
         if not mutev:
             # print("before denoise, f shape {}".format(f.shape))
             udenoiser.fit(f, mu_bar, sigma_bar_sq, figname='_v_iter%02d.png' % (t))
@@ -77,15 +96,20 @@ def ebamp_gaussian_active(pcapack, iters = 5, udenoiser = NonparEB(), \
             mu = sigma_sq * signals # non_rotation version
         if mutev:
             # in this case, u is f
-            u = f
+            # u = f
+            mu_bar_inv = np.linalg.pinv(mu_bar)
+            u = f.dot(mu_bar_inv.T)
             # u fit pass
             # u denoise pass 
             U = np.dstack((U, np.reshape(u,(-1,k,1))))
             # u ddenoise
-            b_bar = np.identity(k)
+            # b_bar = np.identity(k) 
+            b_bar = mu_bar_inv
+            mu = np.diag(signals)
+            sigma_sq = np.identity(k) + mu_bar_inv @ sigma_bar_sq @ mu_bar_inv.T
         # update left singular vector gt using ut
         # print("X shape={}, u shape={}, v shape = {} b_bar shape ={}".format(X.shape, u.shape, v.shape, b_bar.shape))
-        g = np.transpose(X).dot(u) - v.dot(b_bar)
+        g = np.transpose(X).dot(u) - v.dot(b_bar.T)
     # swap u,v
     return V, U
 
