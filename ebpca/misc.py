@@ -1,3 +1,25 @@
+'''
+==========
+EBMF method
+==========
+This module includes an implementation of the method in https://arxiv.org/abs/1802.06931 ,
+which estimates and denoises PCs with a Variational Bayes method.
+We include it here to compare with EB-PCA method.
+
+Input:
+    pcapack: output from pca.get_pca
+
+Remarks:
+    1. This implementation support nonparametric priors besides parametric priors.
+    2. A test showing that this implementation is the same as flashr R package is in #???
+
+Reference:
+    https://arxiv.org/abs/1802.06931
+    https://github.com/stephenslab/flashr
+
+Typical usage example:
+'''
+
 import numpy as np
 from ebpca.empbayes import PointNormalEB, _gaussian_pdf
 
@@ -5,7 +27,10 @@ from ebpca.empbayes import PointNormalEB, _gaussian_pdf
 # 1. Make it compatible with nonparametric denoiser.
 #    In particular, pay attention to the assumption of prior 2nd moment = 1
 # 2. Implement objective function based convergence
-def ebmf(X, u, v, iters = 5, par_update=True, ldenoiser = PointNormalEB(), fdenoiser = PointNormalEB(), tol = 1e-2):
+def ebmf(pcapack, iters = 5, par_update=True, ldenoiser = PointNormalEB(), fdenoiser = PointNormalEB(), tol = 1e-2):
+
+    X = pcapack.X
+    u, v = pcapack.U, pcapack.V
     # get dimension
     (n, d) = X.shape
 
