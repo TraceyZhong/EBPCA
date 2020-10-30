@@ -20,6 +20,7 @@ import matplotlib.pyplot as plt
 from numba import jit
 import mosek
 import mosek.fusion as fusion
+from scipy import optimize
 
 
 
@@ -367,30 +368,22 @@ class PointNormalEB(_BaseEmpiricalBayes):
         self.tol = 1e-6
 
     def estimate_prior(self, f, mu, sigma):
-        sigma_y = sigma
-        mu_y = mu
-        itr = 0
-        stagnant = False
-        while (itr <= self.em_iter) and not stagnant:
-            p_y_point = (1-self.pi) * _gaussian_pdf(f, 0, sigma_y)
-            sigma_y_tilde = np.sqrt(self.sigma_x**2 * mu_y**2 + sigma_y**2)
-            p_y_normal = self.pi * _gaussian_pdf(f, 0, sigma_y_tilde)
-            # M setp
-            w_tilde = p_y_normal / (p_y_normal + p_y_point)
-            new_pi = np.mean(w_tilde)
-            sigma_x_tmp = np.inner(w_tilde, f**2) / np.sum(w_tilde)
-            if sigma_x_tmp > sigma_y**2:
-                new_sigma_x = np.sqrt(sigma_x_tmp - sigma_y**2) / mu_y
-            else:
-                new_sigma_x = 0
-                # ('Squared sigma_x is estimated to be 0')
-            itr += 1
-            if (abs(new_pi - self.pi)/ max(new_pi, self.pi) < self.tol) and (abs(new_sigma_x - self.sigma_x)/ max(new_sigma_x, self.sigma_x)< self.tol) :
-                # print("stagnant at {}".format(itr))
-                stagnant = True
-            self.pi = new_pi
-            self.sigma_x = new_sigma_x
+        neg_log_lik = lambda pars: \
+            -np.sum([np.logaddexp(np.log(1 - pars[0]) + _log_gaussian_pdf(yi, 0, sigma),
+                                  np.log(pars[0]) + _log_gaussian_pdf(yi, 0, np.sqrt(sigma ** 2 + mu ** 2 * pars[1] ** 2)))
+                     for yi in f])
+        # constrain
+        bnds = [(1e-6, 1 - 1e-6), (0.001e-6, None)]  # (None, None),
+        # initial parameters
+        init_parameters = np.asarray([0.5, 1])
+        # Minimizing neg_log_lik
+        results = optimize.minimize(neg_log_lik, x0=init_parameters,
+                                    method='L-BFGS-B', bounds=bnds,  # SLSQP
+                                    options={'ftol': 1e-6, 'disp': False, 'maxiter': 100})
+        self.pi, self.sigma_x = results.x
 
+    def get_estimate(self):
+        return self.pi, self.sigma_x
 
     def denoise(self, f, mu, sigma):
         mu_y = mu
@@ -508,6 +501,9 @@ def vdf_nonpar(y, mu, sigma, prior_pars):
 
 def _gaussian_pdf(x, mu, sigma):
     return (1 / np.sqrt(2 * np.pi)) * (1 / sigma) * np.exp(-(x - mu)**2 / (2 * sigma**2))
+
+def _log_gaussian_pdf(x, mu, sigma):
+    return - np.log(sigma) - 0.5 * np.log(2 * np.pi) - (x - mu) ** 2 / (2 * sigma ** 2)
 
 ## --- high dim funcs --- ##
 
