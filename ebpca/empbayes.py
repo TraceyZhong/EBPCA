@@ -23,7 +23,6 @@ import mosek.fusion as fusion
 from scipy import optimize
 
 
-
 class _BaseEmpiricalBayesActive(ABC):
     
     def __init__(self, to_save = False, to_show = False, fig_prefix = ""):
@@ -206,161 +205,10 @@ class NonparBayes(NonparEBActive):
     def estimate_prior(self, f,mu,cov):
         pass
 
-class _BaseEmpiricalBayes(ABC):
-    '''Use empirical Bayes to estimate the prior and denoise observations.
-    
-    Given the prior family of X, mu, cov and Y s.t. Y ~ mu X + sqrt(cov) Z, estimate X.
-    Attributes
-    -----
-    to_plot: 
-    to_save:
-    fig_prefix:
-    Methods
-    -----
-    fit: (data, mu, cov) -> dist parameters
-    denoise(f, prior_par) -> denoised data
-    ddenoise(f, prior_par)-> derivated of the denoising functions evaluated at data 
-    '''
-    def __init__(self, to_save = True, to_show = False, fig_prefix = "figures/", tol = 1e-3):
-        self.to_save = to_save
-        self.to_show = to_show
-        self.fig_prefix = fig_prefix
-        self.tol = tol
-        self.pi = None
-        self.Z = None
-
-    def fit(self, f, mu, cov, **kwargs):
-        figname = kwargs.get("figname", "")
-        self._check_init(f, mu)
-        # if given true prior density,
-        # plot marginal distribution computed with true prior
-        self.Z = kwargs.get("Z_star", None)
-        self.pi = kwargs.get("pi_star", None)
-        if self.Z is not None:
-            # print('plot marginal with true prior')
-            self.check_margin(f, mu, cov, figname + '_true_prior')
-        # initialize denoiser parameters based on observed data
-        self._check_init(f, mu)
-        # estimate prior with NPMLE
-        self.estimate_prior(f, mu, cov)
-        # visualize marginal distribution based on estimated prior
-        self.check_margin(f, mu, cov, figname)
-        # TODO
-        # add check prior
-        # self.check_prior(figname)
-
-    def _check_init(self, f, mu):
-        # check initialization
-        # TODO
-        # check if AMP returns mu as a np.array
-        self.rank = len(f.shape)
-        self.nsample = len(f)
-        self.nsupp = self.nsample
-        self.pi = np.full((self.nsupp,), 1/self.nsupp)
-        if self.rank == 1:
-            self.Z = f / mu
-        else:
-            self.Z = f.dot(np.linalg.pinv(mu).T)
-
-    def estimate_prior(self, f, mu, cov):
-        if self.rank == 1:
-            covInv = 1 / cov
-        else:
-            covInv = np.linalg.inv(cov)
-        start = time.time()
-        self.pi = _mosek_npmle(f, self.Z, mu, covInv, self.tol)
-        end = time.time()
-        # print('mosek elapsed %.2f s' % (end - start))
-        # print('pi est max:{}, min:{}'.format(np.max(self.pi), np.min(self.pi)))
-        return self.pi
-
-    def get_margin_pdf(self, x, mu, cov, dim):
-        if self.rank > 1:
-            loc = np.array([mu.dot(z) for z in self.Z])[:, dim]
-            scalesq = cov[dim, dim]
-        else:
-            loc = self.Z * mu
-            scalesq = cov
-        return np.sum(self.pi / np.sqrt(2 * np.pi * scalesq) * np.exp(-(x - loc) ** 2 / (2 * scalesq)))
-
-    def check_margin(self, f, mu, cov, figname):
-        fig, axes = plt.subplots(nrows=self.rank, ncols=1, figsize=(7, self.rank * 3))
-        plt.subplots_adjust(hspace = 0.25)
-        for dim in range(self.rank):
-            if self.rank == 1:
-                self.plot_margin_uni(axes, f, dim, mu, cov)
-                axes.set_title("mu=%.2f, cov=%.2f" % (mu, cov))
-            else:
-                self.plot_margin_uni(axes[dim], f[:, dim], dim, mu, cov)
-                axes[dim].set_title("PC %i, mu=%.2f, cov=%.2f" % \
-                                    (dim, mu[dim, dim], cov[dim, dim]))
-        # plt.suptitle('marginal distribution')
-        if self.to_show:
-            plt.show()
-        if self.to_save:
-            fig.savefig(self.fig_prefix + figname + 'marginal.png')
-        plt.close()
-
-    def plot_margin_uni(self, ax, f, dim, mu, cov):
-        # span the grid to be plotted
-        xmin = np.quantile(f, 0.05, axis=0)
-        xmax = np.quantile(f, 0.95, axis=0)
-        xgrid = np.linspace(xmin - abs(xmin) / 3, xmax + abs(xmax) / 3, num=100)
-        # evaluate marginal pdf
-        pdf = [self.get_margin_pdf(x, mu, cov, dim) for x in xgrid]
-        ax.hist(f, bins=40, alpha=0.5, density=True, color="skyblue", label="empirical dist")
-        ax.plot(xgrid, pdf, color="grey", linestyle="dashed", label="theoretical density")
-        ax.legend()
-
-    @abstractmethod
-    def denoise(self, f, mu, cov):
-        pass
-
-    @abstractmethod
-    def ddenoise(self, f, mu, cov):
-        pass
-
-class NonparEB(_BaseEmpiricalBayes):
-    '''setting prior support points and estimating prior weights using NPMLE in mosek
-    '''
-    # TODO
-    # change all sigma to cov
-    def __init__(self, to_save = True, to_show = False, fig_prefix = "univar", tol = 1e-3):
-        _BaseEmpiricalBayes.__init__(self, to_save, to_show, fig_prefix, tol)
-
-    def denoise(self, f, mu, cov):
-        if ((self.Z is None) or (self.pi is None)):
-            raise ValueError("denoise before fit is done.")
-        return vf_nonpar(f, mu, np.sqrt(cov), (self.pi, self.Z))
-
-    def ddenoise(self, f, mu, cov):
-        if ((self.Z is None) or (self.pi is None)):
-            raise ValueError("denoise before fit is done.")
-        return vdf_nonpar(f, mu, np.sqrt(cov), (self.pi, self.Z))
-
-class NonparEBHD(_BaseEmpiricalBayes):
-
-    def __init__(self, to_save=True, to_show=False, fig_prefix="multivar", tol=1e-3, **kwargs):
-        _BaseEmpiricalBayes.__init__(self, to_save, to_show, fig_prefix, tol)
-
-    def denoise(self, f, mu, cov):
-        covInv = np.linalg.inv(cov)
-        P = get_P(f, self.Z, mu, covInv, self.pi)
-        return P @ self.Z
-
-    def ddenoise(self, f, mu, cov):
-        covInv = np.linalg.inv(cov)
-        P = get_P(f, self.Z, mu, covInv, self.pi)
-        ZouterMZ = np.einsum("ijk, kl -> ijl", matrix_outer(self.Z, self.Z.dot(mu.T)), covInv)
-        E1 = np.einsum("ij, jkl -> ikl", P, ZouterMZ)
-        E2a = P @ self.Z  # shape (I * rank)
-        E2 = np.einsum("ijk, kl -> ijl", matrix_outer(E2a, E2a.dot(mu.T)), covInv)  # shape (I * rank)
-        return E1 - E2
-
 class PointNormalEB(_BaseEmpiricalBayesActive):
 
     def __init__(self, to_save = True, to_show = False, fig_prefix = "pointnormaleb"):
-        _BaseEmpiricalBayes.__init__(self, to_save, to_show, fig_prefix)
+        _BaseEmpiricalBayesActive.__init__(self, to_save, to_show, fig_prefix)
         self.pi = 0.5
         self.mu_x = 0
         self.sigma_x = 1
@@ -453,51 +301,8 @@ def _npmle_em_hd(f, Z, mu, covInv, em_iter, nsample, nsupp, ndim):
 
         for j in range(nsupp):
             pi[j] = pi[j]*np.mean(W[:,j]/denom)
-        
+
     return pi
-
-def vf_nonpar(y, mu, sigma, prior_pars):
-    """
-    vectorized denoiser f under the discrete prior (x,pi)
-    Computes the Bayes estimator (posterior mean) of y0 according to the model below
-    input:
-        y: a (n,) np ndarray; y|x_i \sim N(\gamma y0, \gamma)
-        x: {x_1, \dots, x_n_np}, the support set for the nonparametric prior
-        pi: probabilites for each point in the support set
-        mu,sigma: parameters in y_obs|U \sim N(mu U, sigma**2) (similar for V)
-    return:
-        denoised y, as an updated estimate of y0
-        an (n,) np ndarray
-    """
-    pi, x = prior_pars
-    def f(y, x, pi,  mu, sigma):
-        phi = np.exp(-(y - mu * x)**2 / (2*sigma**2))
-        return np.inner(x*pi, phi) / np.inner(pi, phi)
-
-    return np.asarray([f(yi, x, pi, mu, sigma) for yi in y])
-
-def vdf_nonpar(y, mu, sigma, prior_pars):
-    '''
-    derivative of the denoiser under the discrete prior (x,pi)
-    Computes the derivative of the Bayes estimator (posterior mean) of y0 according to the model in vf()
-    input:
-        y: a (n,) np ndarray; y|x_i \sim N(\gamma y0, \gamma)
-        x: {x_1, \dots, x_n_np}, the support set for the nonparametric prior
-        pi: probabilites for each point in the support set
-        mu,sigma: parameters in y_obs|U \sim N(mu U, sigma**2) (similar for V)
-    return:
-        the derivate of posterior mean
-        an (n,) np ndarray
-    '''
-    pi, x = prior_pars
-    def df(y, x, pi, mu, sigma):
-        phi = np.exp(-(y - mu * x)**2 / (2*sigma**2))
-        E1 = np.inner(x*pi, phi) / np.inner(pi, phi)
-        E2 = mu*np.inner(x**2*pi, phi)/(sigma**2) / np.inner(pi, phi)
-        return (E2 - E1**2*mu/(sigma**2))
-    
-    return np.array([df(yi, x, pi, mu, sigma) for yi in y])
-
 
 def _gaussian_pdf(x, mu, sigma):
     return (1 / np.sqrt(2 * np.pi)) * (1 / sigma) * np.exp(-(x - mu)**2 / (2 * sigma**2))
@@ -515,15 +320,6 @@ def my_dot(mat, vec):
         for j in range(ncol):
             res[i] += mat[i, j] * vec[j]
     return res
-
-@jit(nopython=True)
-def _npmle_em(W, em_iter, nsupp):
-    pi = np.array([1/nsupp] * nsupp)
-    for _ in range(em_iter):
-        denom = my_dot(W, pi)
-        for j in range(nsupp):
-            pi[j] = pi[j]*np.mean(W[:,j]/denom)
-    return pi
 
 def get_W(f, z, mu, covInv):
     '''
@@ -584,40 +380,6 @@ def get_P(f,z,mu,covInv, pi):
     denom = W.dot(pi) # denom[i] = \sum_j pi[j] * W[i,j]
     num = W * pi # W*pi[i,j] = pi[j] * W[i,j]
     return num / denom[:, np.newaxis]
-
-
-# W*pi[i,j] = pi[j] * W[i,j] 
-# sum_j pi[j] W[i,j] = np.sum(W*pi, axis = 1) 
-@jit(nopython = True)
-def negloglik(pi, f, z, mu, covInv):
-    W = get_W(f, z, mu, covInv)
-    return -np.sum(np.log( np.sum(W * pi, axis = 1)))
-
-@jit(nopython = True)
-def loglik(pi, f, z, mu, covInv):
-    W = get_W(f, z, mu, covInv)
-    return np.sum(np.log( np.sum(W * pi, axis = 1)))
-
-# @jit(nopython = True)
-def dnegloglik(pi, f, z, mu, covInv):
-    W = get_W(f, z, mu, covInv)
-    res = np.sum( W / np.sum(W*pi, axis = 1)[:,np.newaxis], axis = 0)
-    if np.isnan(res).any():
-        raise ValueError("dloglik has nan value")
-    return -res
-    # -np.maximum(np.minimum(res, MAX_FLOAT), MIN_FLOAT)
-
-
-# @jit(nopython = True)
-def ddnegloglik(pi, f, z, mu, covInv):
-    W = get_W(f, z, mu, covInv)
-    normedW = W / np.sum(W*pi, axis = 1)[:,np.newaxis]
-    # return my_m_dot(np.transpose(normedW), normedW)
-    res = normedW.T @ normedW
-    if np.isnan(res).any():
-        raise ValueError("dloglik has nan value")
-    return res
-    # np.maximum(np.minimum(res, MAX_FLOAT), MIN_FLOAT)
 
 matrix_outer = lambda A, B: np.einsum("bi,bo->bio", A, B)
 
