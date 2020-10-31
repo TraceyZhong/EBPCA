@@ -8,7 +8,7 @@ finally we are here, think.
 
 import numpy as np
 import scipy
-from ebpca.empbayes import NonparEB, NonparEBHD
+from ebpca.empbayes import NonparEB
 from ebpca.pca import PcaPack
 
 # def ebamp_gaussian_hd_no_rotation(X, u, v, init_aligns, signals, iters = 5, rank = 2, udenoiser = NonparEBHD(), vdenoiser = NonparEBHD(), mutev = False ):
@@ -191,21 +191,21 @@ def ebamp_gaussian(X, u, v, init_pars, iters = 5,
 
     # Normalize u, v and initialize U V
     # n is the direction of features, must be the inverse scale of the variance.
-    X = np.transpose(X) # shape becomes A = n*d 
+    X = np.transpose(X) # shape becomes A = n*d
     (n,d) = X.shape
     alpha = d/n
 
     # swap u and v
     tmp = u
-    u = v 
-    v = tmp  
+    u = v
+    v = tmp
     v_init_align = init_align
 
     U = np.reshape(u,(-1,1))
     V = np.reshape(v,(-1,1))
 
     u = 1/(signal * alpha) * np.sqrt((signal**2*alpha + 1)/(signal**2 + 1)) * u / np.linalg.norm(u) * np.sqrt(n)
-    g = v/np.linalg.norm(v) * np.sqrt(d) 
+    g = v/np.linalg.norm(v) * np.sqrt(d)
 
     mu = v_init_align
     sigma_sq = 1 - mu**2
@@ -238,7 +238,7 @@ def ebamp_gaussian(X, u, v, init_pars, iters = 5,
     return V,U
 
 def ebamp_gaussian_hd(X, u, v, init_pars, iters = 5, rank = 2,
-                      udenoiser = NonparEBHD(), vdenoiser = NonparEBHD(),
+                      udenoiser = NonparEB(), vdenoiser = NonparEB(),
                       figprefix='', mutev = False):
     '''HD ebamp gaussian
     if u has shape (n, k), set iters
@@ -314,7 +314,7 @@ def ebamp_gaussian_hd(X, u, v, init_pars, iters = 5, rank = 2,
     # swap u,v
     return V, U
 
-def ebamp_gaussian_hd_hd(X, u, v, init_aligns, signals, iters = 5, rank = 2, udenoiser = NonparEBHD(), vdenoiser = NonparEBHD(), mutev = False ):
+def ebamp_gaussian_hd_hd(X, u, v, init_aligns, signals, iters = 5, rank = 2, udenoiser = NonparEB(), vdenoiser = NonparEB(), mutev = False ):
     '''HD ebamp gaussian
     if u has shape (n, k), set iters
     return U has shape (n, k, iters+1) # with the additional init u.

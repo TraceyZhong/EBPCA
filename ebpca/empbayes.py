@@ -391,7 +391,6 @@ def _mosek_npmle(f, Z, mu, covInv, tol):
     A = get_W(f, Z, mu, covInv)
     n, m = A.shape
 
-    # ignorant: use observed points as support points
     # objective function: the primal in Section 4.2,
     # https://www.tandfonline.com/doi/pdf/10.1080/01621459.2013.869224
     M = fusion.Model('NPMLE')
@@ -404,7 +403,7 @@ def _mosek_npmle(f, Z, mu, covInv, tol):
     ones = np.repeat(1.0, n)
     ones_m = np.repeat(1.0, m)
     M.constraint(fusion.Expr.sub(fusion.Expr.dot(ones_m, f), 1), fusion.Domain.equalsTo(0.0))
-    M.constraint(fusion.Expr.sub(fusion.Expr.mul(A, f), g), fusion.Domain.equalsTo(0.0, n))  # , Expr.constTerm(m, n * 1.0)
+    M.constraint(fusion.Expr.sub(fusion.Expr.mul(A, f), g), fusion.Domain.equalsTo(0.0, n))
     M.constraint(fusion.Expr.hstack(g, fusion.Expr.constTerm(n, 1.0), logg), fusion.Domain.inPExpCone())
 
     # M.setLogHandler(sys.stdout)
@@ -416,11 +415,11 @@ def _mosek_npmle(f, Z, mu, covInv, tol):
 
     pi = f.level()
 
-    # normalize the negative values due to numerical issues
     # print('Minimal pi value: {:.2f}'.format(np.min(pi)))
     # print('Sum of estimated pi: {:.2f}'.format(np.sum(pi)))
     # address negative values due to numerical instability
     pi[pi < 0] = 0
+    # normalize the negative values due to numerical issues
     pi = pi / np.sum(pi)
 
     return pi

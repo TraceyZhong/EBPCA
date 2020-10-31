@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.stats import multivariate_normal
 
-from ebpca.empbayes import NonparEBActive as NonparEB 
+from ebpca.empbayes import NonparEB as NonparEB
 from ebpca.empbayes import NonparEBChecker
 from ebpca.amp import ebamp_gaussian_active as ebamp_gaussian
 from ebpca.pca import get_pca
