@@ -357,23 +357,23 @@ class NonparEBHD(_BaseEmpiricalBayes):
         E2 = np.einsum("ijk, kl -> ijl", matrix_outer(E2a, E2a.dot(mu.T)), covInv)  # shape (I * rank)
         return E1 - E2
 
-class PointNormalEB(_BaseEmpiricalBayes):
+class PointNormalEB(_BaseEmpiricalBayesActive):
 
-    def __init__(self, em_iter = 1000, to_save = True, to_show = False, fig_prefix = "pointnormaleb"):
+    def __init__(self, to_save = True, to_show = False, fig_prefix = "pointnormaleb"):
         _BaseEmpiricalBayes.__init__(self, to_save, to_show, fig_prefix)
         self.pi = 0.5
         self.mu_x = 0
         self.sigma_x = 1
-        self.em_iter = em_iter
         self.tol = 1e-6
 
     def estimate_prior(self, f, mu, sigma):
+        # solve for point normal parameters with constrained optimization
         neg_log_lik = lambda pars: \
             -np.sum([np.logaddexp(np.log(1 - pars[0]) + _log_gaussian_pdf(yi, 0, sigma),
                                   np.log(pars[0]) + _log_gaussian_pdf(yi, 0, np.sqrt(sigma ** 2 + mu ** 2 * pars[1] ** 2)))
                      for yi in f])
         # constrain
-        bnds = [(1e-6, 1 - 1e-6), (0.001e-6, None)]  # (None, None),
+        bnds = [(1e-6, 1 - 1e-6), (0.001e-6, None)]
         # initial parameters
         init_parameters = np.asarray([0.5, 1])
         # Minimizing neg_log_lik
