@@ -23,7 +23,7 @@ import mosek.fusion as fusion
 from scipy import optimize
 
 
-class _BaseEmpiricalBayesActive(ABC):
+class _BaseEmpiricalBayes(ABC):
     
     def __init__(self, to_save = False, to_show = False, fig_prefix = ""):
         self.to_save = to_save
@@ -97,10 +97,10 @@ class _BaseEmpiricalBayesActive(ABC):
         ax.plot(xgrid, pdf, color="grey", linestyle="dashed", label="theoretical density")
         ax.legend()
 
-class NonparEBActive(_BaseEmpiricalBayesActive):
+class NonparEB(_BaseEmpiricalBayes):
     
     def __init__(self, optimizer = "EM", ftol = 1e-6, nsupp_ratio = 1, em_iter = 10, maxiter = 100, to_save = False, to_show = False, fig_prefix = "nonpareb", **kwargs):
-        _BaseEmpiricalBayesActive.__init__(self, to_save, to_show, fig_prefix)
+        _BaseEmpiricalBayes.__init__(self, to_save, to_show, fig_prefix)
         # check if parameters are valid
         if optimizer in ["EM", "Mosek"]:
             self.optimizer = optimizer
@@ -168,9 +168,9 @@ class NonparEBActive(_BaseEmpiricalBayesActive):
 
         return E1 - E2
 
-class NonparEBChecker(NonparEBActive):
+class NonparEBChecker(NonparEB):
     def __init__(self, truePriorLoc, truePriorWeight, optimizer = "EM", ftol = 1e-6, nsupp_ratio = 1, em_iter = 10, maxiter = 100, to_save = False, to_show = False, fig_prefix = "nonparebck", **kwargs):
-        NonparEBActive.__init__(self, optimizer, ftol, nsupp_ratio, em_iter, maxiter, to_save, to_show, fig_prefix, **kwargs)
+        NonparEB.__init__(self, optimizer, ftol, nsupp_ratio, em_iter, maxiter, to_save, to_show, fig_prefix, **kwargs)
         self.trueZ = truePriorLoc
         self.truePi = truePriorWeight 
         self.redirectd = False
@@ -195,9 +195,9 @@ class NonparEBChecker(NonparEBActive):
         ax.plot(xgrid, truePdf, color="red", linestyle="dashed", label="reference density")
         ax.legend()
             
-class NonparBayes(NonparEBActive):
+class NonparBayes(NonparEB):
     def __init__(self, truePriorLoc, truePriorWeight, optimizer = "EM", ftol = 1e-6, nsupp_ratio = 1, em_iter = 10, maxiter = 100, to_save = False, to_show = False, fig_prefix = "nonparebck", **kwargs):
-        NonparEBActive.__init__(self, optimizer, ftol, nsupp_ratio, em_iter, maxiter, to_save, to_show, fig_prefix, **kwargs)
+        NonparEB.__init__(self, optimizer, ftol, nsupp_ratio, em_iter, maxiter, to_save, to_show, fig_prefix, **kwargs)
         self.Z = truePriorLoc
         self.pi = truePriorWeight
         self.rank = truePriorLoc.shape[1]
@@ -205,10 +205,10 @@ class NonparBayes(NonparEBActive):
     def estimate_prior(self, f,mu,cov):
         pass
 
-class PointNormalEB(_BaseEmpiricalBayesActive):
+class PointNormalEB(_BaseEmpiricalBayes):
 
     def __init__(self, to_save = True, to_show = False, fig_prefix = "pointnormaleb"):
-        _BaseEmpiricalBayesActive.__init__(self, to_save, to_show, fig_prefix)
+        _BaseEmpiricalBayes.__init__(self, to_save, to_show, fig_prefix)
         self.pi = 0.5
         self.mu_x = 0
         self.sigma_x = 1
