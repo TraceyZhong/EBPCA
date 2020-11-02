@@ -269,6 +269,9 @@ class PointNormalEB(_BaseEmpiricalBayes):
         py = (1 - self.pi) * _gaussian_pdf(x, 0, sigma_y) + self.pi * _gaussian_pdf(x, mu_y_tilde, sigma_y_tilde)
         return py
 
+    def check_prior(self, figname):
+        pass
+
     @staticmethod
     def _eval_mu_y_tilde(mu_x, mu_y):
         return mu_x * mu_y
