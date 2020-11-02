@@ -1,6 +1,8 @@
 import numpy as np
 from scipy.stats import multivariate_normal
 
+import matplotlib.pyplot as plt
+
 from ebpca.empbayes import NonparEB
 from ebpca.empbayes import NonparEBChecker
 from ebpca.amp import ebamp_gaussian
@@ -43,6 +45,14 @@ def get_MSE(U,V):
     V = V/np.sqrt((V**2).sum(axis = 0))
     COR = np.abs(np.transpose(U) @ V)
     return COR    
+
+
+def compare_with_truth(Ustar, U):
+    fig,axes = plt.subplots(nrows = 1, ncols = 4, figsize=(10,3))
+    # ground truth
+    ax = axes[0]
+    ax.plot(Ustar[:,0], Ustar[:,1])
+
 
 n = 1500
 p = 1000
