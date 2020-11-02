@@ -7,7 +7,6 @@ Typical usage example:
 '''
 import sys
 import time
-
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -96,8 +95,7 @@ class _BaseEmpiricalBayes(ABC):
 
 class NonparEB(_BaseEmpiricalBayes):
     
-    def __init__(self, optimizer = "EM", ftol = 1e-6, nsupp_ratio = 1, em_iter = 1000, \
-        maxiter = 100, to_save = False, to_show = False, fig_prefix = "nonpareb", **kwargs):
+    def __init__(self, optimizer = "EM", ftol = 1e-6, nsupp_ratio = 1, em_iter = 10, maxiter = 100, to_save = False, to_show = False, fig_prefix = "nonpareb", **kwargs):
         _BaseEmpiricalBayes.__init__(self, to_save, to_show, fig_prefix)
         # check if parameters are valid
         if optimizer in ["EM", "Mosek"]:
@@ -204,8 +202,6 @@ class NonparBayes(NonparEB):
         pass
 
 class PointNormalEB(_BaseEmpiricalBayes):
-    '''Important! Current implementation only supports estimation for rank one model.
-    '''
 
     def __init__(self, to_save = True, to_show = False, fig_prefix = "pointnormaleb"):
         _BaseEmpiricalBayes.__init__(self, to_save, to_show, fig_prefix)
@@ -213,17 +209,14 @@ class PointNormalEB(_BaseEmpiricalBayes):
         self.mu_x = 0
         self.sigma_x = 1
         self.tol = 1e-6
-        self.rank = 1
 
-    def estimate_prior(self, f, mu, sigma_sq):
-        assert (f.shape[1] == 1), "Current PointNormalEB only supports rank one model."
+    def estimate_prior(self, f, mu, sigma):
         # solve for point normal parameters with constrained optimization
-        sigma = np.sqrt(sigma_sq)
         neg_log_lik = lambda pars: \
             -np.sum([np.logaddexp(np.log(1 - pars[0]) + _log_gaussian_pdf(yi, 0, sigma),
                                   np.log(pars[0]) + _log_gaussian_pdf(yi, 0, np.sqrt(sigma ** 2 + mu ** 2 * pars[1] ** 2)))
                      for yi in f])
-        # constraint
+        # constrain
         bnds = [(1e-6, 1 - 1e-6), (0.001e-6, None)]
         # initial parameters
         init_parameters = np.asarray([0.5, 1])
@@ -236,8 +229,7 @@ class PointNormalEB(_BaseEmpiricalBayes):
     def get_estimate(self):
         return self.pi, self.sigma_x
 
-    def denoise(self, f, mu, sigma_sq):
-        sigma = np.sqrt(sigma_sq)
+    def denoise(self, f, mu, sigma):
         mu_y = mu
         sigma_y = sigma
         mu_y_tilde = PointNormalEB._eval_mu_y_tilde(self.mu_x, mu_y)
@@ -248,8 +240,7 @@ class PointNormalEB(_BaseEmpiricalBayes):
         return (self.pi * _gaussian_pdf(f, mu_y_tilde, sigma_y_tilde) * mu_x_tilde / py)
 
 
-    def ddenoise(self, f, mu, sigma_sq):
-        sigma = np.sqrt(sigma_sq)
+    def ddenoise(self, f, mu, sigma):
         mu_y = mu
         sigma_y = sigma
         mu_y_tilde = PointNormalEB._eval_mu_y_tilde(self.mu_x, mu_y)
@@ -267,24 +258,16 @@ class PointNormalEB(_BaseEmpiricalBayes):
         # derivative of phi(y; mu_y_tilde, sigma_y_tilde) * mu_x_tilde
         d_tmp = (phi * (- (f - mu_y_tilde) / sigma_y_tilde**2)) * mu_x_tilde + phi * (mu_y * self.sigma_x**2) / (mu_y**2 * self.sigma_x**2 + sigma_y**2)
 
-        dder = self.pi * (- phi * mu_x_tilde / py**2 * d_py + 1 / py * d_tmp)
-        return dder[:,:,np.newaxis]
+        return self.pi * (- phi * mu_x_tilde / py**2 * d_py + 1 / py * d_tmp)
 
-    def get_margin_pdf(self, x, mu, sigma_sq, dim):
-        
-        mu = mu[dim,dim]
-        sigma_sq = sigma_sq[dim,dim]
 
-        sigma = np.sqrt(sigma_sq)
+    def get_margin_pdf(self, mu, sigma, x):
         mu_y = mu
         sigma_y = sigma
         mu_y_tilde = PointNormalEB._eval_mu_y_tilde(self.mu_x, mu_y)
         sigma_y_tilde = PointNormalEB._eval_sigma_y_tilde(mu_y, self.sigma_x, sigma_y)
         py = (1 - self.pi) * _gaussian_pdf(x, 0, sigma_y) + self.pi * _gaussian_pdf(x, mu_y_tilde, sigma_y_tilde)
         return py
-
-    def check_prior(self, figname):
-        pass
 
     @staticmethod
     def _eval_mu_y_tilde(mu_x, mu_y):
@@ -345,7 +328,6 @@ def get_W(f, z, mu, covInv):
     return W
 
 @jit(nopython = True)
-# W[i,j] = f(x_i | z_j)
 def get_my_W(f, z, mu, covInv):
     nsample = f.shape[0]
     nsupp = z.shape[0]
@@ -468,4 +450,3 @@ def writeMat(ax, mat, symbol, hCenter = 0.5, vCenter=0.5):
     for i in range(mat.shape[0]):
         for j in range(mat.shape[1]):
             ax.text(vL[j], hL[i], "%.2f" % mat[i,j], verticalalignment = "center")
-
