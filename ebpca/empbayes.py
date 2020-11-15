@@ -42,7 +42,7 @@ class _BaseEmpiricalBayes(ABC):
         pass 
     
     @abstractmethod
-    def get_margin_pdf(self, mu, cov, dim, x):
+    def get_margin_pdf(self, x, mu, cov, dim):
         pass 
 
     @abstractmethod
@@ -208,12 +208,14 @@ class PointNormalEB(_BaseEmpiricalBayes):
 
     def __init__(self, to_save = True, to_show = False, fig_prefix = "pointnormaleb"):
         _BaseEmpiricalBayes.__init__(self, to_save, to_show, fig_prefix)
+        self.rank = 1 # currently the point normal denoiser only supports univariate denoising
         self.pi = 0.5
         self.mu_x = 0
         self.sigma_x = 1
         self.tol = 1e-6
 
-    def estimate_prior(self, f, mu, sigma):
+    def estimate_prior(self, f, mu, sigma_sq):
+        sigma = np.sqrt(sigma_sq)
         # solve for point normal parameters with constrained optimization
         neg_log_lik = lambda pars: \
             -np.sum([np.logaddexp(np.log(1 - pars[0]) + _log_gaussian_pdf(yi, 0, sigma),
@@ -232,7 +234,8 @@ class PointNormalEB(_BaseEmpiricalBayes):
     def get_estimate(self):
         return self.pi, self.sigma_x
 
-    def denoise(self, f, mu, sigma):
+    def denoise(self, f, mu, sigma_sq):
+        sigma = np.sqrt(sigma_sq)
         mu_y = mu
         sigma_y = sigma
         mu_y_tilde = PointNormalEB._eval_mu_y_tilde(self.mu_x, mu_y)
@@ -243,7 +246,8 @@ class PointNormalEB(_BaseEmpiricalBayes):
         return (self.pi * _gaussian_pdf(f, mu_y_tilde, sigma_y_tilde) * mu_x_tilde / py)
 
 
-    def ddenoise(self, f, mu, sigma):
+    def ddenoise(self, f, mu, sigma_sq):
+        sigma = np.sqrt(sigma_sq)
         mu_y = mu
         sigma_y = sigma
         mu_y_tilde = PointNormalEB._eval_mu_y_tilde(self.mu_x, mu_y)
@@ -264,12 +268,14 @@ class PointNormalEB(_BaseEmpiricalBayes):
         return self.pi * (- phi * mu_x_tilde / py**2 * d_py + 1 / py * d_tmp)
 
 
-    def get_margin_pdf(self, mu, sigma, x):
+    def get_margin_pdf(self, x, mu, sigma_sq, dim = 0):
+        sigma = np.sqrt(sigma_sq)
         mu_y = mu
         sigma_y = sigma
         mu_y_tilde = PointNormalEB._eval_mu_y_tilde(self.mu_x, mu_y)
         sigma_y_tilde = PointNormalEB._eval_sigma_y_tilde(mu_y, self.sigma_x, sigma_y)
         py = (1 - self.pi) * _gaussian_pdf(x, 0, sigma_y) + self.pi * _gaussian_pdf(x, mu_y_tilde, sigma_y_tilde)
+        py = py.reshape(-1)
         return py
 
     def check_prior(self, figname):

@@ -22,6 +22,7 @@ Typical usage example:
 
 import numpy as np
 from ebpca.empbayes import PointNormalEB, _gaussian_pdf
+import matplotlib.pyplot as plt
 
 # TODO
 # 1. Make it compatible with nonparametric denoiser.
@@ -58,9 +59,12 @@ def ebmf(pcapack, iters = 5, ldenoiser = PointNormalEB(), fdenoiser = PointNorma
     while t < iters and (not flag):
         print("at ebmf iter {}".format(t))
         # denoise l_hat to get l
-        ldenoiser.estimate_prior(l_hat, mu, np.sqrt(sigma_sq))
-        El = ldenoiser.denoise(l_hat, mu, np.sqrt(sigma_sq))
-        Varl = ldenoiser.ddenoise(l_hat, mu, np.sqrt(sigma_sq)) * (sigma_sq / mu)
+        ldenoiser.fit(l_hat, mu, sigma_sq, figname='_u_iter%02d.png' % (t))
+        # ldenoiser.estimate_prior(l_hat, mu, np.sqrt(sigma_sq))
+        [par1, par2] = ldenoiser.get_estimate()
+        # plt.scatter(par2[:, 0], par1)
+        El = ldenoiser.denoise(l_hat, mu, sigma_sq)
+        Varl = ldenoiser.ddenoise(l_hat, mu, sigma_sq) * (sigma_sq / mu)
         El2 = El**2 + Varl.reshape(-1,1) #[:,:,0]
         L = np.dstack((L, np.reshape(El,(-1,1,1))))
         # Evaluate log likelihood
@@ -74,9 +78,10 @@ def ebmf(pcapack, iters = 5, ldenoiser = PointNormalEB(), fdenoiser = PointNorma
         f_hat = X.T.dot(El) / np.sum(El2)
         mu_bar = np.diag([1])
         sigma_bar_sq = np.diag([1 / (np.sum(El2) * tau)])
-        fdenoiser.estimate_prior(f_hat, mu_bar, np.sqrt(sigma_bar_sq))
-        Ef = fdenoiser.denoise(f_hat, mu_bar, np.sqrt(sigma_bar_sq))
-        Varf = fdenoiser.ddenoise(f_hat, mu_bar, np.sqrt(sigma_bar_sq)) * (sigma_bar_sq / mu_bar)
+        fdenoiser.fit(f_hat, mu_bar, sigma_bar_sq, figname='_v_iter%02d.png' % (t))
+        # fdenoiser.estimate_prior(f_hat, mu_bar, np.sqrt(sigma_bar_sq))
+        Ef = fdenoiser.denoise(f_hat, mu_bar, sigma_bar_sq)
+        Varf = fdenoiser.ddenoise(f_hat, mu_bar, sigma_bar_sq) * (sigma_bar_sq / mu_bar)
         Ef2 = Ef**2 + Varf.reshape(-1,1) # [:,:,0]
         F = np.dstack((F, np.reshape(Ef, (-1,1,1))))
         # Evaluate log likelihood
