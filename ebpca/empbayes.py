@@ -393,6 +393,7 @@ def _mosek_npmle(f, Z, mu, covInv, tol):
     # objective function: the primal in Section 4.2,
     # https://www.tandfonline.com/doi/pdf/10.1080/01621459.2013.869224
     M = fusion.Model('NPMLE')
+    # set tolerance parameter
     # https://docs.mosek.com/9.2/pythonapi/solver-parameters.html
     M.getTask().putdouparam(mosek.dparam.intpnt_co_tol_rel_gap, tol)
     # print('mosek tolerance: %f' % M.getTask().getdouparam(mosek.dparam.intpnt_co_tol_rel_gap) )
@@ -405,14 +406,62 @@ def _mosek_npmle(f, Z, mu, covInv, tol):
     M.constraint(fusion.Expr.sub(fusion.Expr.mul(A, f), g), fusion.Domain.equalsTo(0.0, n))
     M.constraint(fusion.Expr.hstack(g, fusion.Expr.constTerm(n, 1.0), logg), fusion.Domain.inPExpCone())
 
+    # uncomment to enable detailed log
     # M.setLogHandler(sys.stdout)
+
+    pi = np.repeat(0, m)
+
     M.objective(fusion.ObjectiveSense.Maximize, fusion.Expr.dot(ones, logg))
-    M.solve()
 
-    symname, desc = mosek.Env.getcodedesc(mosek.rescode(int(M.getSolverIntInfo("optimizeResponse"))))
-    # print("   Termination code: {0} {1}".format(symname, desc))
+    # response handling for Mosek solutions
+    # modified from https://docs.mosek.com/9.2/pythonfusion/errors-exceptions.html
+    try:
+        M.solve()
+        # Set solution status to 'Feasible' to accept sub-optimal solutions
+        # to circumvent numerical errors
+        M.acceptedSolutionStatus(fusion.AccSolutionStatus.Feasible)
+        if M.getProblemStatus() == fusion.ProblemStatus.Unknown:
+            # print(M.getDualSolutionStatus())
+            print("The MOSEK solution status is unknown.")
+            symname, desc = mosek.Env.getcodedesc(mosek.rescode(int(M.getSolverIntInfo("optimizeResponse"))))
+            print("   Termination code: {0} {1}".format(symname, desc))
+            print('   This warning message is likely caused by numerical errors. \n',
+                  '   For details see "MSK_RES_TRM_STALL" (10006) at \n    https://docs.mosek.com/9.2/rmosek/response-codes.html \n',
+                  '   EB-PCA proceeds with sub-optimal but feasible solution. ')
+            # Please note that if a linear optimization problem is solved using the interior-point optimizer with
+            # basis identification turned on, the returned basic solution likely to have high accuracy,
+            # even though the optimizer stalled.
+        pi = f.level()
 
-    pi = f.level()
+    except fusion.OptimizeError as e:
+        print("Optimization failed. Error: {0}".format(e))
+
+    except fusion.SolutionError as e:
+        # The solution with at least the expected status was not available.
+        # We try to diagnoze why.
+        print("Requested solution was not available.")
+        prosta = M.getProblemStatus()
+
+        if prosta == fusion.ProblemStatus.DualInfeasible:
+            print("Dual infeasibility certificate found.")
+
+        elif prosta == fusion.ProblemStatus.PrimalInfeasible:
+            print("Primal infeasibility certificate found.")
+
+        elif prosta == fusion.ProblemStatus.Unknown:
+            # The solutions status is unknown. The termination code
+            # indicates why the optimizer terminated prematurely.
+            print("The solution status is unknown.")
+            symname, desc = mosek.Env.getcodedesc(mosek.rescode(int(M.getSolverIntInfo("optimizeResponse"))))
+            print("   Termination code: {0} {1}".format(symname, desc))
+
+            pi = f.level()
+
+        else:
+            print("Another unexpected problem status {0} is obtained.".format(prosta))
+
+    except Exception as e:
+        print("Unexpected error: {0}".format(e))
 
     # print('Minimal pi value: {:.2f}'.format(np.min(pi)))
     # print('Sum of estimated pi: {:.2f}'.format(np.sum(pi)))
