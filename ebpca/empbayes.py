@@ -137,7 +137,7 @@ class NonparEB(_BaseEmpiricalBayes):
         # check initialization  
         self._check_init(f,mu,cov)
         covInv = np.linalg.inv(cov)
-        print("Start Estimating the prior")
+        # print("Start Estimating the prior")
         if self.optimizer == "EM":
             self.pi = _npmle_em_hd(f, self.Z, mu, covInv, self.em_iter, self.nsample, self.nsupp, self.rank)
         if self.optimizer == "Mosek":
@@ -419,7 +419,7 @@ def _mosek_npmle(f, Z, mu, covInv, tol):
         M.solve()
         # Set solution status to 'Feasible' to accept sub-optimal solutions
         # to circumvent numerical errors
-        M.acceptedSolutionStatus(fusion.AccSolutionStatus.Feasible)
+        M.acceptedSolutionStatus(fusion.AccSolutionStatus.Feasible) #Anything
         if M.getProblemStatus() == fusion.ProblemStatus.Unknown:
             # print(M.getDualSolutionStatus())
             print("The MOSEK solution status is unknown.")

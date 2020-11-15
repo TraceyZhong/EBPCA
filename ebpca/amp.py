@@ -42,7 +42,8 @@ def ebamp_gaussian(pcapack, iters = 5, udenoiser = NonparEB(), \
     sigma_sq = np.diag(1 - v_init_aligns**2)
 
     for t in range(iters):
-        
+
+        print('iteration %i' % t)
         # denoise right singular vector gt to get vt
         vdenoiser.fit(g, mu, sigma_sq, figname='_u_iter%02d.png' % (t))
         v = vdenoiser.denoise(g, mu, sigma_sq)
