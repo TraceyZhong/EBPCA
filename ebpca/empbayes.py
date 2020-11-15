@@ -93,6 +93,9 @@ class _BaseEmpiricalBayes(ABC):
         ax.plot(xgrid, pdf, color="grey", linestyle="dashed", label="theoretical density")
         ax.legend()
 
+    def get_estimate(self):
+        return self.pi, self.Z
+
 class NonparEB(_BaseEmpiricalBayes):
     
     def __init__(self, optimizer = "EM", ftol = 1e-6, nsupp_ratio = 1, em_iter = 10, maxiter = 100, to_save = False, to_show = False, fig_prefix = "nonpareb", **kwargs):
