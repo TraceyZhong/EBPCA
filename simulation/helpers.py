@@ -1,4 +1,5 @@
 # A collection of helper functions for rank one and rank two simulations
+import numpy as np
 
 # --------------------
 # rank one simulations
