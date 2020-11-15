@@ -31,7 +31,7 @@ n_rep = args.n_rep
 s_star = args.s_star
 iters = args.iters
 
-print('\n Running EB-PCA %i simulations with prior=%s, signal strength=%.1f, iterations=%i \n'\
+print('\nRunning EB-PCA rank one simulations with %i replications, prior=%s, signal strength=%.1f, iterations=%i'\
       % (n_rep, prior, s_star, iters))
 
 # create directory to save alignemnt, simulated data and figures
@@ -55,7 +55,7 @@ def simulate_prior(prior, n=2000, seed=1):
     '''
     np.random.seed(seed)
     if prior == 'Uniform':
-        theta = np.random.uniform(-2, 1, size = n) # -np.sqrt(3), np.sqrt(3)
+        theta = np.random.uniform(-np.sqrt(3), np.sqrt(3), size = n) # -np.sqrt(3), np.sqrt(3)
     if prior == 'Two_points':
         theta = 2 * np.random.binomial(n=1, p=0.5, size=n) - 1
     if prior == 'Point_normal':
@@ -77,11 +77,13 @@ def simulate_rank1_model(u, v, s):
 # -----------------
 
 # set parameters for simulation
-n = 2000
+n = 1000
 gamma = 2
 d = int(n * gamma)
 rank = 1
 alignment = []
+
+print('fixed parameters: n=%i, gamma=%.1f\n' % (n, gamma))
 
 # generate simulation data
 np.random.seed(1)
@@ -103,6 +105,7 @@ for i in range(n_rep):
 u_alignment = []
 v_alignment = []
 for i in range(n_rep):
+    print('Replication %i' % i)
     # load simulation data
     u_star = np.load('%s_copy_%i_u_star.npy' % (data_prefix, i), allow_pickle=False)
     v_star = np.load('%s_copy_%i_v_star.npy' % (data_prefix, i), allow_pickle=False)
