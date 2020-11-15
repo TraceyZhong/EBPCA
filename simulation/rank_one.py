@@ -77,7 +77,7 @@ def simulate_rank1_model(u, v, s):
 # -----------------
 
 # set parameters for simulation
-n = 1000
+n = 2000
 gamma = 2
 d = int(n * gamma)
 rank = 1
