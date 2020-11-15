@@ -55,7 +55,7 @@ def simulate_prior(prior, n=2000, seed=1):
     '''
     np.random.seed(seed)
     if prior == 'Uniform':
-        theta = np.random.uniform(-np.sqrt(3), np.sqrt(3), size = n) # -np.sqrt(3), np.sqrt(3)
+        theta = np.random.uniform(-2, 1, size = n)
     if prior == 'Two_points':
         theta = 2 * np.random.binomial(n=1, p=0.5, size=n) - 1
     if prior == 'Point_normal':
