@@ -19,7 +19,7 @@ u_star = np.loadtxt('result/simulation/simu_test_ebmf_A.txt')
 v_star = np.loadtxt('result/simulation/simu_test_ebmf_A.txt')
 
 pcapack = get_pca(A, 1)
-ebmf(pcapack)
+ebmf(pcapack) # expected 1st and 2nd values of objective function: 11425635.27, 11425735.36
 
 exit()
 

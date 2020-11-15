@@ -27,7 +27,7 @@ from ebpca.empbayes import PointNormalEB, _gaussian_pdf
 # 1. Make it compatible with nonparametric denoiser.
 #    In particular, pay attention to the assumption of prior 2nd moment = 1
 # 2. Implement objective function based convergence
-def ebmf(pcapack, iters = 5, par_update=True, ldenoiser = PointNormalEB(), fdenoiser = PointNormalEB(), tol = 1e-2):
+def ebmf(pcapack, iters = 5, ldenoiser = PointNormalEB(), fdenoiser = PointNormalEB()):
 
     X = pcapack.X
     u, v = pcapack.U, pcapack.V
