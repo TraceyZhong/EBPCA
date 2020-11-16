@@ -42,7 +42,7 @@ class _BaseEmpiricalBayes(ABC):
         pass 
     
     @abstractmethod
-    def get_margin_pdf(self, mu, cov, dim, x):
+    def get_margin_pdf(self, x, mu, cov, dim):
         pass 
 
     @abstractmethod
@@ -51,10 +51,13 @@ class _BaseEmpiricalBayes(ABC):
 
     def fit(self, f, mu, cov, **kwargs):
         self.estimate_prior(f,mu,cov)
+        if np.all(self.pi == 0):
+            return 'error'
         figname = kwargs.get("figname", "")
         if (self.to_show or self.to_save):
             self.check_margin(f,mu,cov,figname)
             # self.check_prior(figname)
+        return 'normal'
 
     def check_margin(self, fs, mu, cov, figname):
         # calm down, think waht is the dimension of s
@@ -92,6 +95,9 @@ class _BaseEmpiricalBayes(ABC):
         ax.hist(f, bins=40, alpha=0.5, density=True, color="skyblue", label="empirical dist")
         ax.plot(xgrid, pdf, color="grey", linestyle="dashed", label="theoretical density")
         ax.legend()
+
+    def get_estimate(self):
+        return self.pi, self.Z
 
 class NonparEB(_BaseEmpiricalBayes):
     
@@ -205,12 +211,14 @@ class PointNormalEB(_BaseEmpiricalBayes):
 
     def __init__(self, to_save = True, to_show = False, fig_prefix = "pointnormaleb"):
         _BaseEmpiricalBayes.__init__(self, to_save, to_show, fig_prefix)
+        self.rank = 1 # currently the point normal denoiser only supports univariate denoising
         self.pi = 0.5
         self.mu_x = 0
         self.sigma_x = 1
         self.tol = 1e-6
 
-    def estimate_prior(self, f, mu, sigma):
+    def estimate_prior(self, f, mu, sigma_sq):
+        sigma = np.sqrt(sigma_sq)
         # solve for point normal parameters with constrained optimization
         neg_log_lik = lambda pars: \
             -np.sum([np.logaddexp(np.log(1 - pars[0]) + _log_gaussian_pdf(yi, 0, sigma),
@@ -229,7 +237,8 @@ class PointNormalEB(_BaseEmpiricalBayes):
     def get_estimate(self):
         return self.pi, self.sigma_x
 
-    def denoise(self, f, mu, sigma):
+    def denoise(self, f, mu, sigma_sq):
+        sigma = np.sqrt(sigma_sq)
         mu_y = mu
         sigma_y = sigma
         mu_y_tilde = PointNormalEB._eval_mu_y_tilde(self.mu_x, mu_y)
@@ -240,7 +249,8 @@ class PointNormalEB(_BaseEmpiricalBayes):
         return (self.pi * _gaussian_pdf(f, mu_y_tilde, sigma_y_tilde) * mu_x_tilde / py)
 
 
-    def ddenoise(self, f, mu, sigma):
+    def ddenoise(self, f, mu, sigma_sq):
+        sigma = np.sqrt(sigma_sq)
         mu_y = mu
         sigma_y = sigma
         mu_y_tilde = PointNormalEB._eval_mu_y_tilde(self.mu_x, mu_y)
@@ -261,12 +271,14 @@ class PointNormalEB(_BaseEmpiricalBayes):
         return self.pi * (- phi * mu_x_tilde / py**2 * d_py + 1 / py * d_tmp)
 
 
-    def get_margin_pdf(self, mu, sigma, x):
+    def get_margin_pdf(self, x, mu, sigma_sq, dim = 0):
+        sigma = np.sqrt(sigma_sq)
         mu_y = mu
         sigma_y = sigma
         mu_y_tilde = PointNormalEB._eval_mu_y_tilde(self.mu_x, mu_y)
         sigma_y_tilde = PointNormalEB._eval_sigma_y_tilde(mu_y, self.sigma_x, sigma_y)
         py = (1 - self.pi) * _gaussian_pdf(x, 0, sigma_y) + self.pi * _gaussian_pdf(x, mu_y_tilde, sigma_y_tilde)
+        py = py.reshape(-1)
         return py
 
     def check_prior(self, figname):
@@ -393,6 +405,7 @@ def _mosek_npmle(f, Z, mu, covInv, tol):
     # objective function: the primal in Section 4.2,
     # https://www.tandfonline.com/doi/pdf/10.1080/01621459.2013.869224
     M = fusion.Model('NPMLE')
+    # set tolerance parameter
     # https://docs.mosek.com/9.2/pythonapi/solver-parameters.html
     M.getTask().putdouparam(mosek.dparam.intpnt_co_tol_rel_gap, tol)
     # print('mosek tolerance: %f' % M.getTask().getdouparam(mosek.dparam.intpnt_co_tol_rel_gap) )
@@ -405,21 +418,58 @@ def _mosek_npmle(f, Z, mu, covInv, tol):
     M.constraint(fusion.Expr.sub(fusion.Expr.mul(A, f), g), fusion.Domain.equalsTo(0.0, n))
     M.constraint(fusion.Expr.hstack(g, fusion.Expr.constTerm(n, 1.0), logg), fusion.Domain.inPExpCone())
 
+    # uncomment to enable detailed log
     # M.setLogHandler(sys.stdout)
+
+    # default value if MOSEK gives an error
+    pi = np.repeat(0, m)
+
     M.objective(fusion.ObjectiveSense.Maximize, fusion.Expr.dot(ones, logg))
-    M.solve()
 
-    symname, desc = mosek.Env.getcodedesc(mosek.rescode(int(M.getSolverIntInfo("optimizeResponse"))))
-    # print("   Termination code: {0} {1}".format(symname, desc))
+    # response handling for Mosek solutions
+    # modified from https://docs.mosek.com/9.2/pythonfusion/errors-exceptions.html
+    try:
+        M.solve()
+        M.acceptedSolutionStatus(fusion.AccSolutionStatus.Optimal)
+        pi = f.level()
+        # address negative values due to numerical instability
+        pi[pi < 0] = 0
+        # normalize the negative values due to numerical issues
+        pi = pi / np.sum(pi)
 
-    pi = f.level()
+    except fusion.OptimizeError as e:
+        print(" Optimization failed. Error: {0}".format(e))
 
-    # print('Minimal pi value: {:.2f}'.format(np.min(pi)))
-    # print('Sum of estimated pi: {:.2f}'.format(np.sum(pi)))
-    # address negative values due to numerical instability
-    pi[pi < 0] = 0
-    # normalize the negative values due to numerical issues
-    pi = pi / np.sum(pi)
+    except fusion.SolutionError as e:
+        # The solution with at least the expected status was not available.
+        # We try to diagnoze why.
+        print("  Error messages from MOSEK: \n  Requested NPMLE solution was not available.")
+        prosta = M.getProblemStatus()
+
+        if prosta == fusion.ProblemStatus.DualInfeasible:
+            print("  Dual infeasibility certificate found.")
+
+        elif prosta == fusion.ProblemStatus.PrimalInfeasible:
+            print("  Primal infeasibility certificate found.")
+
+        elif prosta == fusion.ProblemStatus.Unknown:
+            # The solutions status is unknown. The termination code
+            # indicates why the optimizer terminated prematurely.
+            print("  The NPMLE solution status is unknown.")
+            symname, desc = mosek.Env.getcodedesc(mosek.rescode(int(M.getSolverIntInfo("optimizeResponse"))))
+            print("  Termination code: {0} {1}".format(symname, desc))
+
+            print('  This warning message is likely caused by numerical errors.',
+                  '\n  For details see "MSK_RES_TRM_STALL" (10006) at \n  https://docs.mosek.com/9.2/rmosek/response-codes.html')
+            # Please note that if a linear optimization problem is solved using the interior-point optimizer with
+            # basis identification turned on, the returned basic solution likely to have high accuracy,
+            # even though the optimizer stalled.
+
+        else:
+            print("  Another unexpected problem status {0} is obtained.".format(prosta))
+
+    except Exception as e:
+        print("  Unexpected error: {0}".format(e))
 
     return pi
 

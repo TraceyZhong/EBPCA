@@ -23,11 +23,9 @@ Typical usage example:
 import numpy as np
 from ebpca.empbayes import PointNormalEB, _gaussian_pdf
 
-# TODO
-# 1. Make it compatible with nonparametric denoiser.
-#    In particular, pay attention to the assumption of prior 2nd moment = 1
-# 2. Implement objective function based convergence
-def ebmf(pcapack, iters = 5, par_update=True, ldenoiser = PointNormalEB(), fdenoiser = PointNormalEB(), tol = 1e-2):
+
+def ebmf(pcapack, ldenoiser = PointNormalEB(), fdenoiser = PointNormalEB(),
+         update_family = 'point-normal', iters = 50, tol = 1e-1):
 
     X = pcapack.X
     u, v = pcapack.U, pcapack.V
@@ -39,15 +37,15 @@ def ebmf(pcapack, iters = 5, par_update=True, ldenoiser = PointNormalEB(), fdeno
     f_hat = v
 
     # initialize placeholder for l, f update results
-    L = np.reshape(l_hat, (-1,1))
-    F = np.reshape(f_hat, (-1,1))
+    L = l_hat[:,:, np.newaxis]
+    F = f_hat[:,:, np.newaxis]
 
     # use the same scaling as EBMF
     # initialize parameter tau
     tau = n
     # initialize the first update with svd
-    mu = 1
-    sigma_sq = 1 / (np.sum(f_hat**2) * tau)
+    mu = np.diag([1])
+    sigma_sq = np.diag([1 / (np.sum(f_hat**2) * tau)]) # 1 / (np.sum(f_hat**2) * tau)
 
     # first denoise the loadings
     l_hat = X.dot(f_hat) / np.sum(f_hat**2)
@@ -56,50 +54,50 @@ def ebmf(pcapack, iters = 5, par_update=True, ldenoiser = PointNormalEB(), fdeno
     flag = False
     while t < iters and (not flag):
         print("at ebmf iter {}".format(t))
-        # denoise l_hat to get l
-        ldenoiser.estimate_prior(l_hat, mu, np.sqrt(sigma_sq))
-        El = ldenoiser.denoise(l_hat, mu, np.sqrt(sigma_sq))
-        Varl = ldenoiser.ddenoise(l_hat, mu, np.sqrt(sigma_sq)) * (sigma_sq / mu)
-        El2 = El**2 + Varl
-        L = np.hstack((L, np.reshape(El,(-1,1))))
+        # Denoise l_hat to get l
+        ldenoiser.fit(l_hat, mu, sigma_sq, figname='_u_iter%02d.png' % (t))
+        El = ldenoiser.denoise(l_hat, mu, sigma_sq)
+        Varl = ldenoiser.ddenoise(l_hat, mu, sigma_sq) * (sigma_sq / mu)
+        El2 = El**2 + Varl.reshape(-1,1) #[:,:,0]
+        L = np.dstack((L, np.reshape(El,(-1,1,1))))
         # Evaluate log likelihood
-        [pi, sigma_x] = ldenoiser.get_estimate()
-        print('l prior: %.4f, %.4f' % (pi, sigma_x))
-        KL_l = marginal_lik_F_func([pi, sigma_x],
-                                   l_hat, np.sqrt(sigma_sq), mu, 'point-normal') - \
+        [par1, par2] = ldenoiser.get_estimate()
+        KL_l = marginal_lik_F_func([par1, par2.reshape(-1)],
+                                   l_hat, np.sqrt(sigma_sq), mu, update_family) - \
                NM_posterior_e_loglik(l_hat, mu, sigma_sq, El, El2)
-        # update the estimate of the factor
+        # Update the estimate of the factor
         f_hat = X.T.dot(El) / np.sum(El2)
-        mu_bar = 1
-        sigma_bar_sq = 1 / (np.sum(El2) * tau)
-        fdenoiser.estimate_prior(f_hat, mu_bar, np.sqrt(sigma_bar_sq))
-        Ef = fdenoiser.denoise(f_hat, mu_bar, np.sqrt(sigma_bar_sq))
-        Varf = fdenoiser.ddenoise(f_hat, mu_bar, np.sqrt(sigma_bar_sq)) * (sigma_bar_sq / mu_bar)
-        Ef2 = Ef**2 + Varf
-        F = np.hstack((F, np.reshape(Ef, (-1,1))))
+        mu_bar = np.diag([1])
+        sigma_bar_sq = np.diag([1 / (np.sum(El2) * tau)])
+        fdenoiser.fit(f_hat, mu_bar, sigma_bar_sq, figname='_v_iter%02d.png' % (t))
+        Ef = fdenoiser.denoise(f_hat, mu_bar, sigma_bar_sq)
+        Varf = fdenoiser.ddenoise(f_hat, mu_bar, sigma_bar_sq) * (sigma_bar_sq / mu_bar)
+        Ef2 = Ef**2 + Varf.reshape(-1,1) # [:,:,0]
+        F = np.dstack((F, np.reshape(Ef, (-1,1,1))))
         # Evaluate log likelihood
-        [pi, sigma_x] = fdenoiser.get_estimate()
-        print('f prior: %.4f, %.4f' % (pi, sigma_x))
-        KL_f = marginal_lik_F_func([pi, sigma_x],
-                                   f_hat, np.sqrt(sigma_bar_sq), mu_bar, 'point-normal') - \
+        [par1, par2] = fdenoiser.get_estimate()
+        KL_f = marginal_lik_F_func([par1, par2.reshape(-1)],
+                                   f_hat, np.sqrt(sigma_bar_sq), mu_bar, update_family) - \
                NM_posterior_e_loglik(f_hat, mu_bar, sigma_bar_sq, Ef, Ef2)
-        # update the estimate of the loading
+        # Update the estimate of the loading
         l_hat = X.dot(Ef) / np.sum(Ef2)
-        mu = 1
-        sigma_sq = 1 / (np.sum(Ef2) * tau)
-        # evaluate objective function
+        mu = np.diag([1])
+        sigma_sq = np.diag([1 / (np.sum(Ef2) * tau)])
+        # Evaluate objective function
         obj_func = get_cond_logl(El, El2, Ef, Ef2, X, tau) + KL_l + KL_f
         obj_funcs.append(obj_func)
         print('Objective F function: {:.5f}'.format(obj_func))
         t += 1
         if t == 1 or t == 2:
             flag = False
-        # else:
-            # use accuracy as convergence threshold
-        #     flag = abs(obj_funcs[-1] - obj_funcs[-2]) < tol
+        else:
+            # Use change in objective function as convergence threshold
+            flag = abs(obj_funcs[-1] - obj_funcs[-2]) < tol
+            if flag:
+                print('EBMF converged in {} iterations.'.format(t))
 
     if not flag:
-        print('EBMF failed to converge within {} iterations.'.format(iters))
+        print('EBMF failed to converge in {} iterations.'.format(iters))
 
     return L, F
 
