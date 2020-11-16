@@ -101,11 +101,13 @@ class _BaseEmpiricalBayes(ABC):
 
 class NonparEB(_BaseEmpiricalBayes):
     
-    def __init__(self, optimizer = "EM", ftol = 1e-6, nsupp_ratio = 1, em_iter = 10, maxiter = 100, to_save = False, to_show = False, fig_prefix = "nonpareb", **kwargs):
+    def __init__(self, optimizer = "EM", ftol = 1e-6, nsupp_ratio = 1, em_iter = 100, maxiter = 100, to_save = False, to_show = False, fig_prefix = "nonpareb", **kwargs):
         _BaseEmpiricalBayes.__init__(self, to_save, to_show, fig_prefix)
         # check if parameters are valid
         if optimizer in ["EM", "Mosek"]:
             self.optimizer = optimizer
+            if optimizer == 'Mosek':
+                print('Use optimizer: %s' % self.optimizer)
         else:
             raise ValueError("Supported Optimizers are EM or Mosek.")
         self.nsample = None
@@ -443,7 +445,7 @@ def _mosek_npmle(f, Z, mu, covInv, tol):
     except fusion.SolutionError as e:
         # The solution with at least the expected status was not available.
         # We try to diagnoze why.
-        print("  Error messages from MOSEK: \n  Requested NPMLE solution was not available.")
+        print("Error messages from MOSEK: \n  Requested NPMLE solution was not available.")
         prosta = M.getProblemStatus()
 
         if prosta == fusion.ProblemStatus.DualInfeasible:
@@ -460,7 +462,7 @@ def _mosek_npmle(f, Z, mu, covInv, tol):
             print("  Termination code: {0} {1}".format(symname, desc))
 
             print('  This warning message is likely caused by numerical errors.',
-                  '\n  For details see "MSK_RES_TRM_STALL" (10006) at \n  https://docs.mosek.com/9.2/rmosek/response-codes.html')
+                  '\n  For details see https://docs.mosek.com/9.2/pythonapi/response-codes.html#mosek.rescode.trm_stall')
             # Please note that if a linear optimization problem is solved using the interior-point optimizer with
             # basis identification turned on, the returned basic solution likely to have high accuracy,
             # even though the optimizer stalled.
