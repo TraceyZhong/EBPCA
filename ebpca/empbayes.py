@@ -106,7 +106,8 @@ class NonparEB(_BaseEmpiricalBayes):
         # check if parameters are valid
         if optimizer in ["EM", "Mosek"]:
             self.optimizer = optimizer
-            print('Use optimizer: %s' % optimizer)
+            if optimizer == 'Mosek':
+                print('Use optimizer: %s' % self.optimizer)
         else:
             raise ValueError("Supported Optimizers are EM or Mosek.")
         self.nsample = None

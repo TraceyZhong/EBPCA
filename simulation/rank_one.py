@@ -1,12 +1,12 @@
 import numpy as np
 import os
+import time
 import sys
 sys.path.extend(['../../generalAMP'])
 from ebpca.empbayes import NonparEB as NonparEB
 from ebpca.amp import ebamp_gaussian as ebamp_gaussian
 from ebpca.preprocessing import normalize_obs
 from ebpca.pca import get_pca
-from tutorial import get_alignment
 from simulation.helpers import simulate_prior, simulate_rank1_model, fill_alignment
 
 # ----------------------
@@ -24,6 +24,10 @@ parser.add_argument("--s_star", type=float, help="enter signal strength",
                     default=1.4, const=1.4, nargs='?')
 parser.add_argument("--iters", type=int, help="enter EB-PCA iterations", 
                     default=5, const=5, nargs='?')
+parser.add_argument("--ftol", type=float, help="MOSEK ftol",
+                    default=1e-6, const=1e-6, nargs='?')
+parser.add_argument("--nsupp_ratio", type=float, help="proportion of observed data points to take as support points",
+                    default=0.1, const=0.1, nargs='?')
 args = parser.parse_args()
 
 prior = args.prior
@@ -51,9 +55,11 @@ n = 2000
 gamma = 2
 d = int(n * gamma)
 rank = 1
-ftol = 1e-6
-nsupp_ratio = 0.1
+ftol = args.ftol # 1e-6
+nsupp_ratio = args.nsupp_ratio # 0.1
 alignment = []
+
+print('ftol=%.6f, nsupp_ratio=%.2f' % (ftol, nsupp_ratio))
 
 print('fixed parameters: n=%i, gamma=%.1f\n' % (n, gamma))
 
@@ -63,6 +69,7 @@ seeds = [np.random.randint(0, 10000, n_rep) for i in range(2)] # set seed for ea
 
 for i in range(n_rep):
     if not os.path.exists('%s_copy_%i.npy' % (data_prefix, i)):
+        print('Simulating data for replication %i' % i)
         # simulate data based on the chosen prior
         u_star = simulate_prior(prior, n, seed=seeds[0][i])
         v_star = simulate_prior(prior, d, seed=seeds[1][i])
@@ -76,6 +83,7 @@ for i in range(n_rep):
 # run EB-PCA
 u_alignment = []
 v_alignment = []
+start_time = time.time()
 for i in range(n_rep):
     print('Replication %i' % i)
     # load simulation data
@@ -95,9 +103,12 @@ for i in range(n_rep):
     # evaluate alignment
     u_alignment.append(fill_alignment(U_est, u_star, iters))
     v_alignment.append(fill_alignment(V_est, v_star, iters))
-    
-print(u_alignment)
-print(v_alignment)
+
+end_time = time.time()
+print('Simulation takes %.2f s' % (end_time - start_time))
+
+print('right PC alignments:', u_alignment)
+print('left PC alignments:', v_alignment)
 
 np.save('output/%s/alignments/u_s_%.1f_n_rep_%i.npy' % (prior_prefix, s_star, n_rep),
         u_alignment, allow_pickle=False)
