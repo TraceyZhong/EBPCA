@@ -1,72 +1,54 @@
-## Model 
-Consider the following signal plus noise model
-<img src="https://render.githubusercontent.com/render/math?math=%5Cmathbf%7BX%7D%20%3D%20%5Csum_%7BI%3D1%7D%5Ek%20%5Clambda%20%5Cmathbf%7Bu%7D%5Cmathbf%7Bv%7D%5E%5Ctop%20%2B%20W">
-where W's each entry is iid Gaussian or W's distribution of orthogonally invariant.
+# EBPCA
 
-## TODO
-- [x] include Gaussian AMP
-- [ ] write the procedures to normalize the matrix
-- [ ] write sample usage of this package
-- [ ] check for AMP improvment for svd # test for different noise, how much is the improvements. # my pot
+This library is a Python implementation of the algorithms described in ``Empirical Bayes PCA for high-dimensional data``. You can cite this work by
+```
+@article{
+    something,
+}
+```
 
-### Data Transformation
+## Installation
 
+This package requires a working installation of Python 3.6, numpy, scipy, matplotlib and numba. [MOSEK](https://www.mosek.com) is an optional optimizer, which will substantially improve computation time compared with EM.
 
-### Sample Usage
+Installing from source code
+```bash
+$ git clone git@github.com:TraceyZhong/generalAMP.git
+$ cd generalAMP
+# Build from source:
+$ python setup.py build
+# And install:
+$ python setup.py install
+```
 
+## Usage 
 
-## TODO
-1. Unfinished part in pca analysis, what are the standard procedures? Transform and impute? what should we observe? How to select signals?
+Check `tutorial.html` for a synthetic example using EB-PCA. In short, suppose $Y$ is the observational matrix and $k$ is the number of outlying signals, then
 
-2. Joint EB
+```python
+# Normalize the observational matrix.
+from ebpca.preprocessing import normalize_obs
+from ebpca.pca import get_pca
+X = normalize_obs(Y, rank)
+# Prepare the PCA pack.
+pcapack = get_pca(X, rank)
 
+# Empirical Bayes for the compound decision problem 
+# and iterative refinement via amp.
+from ebpca.empbayes import NonparEBActive as NonparEB
+from ebpca.amp import ebamp_gaussian_active as ebamp_gaussian
 
-# log return for each day...
-1. Should we renormalize it?
-2. How to choose PC?
-3. 
+udenoiser = NonparEB(optimizer = "Mosek", ftol = 1e-3, nsupp_ratio = 1)
 
-# TODO
-1. to do on the gaussian noise, use the original signal solver. # # my pot first # chang pot
+U, V = ebamp_gaussian(pcapack, iters=3, udenoiser=udenoiser, figprefix="tut", mutev = True)
+``` 
 
-# TODO 
+`U[:,:,i]` and `V[:,:,i]` are the denoised results at iteration $i$.
 
-1. check of solve_signal. (We might don't have ground truth for signal) # thing first, chang pot.
-3. general AMP. # chang pot.
-4. check for AMP improvment for svd # test for different noise, how much is the improvements. # my pot
+## Directory Structure
 
-
-Compare for the subspace spaned by actual pcs and estimated pcs
-
-
-
-## TODO 
-
-1. current implementation dimension is skewed. 
-
-2. over iterations sigma will get the numerical instability
-
-3. try for the orthogonal amp, use only the last f.
-4. high dimension em estimation
-4.1 Bivariate empirical bayes
-4.2 multivariate amp
-4.3 For checking the method, Look into the cross distribution 
-
-5. even though the alignment is already high, denoising still might help.
-
-1. 改algo
-1.1 high dimension.
-1.2 gai  n support; 
-2. visualization
-
-3. 看别的data set （可能就不搞）
-
-
-1. 改成在只用最后一个f
-2. 一维度update，降低mle的nsupport
-2. 改prior estimate
-
-两个错
-gaussian
-1. sqrt_root
-number of iterations 5.
+* [__ebpca__]: Implementation of the EB-PCA algorithm.
+    * [__amp__]: Iterative refinement using AMP.
+    * [__empbayes__]: Empirical Bayes for the multivariate compound decision problem.
+    * [__pca__]: PCA analysis for parameters initialization for AMP
+    * [__preprocessing__]: Preprocessing for the observational matrix.

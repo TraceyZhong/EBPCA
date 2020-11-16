@@ -26,7 +26,6 @@ import numpy as np
 import scipy.stats
 from scipy.optimize import fsolve
 import matplotlib.pyplot as plt
-from sklearn import preprocessing 
 
 PcaPack = namedtuple("PCAPack", ["X", "U", "V", "mu", "K", \
     "n_samples", "n_features", "signals", "sample_aligns", "feature_aligns"])

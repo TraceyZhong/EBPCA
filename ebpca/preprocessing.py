@@ -13,16 +13,16 @@ Step 4: Rescale data to standarize the noise level, and then test if noise
 '''
 
 def normalize_obs(Y, K = 0):
+    '''Normalize the noise level of the observational matrix after regressing out
+    top K pcs.
+    '''
     if K == 0:
         raise(ValueError("# PC can not be zero."))
-    # get the top K pcs
     n_samples = Y.shape[0]
     U, Lambda, Vh = np.linalg.svd(Y, full_matrices = False)
     U = U[:,:K]
     Lambda = Lambda[:K]
-    # print(Lambda)
     Vh = Vh[:K,:]
-    # print("Y shape {}, U {}, Lambda {}, Vh {}".format(Y.shape, U.shape, Lambda.shape, Vh.shape))
     R = Y - U * Lambda @ Vh
     tauSq = np.sum(R**2) / n_samples
     print("estimated tau={}".format(np.sqrt(tauSq)))
