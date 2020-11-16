@@ -51,6 +51,8 @@ n = 2000
 gamma = 2
 d = int(n * gamma)
 rank = 1
+ftol = 1e-6
+nsupp_ratio = 0.1
 alignment = []
 
 print('fixed parameters: n=%i, gamma=%.1f\n' % (n, gamma))
@@ -83,10 +85,10 @@ for i in range(n_rep):
     # prepare the PCA pack
     pcapack = get_pca(X, rank)
     # initiate denoiser
-    udenoiser = NonparEB(optimizer="Mosek", ftol=1e-3, to_save=False,
-                         nsupp_ratio=np.sqrt(n)/n)
-    vdenoiser = NonparEB(optimizer="Mosek", ftol=1e-3, to_save=False,
-                         nsupp_ratio=np.sqrt(d)/d)
+    udenoiser = NonparEB(optimizer="Mosek", to_save=False,
+                         nsupp_ratio=nsupp_ratio, ftol=ftol) 
+    vdenoiser = NonparEB(optimizer="Mosek", to_save=False,
+                         nsupp_ratio=nsupp_ratio, ftol=ftol) 
     # run AMP
     U_est, V_est = ebamp_gaussian(pcapack, iters=iters,
                                   udenoiser=udenoiser, vdenoiser=vdenoiser)
