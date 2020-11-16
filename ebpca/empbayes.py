@@ -51,10 +51,13 @@ class _BaseEmpiricalBayes(ABC):
 
     def fit(self, f, mu, cov, **kwargs):
         self.estimate_prior(f,mu,cov)
+        if np.all(self.pi == 0):
+            return 'error'
         figname = kwargs.get("figname", "")
         if (self.to_show or self.to_save):
             self.check_margin(f,mu,cov,figname)
             # self.check_prior(figname)
+        return 'normal'
 
     def check_margin(self, fs, mu, cov, figname):
         # calm down, think waht is the dimension of s
@@ -418,6 +421,7 @@ def _mosek_npmle(f, Z, mu, covInv, tol):
     # uncomment to enable detailed log
     # M.setLogHandler(sys.stdout)
 
+    # default value if MOSEK gives an error
     pi = np.repeat(0, m)
 
     M.objective(fusion.ObjectiveSense.Maximize, fusion.Expr.dot(ones, logg))
@@ -426,58 +430,46 @@ def _mosek_npmle(f, Z, mu, covInv, tol):
     # modified from https://docs.mosek.com/9.2/pythonfusion/errors-exceptions.html
     try:
         M.solve()
-        # Set solution status to 'Feasible' to accept sub-optimal solutions
-        # to circumvent numerical errors
-        M.acceptedSolutionStatus(fusion.AccSolutionStatus.Feasible) #Anything
-        if M.getProblemStatus() == fusion.ProblemStatus.Unknown:
-            # print(M.getDualSolutionStatus())
-            print("The MOSEK solution status is unknown.")
-            symname, desc = mosek.Env.getcodedesc(mosek.rescode(int(M.getSolverIntInfo("optimizeResponse"))))
-            print("   Termination code: {0} {1}".format(symname, desc))
-            print('   This warning message is likely caused by numerical errors. \n',
-                  '   For details see "MSK_RES_TRM_STALL" (10006) at \n    https://docs.mosek.com/9.2/rmosek/response-codes.html \n',
-                  '   EB-PCA proceeds with sub-optimal but feasible solution. ')
-            # Please note that if a linear optimization problem is solved using the interior-point optimizer with
-            # basis identification turned on, the returned basic solution likely to have high accuracy,
-            # even though the optimizer stalled.
+        M.acceptedSolutionStatus(fusion.AccSolutionStatus.Optimal)
         pi = f.level()
+        # address negative values due to numerical instability
+        pi[pi < 0] = 0
+        # normalize the negative values due to numerical issues
+        pi = pi / np.sum(pi)
 
     except fusion.OptimizeError as e:
-        print("Optimization failed. Error: {0}".format(e))
+        print(" Optimization failed. Error: {0}".format(e))
 
     except fusion.SolutionError as e:
         # The solution with at least the expected status was not available.
         # We try to diagnoze why.
-        print("Requested solution was not available.")
+        print("  Error messages from MOSEK: \n  Requested NPMLE solution was not available.")
         prosta = M.getProblemStatus()
 
         if prosta == fusion.ProblemStatus.DualInfeasible:
-            print("Dual infeasibility certificate found.")
+            print("  Dual infeasibility certificate found.")
 
         elif prosta == fusion.ProblemStatus.PrimalInfeasible:
-            print("Primal infeasibility certificate found.")
+            print("  Primal infeasibility certificate found.")
 
         elif prosta == fusion.ProblemStatus.Unknown:
             # The solutions status is unknown. The termination code
             # indicates why the optimizer terminated prematurely.
-            print("The solution status is unknown.")
+            print("  The NPMLE solution status is unknown.")
             symname, desc = mosek.Env.getcodedesc(mosek.rescode(int(M.getSolverIntInfo("optimizeResponse"))))
-            print("   Termination code: {0} {1}".format(symname, desc))
+            print("  Termination code: {0} {1}".format(symname, desc))
 
-            pi = f.level()
+            print('  This warning message is likely caused by numerical errors.',
+                  '\n  For details see "MSK_RES_TRM_STALL" (10006) at \n  https://docs.mosek.com/9.2/rmosek/response-codes.html')
+            # Please note that if a linear optimization problem is solved using the interior-point optimizer with
+            # basis identification turned on, the returned basic solution likely to have high accuracy,
+            # even though the optimizer stalled.
 
         else:
-            print("Another unexpected problem status {0} is obtained.".format(prosta))
+            print("  Another unexpected problem status {0} is obtained.".format(prosta))
 
     except Exception as e:
-        print("Unexpected error: {0}".format(e))
-
-    # print('Minimal pi value: {:.2f}'.format(np.min(pi)))
-    # print('Sum of estimated pi: {:.2f}'.format(np.sum(pi)))
-    # address negative values due to numerical instability
-    pi[pi < 0] = 0
-    # normalize the negative values due to numerical issues
-    pi = pi / np.sum(pi)
+        print("  Unexpected error: {0}".format(e))
 
     return pi
 

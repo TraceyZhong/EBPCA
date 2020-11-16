@@ -45,7 +45,10 @@ def ebamp_gaussian(pcapack, iters = 5, udenoiser = NonparEB(), \
 
         print('iteration %i' % t)
         # denoise right singular vector gt to get vt
-        vdenoiser.fit(g, mu, sigma_sq, figname='_u_iter%02d.png' % (t))
+        npmle_status = vdenoiser.fit(g, mu, sigma_sq, figname='_u_iter%02d.png' % (t))
+        if npmle_status == 'error':
+            print('EB-PCA terminated.')
+            break
         v = vdenoiser.denoise(g, mu, sigma_sq)
         V = np.dstack((V, np.reshape(v,(-1,k,1)) ))
         b = gamma * np.mean(vdenoiser.ddenoise(g,mu,sigma_sq) , axis = 0)
@@ -57,7 +60,10 @@ def ebamp_gaussian(pcapack, iters = 5, udenoiser = NonparEB(), \
         
         # denoise left singular vector ft to get ut
         if not mutev:
-            udenoiser.fit(f, mu_bar, sigma_bar_sq, figname='_v_iter%02d.png' % (t))
+            npmle_status = udenoiser.fit(f, mu_bar, sigma_bar_sq, figname='_v_iter%02d.png' % (t))
+            if npmle_status == 'error':
+                print('EB-PCA terminated.')
+                break
             u = udenoiser.denoise(f, mu_bar, sigma_bar_sq)
             U = np.dstack((U, np.reshape(u,(-1,k,1))))
             b_bar = np.mean(udenoiser.ddenoise(f, mu_bar, sigma_bar_sq), axis = 0)
