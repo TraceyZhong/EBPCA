@@ -443,7 +443,7 @@ def _mosek_npmle(f, Z, mu, covInv, tol):
     except fusion.SolutionError as e:
         # The solution with at least the expected status was not available.
         # We try to diagnoze why.
-        print("  Error messages from MOSEK: \n  Requested NPMLE solution was not available.")
+        print("Error messages from MOSEK: \n  Requested NPMLE solution was not available.")
         prosta = M.getProblemStatus()
 
         if prosta == fusion.ProblemStatus.DualInfeasible:
@@ -460,7 +460,7 @@ def _mosek_npmle(f, Z, mu, covInv, tol):
             print("  Termination code: {0} {1}".format(symname, desc))
 
             print('  This warning message is likely caused by numerical errors.',
-                  '\n  For details see "MSK_RES_TRM_STALL" (10006) at \n  https://docs.mosek.com/9.2/rmosek/response-codes.html')
+                  '\n  For details see https://docs.mosek.com/9.2/pythonapi/response-codes.html#mosek.rescode.trm_stall')
             # Please note that if a linear optimization problem is solved using the interior-point optimizer with
             # basis identification turned on, the returned basic solution likely to have high accuracy,
             # even though the optimizer stalled.
