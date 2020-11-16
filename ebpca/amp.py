@@ -2,7 +2,6 @@
 ==========
 EBAMP
 ==========
-finally we are here, think.
 '''
 
 import numpy as np

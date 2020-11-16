@@ -23,7 +23,7 @@ $ python setup.py install
 
 ## Usage 
 
-Check `tutorial.html` for a synthetic example using EB-PCA. In short, suppose $Y$ is the observational matrix and $k$ is the number of outlying signals, then
+Check `tutorial.html` for a synthetic example using EB-PCA. In short, suppose *Y* is the observational matrix and *k* is the number of outlying signals, then
 
 ```python
 # Normalize the observational matrix.
@@ -43,7 +43,7 @@ udenoiser = NonparEB(optimizer = "Mosek", ftol = 1e-3, nsupp_ratio = 1)
 U, V = ebamp_gaussian(pcapack, iters=3, udenoiser=udenoiser, figprefix="tut", mutev = True)
 ``` 
 
-`U[:,:,i]` and `V[:,:,i]` are the denoised results at iteration $i$.
+`U[:,:,i]` and `V[:,:,i]` are the denoised results at iteration *i*.
 
 ## Directory Structure
 
