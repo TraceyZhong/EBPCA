@@ -22,14 +22,14 @@ Typical usage example:
 
 import numpy as np
 from ebpca.empbayes import PointNormalEB, _gaussian_pdf
-import matplotlib.pyplot as plt
+
 
 # TODO
 # 1. Make it compatible with nonparametric denoiser.
 #    In particular, pay attention to the assumption of prior 2nd moment = 1
 # 2. Implement objective function based convergence
-def ebmf(pcapack, iters = 5, ldenoiser = PointNormalEB(), fdenoiser = PointNormalEB(),
-         update_family = 'point-normal'):
+def ebmf(pcapack, ldenoiser = PointNormalEB(), fdenoiser = PointNormalEB(),
+         update_family = 'point-normal', iters = 50, tol = 1e-1):
 
     X = pcapack.X
     u, v = pcapack.U, pcapack.V
@@ -41,8 +41,8 @@ def ebmf(pcapack, iters = 5, ldenoiser = PointNormalEB(), fdenoiser = PointNorma
     f_hat = v
 
     # initialize placeholder for l, f update results
-    L = l_hat[:,:, np.newaxis] #np.reshape(l_hat, (-1,1))
-    F = f_hat[:,:, np.newaxis] # np.reshape(f_hat, (-1,1))
+    L = l_hat[:,:, np.newaxis]
+    F = f_hat[:,:, np.newaxis]
 
     # use the same scaling as EBMF
     # initialize parameter tau
@@ -58,56 +58,50 @@ def ebmf(pcapack, iters = 5, ldenoiser = PointNormalEB(), fdenoiser = PointNorma
     flag = False
     while t < iters and (not flag):
         print("at ebmf iter {}".format(t))
-        # denoise l_hat to get l
+        # Denoise l_hat to get l
         ldenoiser.fit(l_hat, mu, sigma_sq, figname='_u_iter%02d.png' % (t))
-        # ldenoiser.estimate_prior(l_hat, mu, np.sqrt(sigma_sq))
-        [par1, par2] = ldenoiser.get_estimate()
-        # plt.scatter(par2[:, 0], par1)
         El = ldenoiser.denoise(l_hat, mu, sigma_sq)
         Varl = ldenoiser.ddenoise(l_hat, mu, sigma_sq) * (sigma_sq / mu)
         El2 = El**2 + Varl.reshape(-1,1) #[:,:,0]
         L = np.dstack((L, np.reshape(El,(-1,1,1))))
         # Evaluate log likelihood
         [par1, par2] = ldenoiser.get_estimate()
-        # print('l prior: %.4f, %.4f' % (par1, par2))
-        # par1, par2: pi, sigma_x; par1, par2: pi, Z
         KL_l = marginal_lik_F_func([par1, par2.reshape(-1)],
                                    l_hat, np.sqrt(sigma_sq), mu, update_family) - \
                NM_posterior_e_loglik(l_hat, mu, sigma_sq, El, El2)
-        # update the estimate of the factor
+        # Update the estimate of the factor
         f_hat = X.T.dot(El) / np.sum(El2)
         mu_bar = np.diag([1])
         sigma_bar_sq = np.diag([1 / (np.sum(El2) * tau)])
         fdenoiser.fit(f_hat, mu_bar, sigma_bar_sq, figname='_v_iter%02d.png' % (t))
-        # fdenoiser.estimate_prior(f_hat, mu_bar, np.sqrt(sigma_bar_sq))
         Ef = fdenoiser.denoise(f_hat, mu_bar, sigma_bar_sq)
         Varf = fdenoiser.ddenoise(f_hat, mu_bar, sigma_bar_sq) * (sigma_bar_sq / mu_bar)
         Ef2 = Ef**2 + Varf.reshape(-1,1) # [:,:,0]
         F = np.dstack((F, np.reshape(Ef, (-1,1,1))))
         # Evaluate log likelihood
         [par1, par2] = fdenoiser.get_estimate()
-        # print('f prior: %.4f, %.4f' % (par1, par2))
-        # par1, par2: pi, sigma_x; par1, par2: pi, Z
         KL_f = marginal_lik_F_func([par1, par2.reshape(-1)],
                                    f_hat, np.sqrt(sigma_bar_sq), mu_bar, update_family) - \
                NM_posterior_e_loglik(f_hat, mu_bar, sigma_bar_sq, Ef, Ef2)
-        # update the estimate of the loading
+        # Update the estimate of the loading
         l_hat = X.dot(Ef) / np.sum(Ef2)
         mu = np.diag([1])
         sigma_sq = np.diag([1 / (np.sum(Ef2) * tau)])
-        # evaluate objective function
+        # Evaluate objective function
         obj_func = get_cond_logl(El, El2, Ef, Ef2, X, tau) + KL_l + KL_f
         obj_funcs.append(obj_func)
         print('Objective F function: {:.5f}'.format(obj_func))
         t += 1
         if t == 1 or t == 2:
             flag = False
-        # else:
-            # use accuracy as convergence threshold
-        #     flag = abs(obj_funcs[-1] - obj_funcs[-2]) < tol
+        else:
+            # Use change in objective function as convergence threshold
+            flag = abs(obj_funcs[-1] - obj_funcs[-2]) < tol
+            if flag:
+                print('EBMF converged in {} iterations.'.format(t))
 
     if not flag:
-        print('EBMF failed to converge within {} iterations.'.format(iters))
+        print('EBMF failed to converge in {} iterations.'.format(iters))
 
     return L, F
 
