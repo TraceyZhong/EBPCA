@@ -47,11 +47,32 @@ def get_MSE(U,V):
     return COR    
 
 
-def compare_with_truth(Ustar, U):
-    fig,axes = plt.subplots(nrows = 1, ncols = 4, figsize=(10,3))
-    # ground truth
-    ax = axes[0]
-    ax.plot(Ustar[:,0], Ustar[:,1])
+def compare_with_truth(Ustar, U, to_show = False, to_save = False):
+    if to_show:
+        fig, axes = plt.subplots(nrows = 1, ncols = 4, figsize=(10,3), sharex=True, sharey=True)
+        # ground truth
+        ax = axes[0]
+        ax.scatter(Ustar[:,0], Ustar[:,1], s = 5)
+        ax.set_title("Ground Truth")
+        # svd
+        ax = axes[1]
+        ax.scatter(U[:,0,0], U[:,1,0], s=  5)
+        alignment = get_alignment(Ustar, U[:,:,0])
+        ax.set_title("SVD,\nalignment = {:.4f}".format(alignment))
+        # first denoising 
+        ax = axes[2]
+        ax.scatter(U[:,0,1], U[:,1,1], s = 5)
+        alignment = get_alignment(Ustar, U[:,:,1])
+        ax.set_title("First iteration,\nalignment = {:.4f}".format(alignment))
+        # last result
+        ax = axes[3]
+        ax.scatter(U[:,0,-1] , U[:,1,-1], s = 5)
+        alignment = get_alignment(Ustar, U[:,:,-1])
+        ax.set_title("Last iteration,\nalignment = {:.4f}".format(alignment))
+    if to_show:
+        plt.show()
+    if to_save:
+        plt.savefig('figures/compare_with_truth.png')
 
 
 n = 1500
