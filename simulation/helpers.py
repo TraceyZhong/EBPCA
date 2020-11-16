@@ -1,5 +1,21 @@
 # A collection of helper functions for rank one and rank two simulations
 import numpy as np
+import sys
+sys.path.extend(['../../generalAMP'])
+from tutorial import get_alignment 
+
+def fill_alignment(U_est, u_star, iters):
+    '''
+    create an alignment vector with expected length (=iters)
+    dealing with early stopping mechanism in amp, caused by numerical error and MOSEK
+    '''
+    alignment = []
+    for i in range(iters):
+        if i < U_est.shape[2]:
+            alignment.append(get_alignment(U_est[:, :, i], u_star))
+        else:
+            alignment.append(np.nan)
+    return alignment
 
 # --------------------
 # rank one simulations

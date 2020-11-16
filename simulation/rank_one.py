@@ -7,7 +7,7 @@ from ebpca.amp import ebamp_gaussian as ebamp_gaussian
 from ebpca.preprocessing import normalize_obs
 from ebpca.pca import get_pca
 from tutorial import get_alignment
-from simulation.helpers import simulate_prior, simulate_rank1_model
+from simulation.helpers import simulate_prior, simulate_rank1_model, fill_alignment
 
 # ----------------------
 # Setup for simulation
@@ -91,8 +91,11 @@ for i in range(n_rep):
     U_est, V_est = ebamp_gaussian(pcapack, iters=iters,
                                   udenoiser=udenoiser, vdenoiser=vdenoiser)
     # evaluate alignment
-    u_alignment.append([get_alignment(U_est[:, :, j], u_star) for j in range(U_est.shape[2])])
-    v_alignment.append([get_alignment(V_est[:, :, j], v_star) for j in range(V_est.shape[2])])
+    u_alignment.append(fill_alignment(U_est, u_star, iters))
+    v_alignment.append(fill_alignment(V_est, v_star, iters))
+    
+print(u_alignment)
+print(v_alignment)
 
 np.save('output/%s/alignments/u_s_%.1f_n_rep_%i.npy' % (prior_prefix, s_star, n_rep),
         u_alignment, allow_pickle=False)
