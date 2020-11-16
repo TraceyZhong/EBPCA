@@ -94,8 +94,10 @@ for i in range(n_rep):
     u_alignment.append([get_alignment(U_est[:, :, j], u_star) for j in range(U_est.shape[2])])
     v_alignment.append([get_alignment(V_est[:, :, j], v_star) for j in range(V_est.shape[2])])
 
-np.save('output/%s/alignments/u_s_%.1f_n_rep_%i.npy' % (prior_prefix, s_star, n_rep), u_alignment, allow_pickle=False)
-np.save('output/%s/alignments/v_s_%.1f_n_rep_%i.npy' % (prior_prefix, s_star, n_rep), v_alignment, allow_pickle=False)
+np.save('output/%s/alignments/u_s_%.1f_n_rep_%i.npy' % (prior_prefix, s_star, n_rep),
+        u_alignment, allow_pickle=False)
+np.save('output/%s/alignments/v_s_%.1f_n_rep_%i.npy' % (prior_prefix, s_star, n_rep),
+        v_alignment, allow_pickle=False)
 
 print('\n Simulation finished. \n')
 
