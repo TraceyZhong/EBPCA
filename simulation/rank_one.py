@@ -25,7 +25,7 @@ parser.add_argument("--s_star", type=float, help="enter signal strength",
 parser.add_argument("--iters", type=int, help="enter EB-PCA iterations", 
                     default=5, const=5, nargs='?')
 parser.add_argument("--ftol", type=float, help="MOSEK ftol",
-                    default=1e-6, const=1e-6, nargs='?')
+                    default=1e-8, const=1e-8, nargs='?')
 parser.add_argument("--nsupp_ratio", type=float, help="proportion of observed data points to take as support points",
                     default=0.1, const=0.1, nargs='?')
 args = parser.parse_args()
