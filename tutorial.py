@@ -38,7 +38,7 @@ def get_alignment(U,V):
     U = U/np.sqrt((U**2).sum(axis = 0))
     V = V/np.sqrt((V**2).sum(axis = 0))
     COR = np.abs(np.transpose(U) @ V)
-    return np.mean(np.diag(COR))
+    return np.sqrt(np.mean(np.diag(COR**2)))
 
 def get_MSE(U,V):
     U = U/np.sqrt((U**2).sum(axis = 0))
