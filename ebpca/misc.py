@@ -3,8 +3,12 @@
 EBMF method
 ==========
 This module includes an implementation of the method in https://arxiv.org/abs/1802.06931 ,
-which estimates and denoises PCs with a Variational Bayes method.
+  which estimates PCs with a Variational Bayes method.
 We include it here to compare with EB-PCA method.
+
+The specific function ebmf() here runs for designated number of iterations.
+Note that we also implement evaluation of objective function,
+  which can be used to determined if ebmf is converged or not within maximum iterations.
 
 Input:
     pcapack: output from pca.get_pca
@@ -35,7 +39,7 @@ import numpy as np
 from ebpca.empbayes import _gaussian_pdf, NonparEB
 
 def ebmf(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
-         update_family = 'nonparametric', iters = 50, tol = 1e-2, ebpca_scaling=True):
+         update_family = 'nonparametric', iters = 50, tol=1e-1, ebpca_scaling=True):
 
     X = pcapack.X
     u, v = pcapack.U, pcapack.V
@@ -43,6 +47,7 @@ def ebmf(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
     (n, d) = X.shape
 
     if ebpca_scaling:
+        print('Apply rescaling to match the scale with EB-PCA in marginal plots')
         # get signal
         signals = pcapack.signals
         # apply the same scaling in EB-PCA
@@ -76,7 +81,7 @@ def ebmf(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
     obj_funcs = []
     t = 0
     flag = False
-    while t < iters and (not flag):
+    while t < iters:
         print("at ebmf iter {}".format(t))
         # Denoise l_hat to get l
         ldenoiser.fit(l_hat, mu, sigma_sq, figname='_u_iter%02d.png' % (t))
@@ -126,12 +131,12 @@ def ebmf(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
             # Use change in objective function as convergence threshold
             flag = abs(obj_funcs[-1] - obj_funcs[-2]) < tol
             if flag:
-                print('EBMF converged in {} iterations.'.format(t))
+                print('EBMF converged in {} iterations, tol={:.1e}.'.format(t, tol))
 
     if not flag:
         print('EBMF failed to converge in {} iterations.'.format(iters))
 
-    return L, F
+    return L, F, obj_funcs
 
 # -------------------------
 # utils functions for ebmf
