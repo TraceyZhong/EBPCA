@@ -80,6 +80,7 @@ for i in range(n_rep):
 # run EB-PCA / BayesAMP / EBMF
 u_alignment = []
 v_alignment = []
+obj_funcs = []
 start_time = time.time()
 for i in range(n_rep):
     print('Replication %i' % i)
@@ -109,12 +110,13 @@ for i in range(n_rep):
     elif method == 'EBMF':
         ldenoiser = NonparEB(optimizer="Mosek", to_save=False)
         fdenoiser = NonparEB(optimizer="Mosek", to_save=False)
-        U_est, V_est = ebmf(pcapack, ldenoiser, fdenoiser,
-                            update_family='nonparametric', tol=1e-2)
+        U_est, V_est, obj = ebmf(pcapack, ldenoiser, fdenoiser, iters=iters,
+                                 ebpca_scaling=True, update_family='nonparametric', tol=1e-1)
+        obj_funcs.append(obj)
     # evaluate alignment
     # maximal EBMF iterations: 50
-    u_alignment.append(fill_alignment(U_est, u_star, 20))
-    v_alignment.append(fill_alignment(V_est, v_star, 20))
+    u_alignment.append(fill_alignment(U_est, u_star, iters))
+    v_alignment.append(fill_alignment(V_est, v_star, iters))
     # save denoised PC along iterations
     np.save('output/%s/denoisedPC/%s_leftPC_s_%.1f_n_copy_%i.npy' % (prior_prefix, method, s_star, i),
             U_est, allow_pickle=False)
@@ -132,5 +134,10 @@ np.save('output/%s/alignments/%s_u_s_%.1f_n_rep_%i.npy' % (prior_prefix, method,
         u_alignment, allow_pickle=False)
 np.save('output/%s/alignments/%s_v_s_%.1f_n_rep_%i.npy' % (prior_prefix, method, s_star, n_rep),
         v_alignment, allow_pickle=False)
+# save objective function values for EBMF
+if method == 'EBMF':
+    np.save('output/%s/alignments/%s_obj_funcs_s_%.1f_n_rep_%i.npy' % (prior_prefix, method, s_star, n_rep),
+            obj_funcs, allow_pickle=False)
+    print('objective function differences:', np.ediff1d(obj_funcs))
 
 print('\n Simulation finished. \n')
