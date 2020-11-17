@@ -51,7 +51,7 @@ data_prefix = 'output/%s/data/s_%.1f' % (prior_prefix, s_star)
 # -----------------
 
 # set parameters for simulation
-n = 2000
+n = 1000
 gamma = 2
 d = int(n * gamma)
 rank = 1
