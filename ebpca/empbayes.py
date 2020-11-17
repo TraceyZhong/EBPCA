@@ -16,9 +16,6 @@ from numba import jit
 import mosek
 import mosek.fusion as fusion
 from scipy import optimize
-from memory_profiler import profile
-
-from ebpca.utils import clock
 
 class _BaseEmpiricalBayes(ABC):
     
@@ -134,7 +131,6 @@ class NonparEB(_BaseEmpiricalBayes):
                 fig.savefig(self.fig_prefix + "_prior" +figname)
             plt.close()         
     
-    @clock
     def estimate_prior(self,f, mu, cov):
         # check initialization  
         self._check_init(f,mu,cov)
