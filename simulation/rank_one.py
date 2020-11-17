@@ -27,10 +27,6 @@ parser.add_argument("--s_star", type=float, help="enter signal strength",
                     default=1.4, const=1.4, nargs='?')
 parser.add_argument("--iters", type=int, help="enter EB-PCA iterations", 
                     default=5, const=5, nargs='?')
-parser.add_argument("--ftol", type=float, help="MOSEK ftol",
-                    default=1e-8, const=1e-8, nargs='?')
-parser.add_argument("--nsupp_ratio", type=float, help="proportion of observed data points to take as support points",
-                    default=1, const=1, nargs='?')
 args = parser.parse_args()
 
 prior = args.prior
@@ -55,16 +51,12 @@ data_prefix = 'output/%s/data/s_%.1f' % (prior_prefix, s_star)
 # rank-1 simulation
 # -----------------
 
-# set parameters for simulation
+# set fixed parameters for simulation
 n = 1000
 gamma = 2
 d = int(n * gamma)
 rank = 1
-ftol = args.ftol # 1e-6
-nsupp_ratio = args.nsupp_ratio # 0.1
 alignment = []
-
-print('ftol=%.6f, nsupp_ratio=%.2f' % (ftol, nsupp_ratio))
 
 print('fixed parameters: n=%i, gamma=%.1f\n' % (n, gamma))
 
@@ -88,8 +80,6 @@ for i in range(n_rep):
 # run EB-PCA / BayesAMP / EBMF
 u_alignment = []
 v_alignment = []
-U_est_list = []
-V_est_list = []
 start_time = time.time()
 for i in range(n_rep):
     print('Replication %i' % i)
@@ -101,10 +91,8 @@ for i in range(n_rep):
     pcapack = get_pca(X, rank)
     if method == 'EB-PCA':
         # initiate denoiser
-        udenoiser = NonparEB(optimizer="Mosek", to_save=False,
-                             nsupp_ratio=nsupp_ratio, ftol=ftol)
-        vdenoiser = NonparEB(optimizer="Mosek", to_save=False,
-                             nsupp_ratio=nsupp_ratio, ftol=ftol)
+        udenoiser = NonparEB(optimizer="Mosek", to_save=False)
+        vdenoiser = NonparEB(optimizer="Mosek", to_save=False)
         # run AMP
         U_est, V_est = ebamp_gaussian(pcapack, iters=iters,
                                       udenoiser=udenoiser, vdenoiser=vdenoiser)
@@ -122,13 +110,16 @@ for i in range(n_rep):
         ldenoiser = NonparEB(optimizer="Mosek", to_save=False)
         fdenoiser = NonparEB(optimizer="Mosek", to_save=False)
         U_est, V_est = ebmf(pcapack, ldenoiser, fdenoiser,
-                            update_family='nonparametric')
+                            update_family='nonparametric', tol=1e-2)
     # evaluate alignment
-    u_alignment.append(fill_alignment(U_est, u_star, iters))
-    v_alignment.append(fill_alignment(V_est, v_star, iters))
+    # maximal EBMF iterations: 50
+    u_alignment.append(fill_alignment(U_est, u_star, 20))
+    v_alignment.append(fill_alignment(V_est, v_star, 20))
     # save denoised PC along iterations
-    U_est_list.append(U_est)
-    V_est_list.append(V_est)
+    np.save('output/%s/denoisedPC/%s_leftPC_s_%.1f_n_copy_%i.npy' % (prior_prefix, method, s_star, i),
+            U_est, allow_pickle=False)
+    np.save('output/%s/denoisedPC/%s_rightPC_s_%.1f_n_copy_%i.npy' % (prior_prefix, method, s_star, i),
+            V_est, allow_pickle=False)
 
 end_time = time.time()
 print('Simulation takes %.2f s' % (end_time - start_time))
@@ -141,12 +132,5 @@ np.save('output/%s/alignments/%s_u_s_%.1f_n_rep_%i.npy' % (prior_prefix, method,
         u_alignment, allow_pickle=False)
 np.save('output/%s/alignments/%s_v_s_%.1f_n_rep_%i.npy' % (prior_prefix, method, s_star, n_rep),
         v_alignment, allow_pickle=False)
-# save denoised PCs
-U_est_list = np.array(U_est_list).reshape(n_rep, n, 6)
-V_est_list = np.array(V_est_list).reshape(n_rep, d, 6)
-np.save('output/%s/denoisedPC/%s_leftPC_s_%.1f_n_rep_%i.npy' % (prior_prefix, method, s_star, n_rep),
-        U_est_list, allow_pickle=False)
-np.save('output/%s/denoisedPC/%s_rightPC_s_%.1f_n_rep_%i.npy' % (prior_prefix, method, s_star, n_rep),
-        V_est_list, allow_pickle=False)
 
 print('\n Simulation finished. \n')
