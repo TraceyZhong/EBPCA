@@ -6,14 +6,11 @@ AMP
 
 import numpy as np
 import scipy
-from memory_profiler import profile
 
 from ebpca.empbayes import NonparEB
 from ebpca.pca import PcaPack
 
-from ebpca.utils import clock
 
-@clock
 # @profile(precision=4)
 def ebamp_gaussian(pcapack, iters = 5, udenoiser = NonparEB(), \
     vdenoiser = NonparEB(), figprefix = '', mutev = False):
