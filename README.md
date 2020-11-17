@@ -50,5 +50,5 @@ U, V = ebamp_gaussian(pcapack, iters=3, udenoiser=udenoiser, figprefix="tut", mu
 * [__ebpca__]: Implementation of the EB-PCA algorithm.
     * [__amp__]: Iterative refinement using AMP.
     * [__empbayes__]: Empirical Bayes for the multivariate compound decision problem.
-    * [__pca__]: PCA analysis for parameters initialization for AMP
+    * [__pca__]: Random matrix asymptotics for sample PCs.
     * [__preprocessing__]: Preprocessing for the observational matrix.

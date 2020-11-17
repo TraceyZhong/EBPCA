@@ -9,6 +9,17 @@ import sys
 import time
 from abc import ABC, abstractmethod
 
+import time
+def clock(func):
+    def clocked(*args, **kwargs):
+        t0 = time.perf_counter()
+        result = func(*args, **kwargs)
+        elapsed = time.perf_counter() - t0
+        name = func.__name__
+        print('[%0.8fs] %s' % (elapsed, name))
+        return result
+    return clocked
+
 import numpy as np
 import matplotlib as mpl
 from matplotlib import rcParams
@@ -26,8 +37,6 @@ class _BaseEmpiricalBayes(ABC):
         self.to_show = to_show
         self.fig_prefix = "figures/"+fig_prefix
         self.rank = 0
-
-        # self.warm_start = False
 
     @abstractmethod
     def estimate_prior(self,f, mu, cov):
@@ -51,8 +60,6 @@ class _BaseEmpiricalBayes(ABC):
 
     def fit(self, f, mu, cov, **kwargs):
         self.estimate_prior(f,mu,cov)
-        if np.all(self.pi == 0):
-            return 'error'
         figname = kwargs.get("figname", "")
         if (self.to_show or self.to_save):
             self.check_margin(f,mu,cov,figname)
@@ -96,18 +103,13 @@ class _BaseEmpiricalBayes(ABC):
         ax.plot(xgrid, pdf, color="grey", linestyle="dashed", label="theoretical density")
         ax.legend()
 
-    def get_estimate(self):
-        return self.pi, self.Z
-
 class NonparEB(_BaseEmpiricalBayes):
     
-    def __init__(self, optimizer = "EM", ftol = 1e-6, nsupp_ratio = 1, em_iter = 100, maxiter = 100, to_save = False, to_show = False, fig_prefix = "nonpareb", **kwargs):
+    def __init__(self, optimizer = "EM", ftol = 1e-6, nsupp_ratio = 1, em_iter = 10, maxiter = 100, to_save = False, to_show = False, fig_prefix = "nonpareb", **kwargs):
         _BaseEmpiricalBayes.__init__(self, to_save, to_show, fig_prefix)
         # check if parameters are valid
         if optimizer in ["EM", "Mosek"]:
             self.optimizer = optimizer
-            if optimizer == 'Mosek':
-                print('Use optimizer: %s' % self.optimizer)
         else:
             raise ValueError("Supported Optimizers are EM or Mosek.")
         self.nsample = None
@@ -145,7 +147,6 @@ class NonparEB(_BaseEmpiricalBayes):
         # check initialization  
         self._check_init(f,mu,cov)
         covInv = np.linalg.inv(cov)
-        # print("Start Estimating the prior")
         if self.optimizer == "EM":
             self.pi = _npmle_em_hd(f, self.Z, mu, covInv, self.em_iter, self.nsample, self.nsupp, self.rank)
         if self.optimizer == "Mosek":
@@ -153,15 +154,16 @@ class NonparEB(_BaseEmpiricalBayes):
 
     def get_margin_pdf(self, x, mu, cov, dim):
         loc = self.Z.dot(mu.T)[:, dim]
-        # loc = np.array([mu.dot(z) for z in self.Z])[:, dim]
         scalesq = cov[dim, dim]
         return np.sum(self.pi / np.sqrt(2 * np.pi * scalesq) * np.exp(-(x - loc) ** 2 / (2 * scalesq)))
-
+    
+    @clock
     def denoise(self, f, mu, cov):
         covInv = np.linalg.inv(cov)
         P = get_P(f,self.Z, mu, covInv, self.pi)
         return P @ self.Z 
 
+    @clock
     def ddenoise(self, f, mu, cov):
         covInv = np.linalg.inv(cov)
         P = get_P(f, self.Z, mu, covInv, self.pi)
@@ -171,6 +173,9 @@ class NonparEB(_BaseEmpiricalBayes):
         E2 = np.einsum("ijk, kl -> ijl" ,matrix_outer(E2a, E2a.dot(mu.T)), covInv)  # shape (I * rank)
 
         return E1 - E2
+
+    def get_estimate(self):
+        return self.pi, self.Z
 
 class NonparEBChecker(NonparEB):
     def __init__(self, truePriorLoc, truePriorWeight, optimizer = "EM", ftol = 1e-6, nsupp_ratio = 1, em_iter = 10, maxiter = 100, to_save = False, to_show = False, fig_prefix = "nonparebck", **kwargs):
@@ -307,7 +312,7 @@ def _npmle_em_hd(f, Z, mu, covInv, em_iter, nsample, nsupp, ndim):
     # pi = np.full((nsupp,), 1/nsupp, dtype= float)
     pi = np.array([1/nsupp] * nsupp)
     
-    W = get_my_W(f, Z, mu, covInv)
+    W = get_W(f, Z, mu, covInv)
 
     for _ in range(em_iter):
         denom = my_dot(W, pi) # denom[i] = \sum_j pi[j]*W[i,j]
@@ -334,45 +339,9 @@ def my_dot(mat, vec):
             res[i] += mat[i, j] * vec[j]
     return res
 
-def get_W(f, z, mu, covInv):
-    '''
-    Compute conditional likelihood
-    '''
-    if len(f.shape) > 1:
-        W = get_W_multivar(f, z, mu, covInv)
-    else:
-        W = get_W_univar(f, z, mu, covInv)
-    return W
-
-@jit(nopython = True)
-def get_my_W(f, z, mu, covInv):
-    nsample = f.shape[0]
-    nsupp = z.shape[0]
-    W = np.empty(shape = (nsample, nsupp),)
-    for i in range(nsample):
-        for j in range(nsupp):
-            vec = f[i] - my_dot(mu, z[j])
-            res = np.exp(-np.sum(my_dot(covInv, vec) * vec)/2)
-            W[i,j] = res
-    return W
-
-def get_W_univar(f, z, mu, covInv):
-    '''
-    Compute conditional likelihood for univariate problem
-    '''
-    nsample = f.shape[0]
-    nsupp = z.shape[0]
-    W = np.empty(shape=(nsample, nsupp), )
-    for i in range(nsample):
-        for j in range(nsupp):
-            vec = f[i] - mu * z[j]
-            res = np.exp(-np.sum(covInv * vec ** 2) / 2)
-            W[i, j] = res
-    return W
-
 # W[i,j] = f(x_i | z_j)
 @jit(nopython = True)
-def get_W_multivar(f, z, mu, covInv):
+def get_W(f, z, mu, covInv):
     '''
     Compute conditional likelihood for multivariate problem
     numba is used to speed up the computation
@@ -445,7 +414,7 @@ def _mosek_npmle(f, Z, mu, covInv, tol):
     except fusion.SolutionError as e:
         # The solution with at least the expected status was not available.
         # We try to diagnoze why.
-        print("Error messages from MOSEK: \n  Requested NPMLE solution was not available.")
+        print("  Error messages from MOSEK: \n  Requested NPMLE solution was not available.")
         prosta = M.getProblemStatus()
 
         if prosta == fusion.ProblemStatus.DualInfeasible:
@@ -462,7 +431,7 @@ def _mosek_npmle(f, Z, mu, covInv, tol):
             print("  Termination code: {0} {1}".format(symname, desc))
 
             print('  This warning message is likely caused by numerical errors.',
-                  '\n  For details see https://docs.mosek.com/9.2/pythonapi/response-codes.html#mosek.rescode.trm_stall')
+                  '\n  For details see "MSK_RES_TRM_STALL" (10006) at \n  https://docs.mosek.com/9.2/rmosek/response-codes.html')
             # Please note that if a linear optimization problem is solved using the interior-point optimizer with
             # basis identification turned on, the returned basic solution likely to have high accuracy,
             # even though the optimizer stalled.

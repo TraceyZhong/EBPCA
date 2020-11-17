@@ -105,10 +105,10 @@ def test():
 
     truePriorLoc = normalize_pc(np.array([[1,-1],[1,1],[-1,0],[-1,0]]))
     
-    udenoiser = NonparEBChecker(truePriorLoc, np.array([1/4,1/4,1/4,1/4]) , optimizer = "Mosek", ftol = 1e-3, nsupp_ratio = 1, to_save=True)
-    vdenoiser = NonparEBChecker(truePriorLoc, np.array([1/4,1/4,1/4,1/4]), optimizer = "Mosek", ftol = 1e-3, nsupp_ratio = 1, to_save = True)
+    udenoiser = NonparEBChecker(truePriorLoc, np.array([1/4,1/4,1/4,1/4]) , optimizer = "Mosek", ftol = 1e-3, nsupp_ratio = 1, to_save=False)
+    vdenoiser = NonparEBChecker(truePriorLoc, np.array([1/4,1/4,1/4,1/4]), optimizer = "Mosek", ftol = 1e-3, nsupp_ratio = 1, to_save =False)
 
-    U, _ = ebamp_gaussian(pcapack, iters=3, udenoiser=udenoiser, vdenoiser= vdenoiser, figprefix="tutorial", mutev = True)
+    U, _ = ebamp_gaussian(pcapack, iters=3, udenoiser=udenoiser, vdenoiser= vdenoiser, figprefix="tutorial", mutev = False)
 
     iters = U.shape[-1]
 
@@ -139,7 +139,6 @@ def test1d():
     a = get_MSE(ustar, pcapack.U)
     print(a)
 
-    
     udenoiser = NonparEB(optimizer = "Mosek", ftol = 1e-3, nsupp_ratio = 1, to_save=True)
     vdenoiser = NonparEB(optimizer = "Mosek", ftol = 1e-3, nsupp_ratio = 1)
 
@@ -154,3 +153,4 @@ def test1d():
     print(res)
 
 # test()
+
