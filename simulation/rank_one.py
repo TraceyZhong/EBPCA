@@ -8,7 +8,7 @@ from ebpca.amp import ebamp_gaussian as ebamp_gaussian, ebamp_gaussian_rank_one
 from ebpca.preprocessing import normalize_obs
 from ebpca.pca import get_pca
 from ebpca.misc import ebmf
-from simulation.helpers import simulate_prior, simulate_rank1_model, fill_alignment, approx_prior
+from simulation.helpers import simulate_prior, signal_plus_noise_model, fill_alignment, approx_prior
 
 # ----------------------
 # Setup for simulation
@@ -30,7 +30,7 @@ parser.add_argument("--iters", type=int, help="enter EB-PCA iterations",
 parser.add_argument("--ftol", type=float, help="MOSEK ftol",
                     default=1e-8, const=1e-8, nargs='?')
 parser.add_argument("--nsupp_ratio", type=float, help="proportion of observed data points to take as support points",
-                    default=0.1, const=0.1, nargs='?')
+                    default=1, const=1, nargs='?')
 args = parser.parse_args()
 
 prior = args.prior
@@ -47,6 +47,7 @@ prior_prefix = 'univariate/' + prior
 if not os.path.exists('output/' + prior_prefix):
     os.makedirs('output/%s/alignments' % prior_prefix)
     os.mkdir('output/%s/data' % prior_prefix)
+    os.mkdir('output/%s/denoisedPC' % prior_prefix)
 data_prefix = 'output/%s/data/s_%.1f' % (prior_prefix, s_star)
 
 
@@ -77,7 +78,7 @@ for i in range(n_rep):
         # simulate data based on the chosen prior
         u_star = simulate_prior(prior, n, seed=seeds[0][i])
         v_star = simulate_prior(prior, d, seed=seeds[1][i])
-        Y = simulate_rank1_model(u_star, v_star, s_star)
+        Y = signal_plus_noise_model(u_star, v_star, s_star)
         # normalize the observational matrix
         X = normalize_obs(Y, rank)
         np.save('%s_copy_%i_u_star.npy' % (data_prefix, i), u_star, allow_pickle=False)
@@ -87,6 +88,8 @@ for i in range(n_rep):
 # run EB-PCA / BayesAMP / EBMF
 u_alignment = []
 v_alignment = []
+U_est_list = []
+V_est_list = []
 start_time = time.time()
 for i in range(n_rep):
     print('Replication %i' % i)
@@ -123,6 +126,9 @@ for i in range(n_rep):
     # evaluate alignment
     u_alignment.append(fill_alignment(U_est, u_star, iters))
     v_alignment.append(fill_alignment(V_est, v_star, iters))
+    # save denoised PC along iterations
+    U_est_list.append(U_est)
+    V_est_list.append(V_est)
 
 end_time = time.time()
 print('Simulation takes %.2f s' % (end_time - start_time))
@@ -130,10 +136,17 @@ print('Simulation takes %.2f s' % (end_time - start_time))
 print('right PC alignments:', u_alignment)
 print('left PC alignments:', v_alignment)
 
+# save alignments
 np.save('output/%s/alignments/%s_u_s_%.1f_n_rep_%i.npy' % (prior_prefix, method, s_star, n_rep),
         u_alignment, allow_pickle=False)
 np.save('output/%s/alignments/%s_v_s_%.1f_n_rep_%i.npy' % (prior_prefix, method, s_star, n_rep),
         v_alignment, allow_pickle=False)
+# save denoised PCs
+U_est_list = np.array(U_est_list).reshape(n_rep, n, 6)
+V_est_list = np.array(V_est_list).reshape(n_rep, d, 6)
+np.save('output/%s/denoisedPC/%s_leftPC_s_%.1f_n_rep_%i.npy' % (prior_prefix, method, s_star, n_rep),
+        U_est_list, allow_pickle=False)
+np.save('output/%s/denoisedPC/%s_rightPC_s_%.1f_n_rep_%i.npy' % (prior_prefix, method, s_star, n_rep),
+        V_est_list, allow_pickle=False)
 
 print('\n Simulation finished. \n')
-
