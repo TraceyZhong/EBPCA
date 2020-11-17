@@ -16,8 +16,6 @@ Remarks:
 Reference:
     http://www.cmapx.polytechnique.fr/~benaych/YJMVA3366.pdf
 
-Typical usage example:
-
 '''
 import os
 from collections import namedtuple
@@ -30,41 +28,7 @@ import matplotlib.pyplot as plt
 PcaPack = namedtuple("PCAPack", ["X", "U", "V", "mu", "K", \
     "n_samples", "n_features", "signals", "sample_aligns", "feature_aligns"])
 
-## --- standarize data --- ##
 
-def transform(X, data_label = None):
-    '''
-    Input:
-    -----
-    X: ndrray of shape (n_samples, n_features)
-
-    Output:
-    -----
-    data: ndrray of shape (n_samples, n_features)
-        imputed and standardized X
-    mu: ndrray of shape (n_samples, ) or (n_features, )
-        singular values of data.
-    n_samples, n_features: int
-    '''
-    
-    # impute data
-    col_mean = np.nanmean(X, axis = 0)
-    idx = np.where(np.isnan(X))
-    X[idx] = np.take(col_mean, idx[1])
-
-    if np.isnan(X).any():
-        raise ValueError("data contain a column with no valid value")
-
-    # standarize data along feature space # this seems not correct.
-    X = (X - np.mean(X, axis = 0)) / np.std(X, axis = 0)
-
-    # engenvalues 
-    _, s, _ = np.linalg.svd(X,full_matrices=False)
-    
-    # plot pc 
-    plot_pc(X, data_label)
-
-    return {"data": X, "mu": s, "n_samples": X.shape[0], "n_features": X.shape[1]}
 
 ## --- get pca pack and check goe spectra --- ##
 

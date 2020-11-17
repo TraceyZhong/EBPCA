@@ -105,7 +105,7 @@ class _BaseEmpiricalBayes(ABC):
 
 class NonparEB(_BaseEmpiricalBayes):
     
-    def __init__(self, optimizer = "EM", ftol = 1e-8, nsupp_ratio = 0.1, em_iter = 100, maxiter = 100, to_save = False, to_show = False, fig_prefix = "nonpareb", **kwargs):
+    def __init__(self, optimizer = "EM", ftol = 1e-8, nsupp_ratio = 1, em_iter = 100, maxiter = 100, to_save = False, to_show = False, fig_prefix = "nonpareb", **kwargs):
         _BaseEmpiricalBayes.__init__(self, to_save, to_show, fig_prefix)
         # check if parameters are valid
         if optimizer in ["EM", "Mosek"]:
@@ -120,6 +120,7 @@ class NonparEB(_BaseEmpiricalBayes):
         self.nsupp_ratio = nsupp_ratio
         self.pi = None
         self.Z = None
+        self.P = None
 
     def _check_init(self, f, mu, cov):
         self.rank = len(mu)
@@ -142,15 +143,17 @@ class NonparEB(_BaseEmpiricalBayes):
             if self.to_save:
                 fig.savefig(self.fig_prefix + "_prior" +figname)
             plt.close()         
-
+    @clock
     def estimate_prior(self,f, mu, cov):
         # check initialization  
         self._check_init(f,mu,cov)
         covInv = np.linalg.inv(cov)
         if self.optimizer == "EM":
-            self.pi = _npmle_em_hd(f, self.Z, mu, covInv, self.em_iter, self.nsample, self.nsupp, self.rank)
+            self.pi, W = npmle_em_hd(f, self.Z, mu, covInv, self.em_iter)
         if self.optimizer == "Mosek":
-            self.pi = _mosek_npmle(f, self.Z, mu, covInv, self.ftol)
+            self.pi, W = mosek_npmle(f, self.Z, mu, covInv, self.ftol)
+        self.P = get_P_from_W(W, self.pi)
+        del W
 
     def get_margin_pdf(self, x, mu, cov, dim):
         loc = self.Z.dot(mu.T)[:, dim]
@@ -159,19 +162,22 @@ class NonparEB(_BaseEmpiricalBayes):
     
     @clock
     def denoise(self, f, mu, cov):
-        covInv = np.linalg.inv(cov)
-        P = get_P(f,self.Z, mu, covInv, self.pi)
-        return P @ self.Z 
+        if self.P is None:
+            covInv = np.linalg.inv(cov)
+            self.P = get_P(f,self.Z, mu, covInv, self.pi)
+        return self.P @ self.Z 
 
     @clock
     def ddenoise(self, f, mu, cov):
         covInv = np.linalg.inv(cov)
-        P = get_P(f, self.Z, mu, covInv, self.pi)
+        if self.P is None:
+            self.P = get_P(f, self.Z, mu, covInv, self.pi)
         ZouterMZ = np.einsum("ijk, kl -> ijl" ,matrix_outer(self.Z, self.Z.dot(mu.T)), covInv) 
-        E1 = np.einsum("ij, jkl -> ikl", P, ZouterMZ)
-        E2a = P @ self.Z # shape (I * rank)
+        E1 = np.einsum("ij, jkl -> ikl", self.P, ZouterMZ)
+        E2a = self.P @ self.Z # shape (I * rank)
         E2 = np.einsum("ijk, kl -> ijl" ,matrix_outer(E2a, E2a.dot(mu.T)), covInv)  # shape (I * rank)
-
+        del self.P
+        self.P = None
         return E1 - E2
 
     def get_estimate(self):
@@ -307,6 +313,28 @@ class PointNormalEB(_BaseEmpiricalBayes):
     def _eval_sigma_x_tilde(mu_y, sigma_x, sigma_y):
         return sigma_x * sigma_y * np.sqrt(1 / (mu_y**2 * sigma_x**2 + sigma_y**2))
 
+def jit_npmle_em_hd(f, Z, mu, covInv, em_iter, nsample, nsupp):
+    # pi = np.full((nsupp,), 1/nsupp, dtype= float)
+    pi = np.array([1/nsupp] * nsupp)
+    
+    W = get_W(f, Z, mu, covInv)
+
+    return em(W,pi,nsupp,em_iter)
+
+
+
+@jit(nopython=True)
+def em(W, pi, nsupp,em_iter):
+    for _ in range(em_iter):
+        denom = my_dot(W, pi) # denom[i] = \sum_j pi[j]*W[i,j]
+
+        for j in range(nsupp):
+            pi[j] = pi[j]*np.mean(W[:,j]/denom)
+    
+    return pi
+
+
+
 @jit(nopython=True)
 def _npmle_em_hd(f, Z, mu, covInv, em_iter, nsample, nsupp, ndim):
     # pi = np.full((nsupp,), 1/nsupp, dtype= float)
@@ -319,8 +347,22 @@ def _npmle_em_hd(f, Z, mu, covInv, em_iter, nsample, nsupp, ndim):
 
         for j in range(nsupp):
             pi[j] = pi[j]*np.mean(W[:,j]/denom)
+    
+    return pi, W
 
-    return pi
+def npmle_em_hd(f, Z, mu, covInv, em_iter):
+    # I dont need this n_dim
+    nsupp = Z.shape[0]
+    pi = np.array([1/nsupp] * nsupp)
+    W = get_W(f, Z, mu, covInv)
+
+    for _ in range(em_iter):
+        denom = W.dot(pi)[:,np.newaxis]
+        pi = pi * np.mean(W/denom, axis = 0)
+    
+    return pi, W
+
+
 
 def _gaussian_pdf(x, mu, sigma):
     return (1 / np.sqrt(2 * np.pi)) * (1 / sigma) * np.exp(-(x - mu)**2 / (2 * sigma**2))
@@ -340,8 +382,9 @@ def my_dot(mat, vec):
     return res
 
 # W[i,j] = f(x_i | z_j)
+@clock
 @jit(nopython = True)
-def get_W(f, z, mu, covInv):
+def jit_get_W(f, z, mu, covInv):
     '''
     Compute conditional likelihood for multivariate problem
     numba is used to speed up the computation
@@ -356,12 +399,27 @@ def get_W(f, z, mu, covInv):
             W[i,j] = res
     return W
 
+# consider another get W using broadcast
+def get_W(f, z, mu, covInv):
+    fsq = (np.einsum("ik,ik -> i", f @ covInv, f) / 2)[:,np.newaxis]
+    mz = z.dot(mu.T)
+    zsq = np.einsum("ik, ik->i", mz @ covInv, mz) / 2
+    fz = f @ covInv @ mz.T
+    del mz
+    return np.exp(- fsq + fz - zsq)
+    
+
 # P[i,j] = P(Z_j | X_i)
-def get_P(f,z,mu,covInv, pi):
+def get_P(f,z,mu,covInv,pi):
     W = get_W(f,z,mu,covInv)
     denom = W.dot(pi) # denom[i] = \sum_j pi[j] * W[i,j]
     num = W * pi # W*pi[i,j] = pi[j] * W[i,j]
     return num / denom[:, np.newaxis]
+
+def get_P_from_W(W, pi):
+    denom = W.dot(pi) # denom[i] = \sum_j pi[j] * W[i,j]
+    num = W * pi # W*pi[i,j] = pi[j] * W[i,j]
+    return num / denom[:, np.newaxis]    
 
 matrix_outer = lambda A, B: np.einsum("bi,bo->bio", A, B)
 
@@ -442,7 +500,82 @@ def _mosek_npmle(f, Z, mu, covInv, tol):
     except Exception as e:
         print("  Unexpected error: {0}".format(e))
 
-    return pi
+    return pi, A
+
+def mosek_npmle(f, Z, mu, covInv, tol=1e-8):
+    A = get_W(f, Z, mu, covInv)
+    n, m = A.shape
+
+    # objective function: the primal in Section 4.2,
+    # https://www.tandfonline.com/doi/pdf/10.1080/01621459.2013.869224
+    M = fusion.Model('NPMLE')
+    # set tolerance parameter
+    # https://docs.mosek.com/9.2/pythonapi/solver-parameters.html
+    M.getTask().putdouparam(mosek.dparam.intpnt_co_tol_rel_gap, tol)
+    # print('mosek tolerance: %f' % M.getTask().getdouparam(mosek.dparam.intpnt_co_tol_rel_gap) )
+    logg = M.variable(n)
+    g = M.variable('g', n, fusion.Domain.greaterThan(0.))  # w = exp(v)
+    f = M.variable('f', m, fusion.Domain.greaterThan(0.))
+    ones = np.repeat(1.0, n)
+    ones_m = np.repeat(1.0, m)
+    M.constraint(fusion.Expr.sub(fusion.Expr.dot(ones_m, f), 1), fusion.Domain.equalsTo(0.0))
+    M.constraint(fusion.Expr.sub(fusion.Expr.mul(A, f), g), fusion.Domain.equalsTo(0.0, n))
+    M.constraint(fusion.Expr.hstack(g, fusion.Expr.constTerm(n, 1.0), logg), fusion.Domain.inPExpCone())
+
+    # uncomment to enable detailed log
+    # M.setLogHandler(sys.stdout)
+
+    # default value if MOSEK gives an error
+    pi = np.repeat(0, m)
+
+    M.objective(fusion.ObjectiveSense.Maximize, fusion.Expr.dot(ones, logg))
+
+    # response handling for Mosek solutions
+    # modified from https://docs.mosek.com/9.2/pythonfusion/errors-exceptions.html
+    try:
+        M.solve()
+        M.acceptedSolutionStatus(fusion.AccSolutionStatus.Optimal)
+        pi = f.level()
+        # address negative values due to numerical instability
+        pi[pi < 0] = 0
+        # normalize the negative values due to numerical issues
+        pi = pi / np.sum(pi)
+
+    except fusion.OptimizeError as e:
+        print(" Optimization failed. Error: {0}".format(e))
+
+    except fusion.SolutionError as e:
+        # The solution with at least the expected status was not available.
+        # We try to diagnoze why.
+        print("  Error messages from MOSEK: \n  Requested NPMLE solution was not available.")
+        prosta = M.getProblemStatus()
+
+        if prosta == fusion.ProblemStatus.DualInfeasible:
+            print("  Dual infeasibility certificate found.")
+
+        elif prosta == fusion.ProblemStatus.PrimalInfeasible:
+            print("  Primal infeasibility certificate found.")
+
+        elif prosta == fusion.ProblemStatus.Unknown:
+            # The solutions status is unknown. The termination code
+            # indicates why the optimizer terminated prematurely.
+            print("  The NPMLE solution status is unknown.")
+            symname, desc = mosek.Env.getcodedesc(mosek.rescode(int(M.getSolverIntInfo("optimizeResponse"))))
+            print("  Termination code: {0} {1}".format(symname, desc))
+
+            print('  This warning message is likely caused by numerical errors.',
+                  '\n  For details see "MSK_RES_TRM_STALL" (10006) at \n  https://docs.mosek.com/9.2/rmosek/response-codes.html')
+            # Please note that if a linear optimization problem is solved using the interior-point optimizer with
+            # basis identification turned on, the returned basic solution likely to have high accuracy,
+            # even though the optimizer stalled.
+
+        else:
+            print("  Another unexpected problem status {0} is obtained.".format(prosta))
+
+    except Exception as e:
+        print("  Unexpected error: {0}".format(e))
+
+    return pi, A
 
 def genMatLoc(mat, hCenter, vCenter):
     # vertical location is col
