@@ -2,7 +2,13 @@
 import numpy as np
 import sys
 sys.path.extend(['../../generalAMP'])
-from tutorial import get_alignment 
+from tutorial import get_alignment, redirect_pc
+
+def approx_prior(Ustar, pca_U):
+    Ustar = redirect_pc(Ustar[:, np.newaxis], pca_U)
+    truePriorLoc = Ustar
+    truePriorWeight = np.full((len(truePriorLoc),), 1 / len(truePriorLoc))
+    return truePriorLoc, truePriorWeight
 
 def fill_alignment(U_est, u_star, iters):
     '''

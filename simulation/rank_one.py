@@ -3,11 +3,12 @@ import os
 import time
 import sys
 sys.path.extend(['../../generalAMP'])
-from ebpca.empbayes import NonparEB as NonparEB
-from ebpca.amp import ebamp_gaussian as ebamp_gaussian
+from ebpca.empbayes import NonparEB as NonparEB, NonparBayes
+from ebpca.amp import ebamp_gaussian as ebamp_gaussian, ebamp_gaussian_rank_one
 from ebpca.preprocessing import normalize_obs
 from ebpca.pca import get_pca
-from simulation.helpers import simulate_prior, simulate_rank1_model, fill_alignment
+from ebpca.misc import ebmf
+from simulation.helpers import simulate_prior, simulate_rank1_model, fill_alignment, approx_prior
 
 # ----------------------
 # Setup for simulation
@@ -16,6 +17,8 @@ from simulation.helpers import simulate_prior, simulate_rank1_model, fill_alignm
 # take named argument from command line
 import argparse
 parser = argparse.ArgumentParser()
+parser.add_argument("--method", type=str, help="enter the method to test",
+                    default='EB-PCA', const='EB-PCA', nargs='?')
 parser.add_argument("--prior", type=str, help="enter univariate prior", 
                     default='Uniform', const='Uniform', nargs='?')
 parser.add_argument("--n_rep", type=int, help="enter number of independent data to be simulated",
@@ -25,7 +28,7 @@ parser.add_argument("--s_star", type=float, help="enter signal strength",
 parser.add_argument("--iters", type=int, help="enter EB-PCA iterations", 
                     default=5, const=5, nargs='?')
 parser.add_argument("--ftol", type=float, help="MOSEK ftol",
-                    default=1e-6, const=1e-6, nargs='?')
+                    default=1e-8, const=1e-8, nargs='?')
 parser.add_argument("--nsupp_ratio", type=float, help="proportion of observed data points to take as support points",
                     default=0.1, const=0.1, nargs='?')
 args = parser.parse_args()
@@ -34,9 +37,10 @@ prior = args.prior
 n_rep = args.n_rep
 s_star = args.s_star
 iters = args.iters
+method = args.method
 
-print('\nRunning EB-PCA rank one simulations with %i replications, prior=%s, signal strength=%.1f, iterations=%i'\
-      % (n_rep, prior, s_star, iters))
+print('\nRunning %s rank one simulations with %i replications, %s prior, signal strength=%.1f, iterations=%i'\
+      % (method, n_rep, prior, s_star, iters))
 
 # create directory to save alignemnt, simulated data and figures
 prior_prefix = 'univariate/' + prior
@@ -51,7 +55,7 @@ data_prefix = 'output/%s/data/s_%.1f' % (prior_prefix, s_star)
 # -----------------
 
 # set parameters for simulation
-n = 2000
+n = 1000
 gamma = 2
 d = int(n * gamma)
 rank = 1
@@ -80,7 +84,7 @@ for i in range(n_rep):
         np.save('%s_copy_%i_v_star.npy' % (data_prefix, i), v_star, allow_pickle=False)
         np.save('%s_copy_%i.npy' % (data_prefix, i), X, allow_pickle=False)
 
-# run EB-PCA
+# run EB-PCA / BayesAMP / EBMF
 u_alignment = []
 v_alignment = []
 start_time = time.time()
@@ -92,14 +96,30 @@ for i in range(n_rep):
     X = np.load('%s_copy_%i.npy' % (data_prefix, i), allow_pickle=False)
     # prepare the PCA pack
     pcapack = get_pca(X, rank)
-    # initiate denoiser
-    udenoiser = NonparEB(optimizer="Mosek", to_save=False,
-                         nsupp_ratio=nsupp_ratio, ftol=ftol) 
-    vdenoiser = NonparEB(optimizer="Mosek", to_save=False,
-                         nsupp_ratio=nsupp_ratio, ftol=ftol) 
-    # run AMP
-    U_est, V_est = ebamp_gaussian(pcapack, iters=iters,
-                                  udenoiser=udenoiser, vdenoiser=vdenoiser)
+    if method == 'EB-PCA':
+        # initiate denoiser
+        udenoiser = NonparEB(optimizer="Mosek", to_save=False,
+                             nsupp_ratio=nsupp_ratio, ftol=ftol)
+        vdenoiser = NonparEB(optimizer="Mosek", to_save=False,
+                             nsupp_ratio=nsupp_ratio, ftol=ftol)
+        # run AMP
+        U_est, V_est = ebamp_gaussian(pcapack, iters=iters,
+                                      udenoiser=udenoiser, vdenoiser=vdenoiser)
+    elif method == 'BayesAMP':
+        # initiate denoiser
+        # here we put equal weights on observed PC data points to approximate the true Bayes denoiser
+        [truePriorLoc, truePriorWeight] = approx_prior(u_star, pcapack.U)
+        udenoiser = NonparBayes(truePriorLoc, truePriorWeight, to_save=False)
+        [truePriorLoc, truePriorWeight] = approx_prior(v_star, pcapack.V)
+        vdenoiser = NonparBayes(truePriorLoc, truePriorWeight, to_save=False)
+        # run AMP
+        U_est, V_est = ebamp_gaussian(pcapack, iters=iters,
+                                      udenoiser=udenoiser, vdenoiser=vdenoiser)
+    elif method == 'EBMF':
+        ldenoiser = NonparEB(optimizer="Mosek", to_save=False)
+        fdenoiser = NonparEB(optimizer="Mosek", to_save=False)
+        U_est, V_est = ebmf(pcapack, ldenoiser, fdenoiser,
+                            update_family='nonparametric')
     # evaluate alignment
     u_alignment.append(fill_alignment(U_est, u_star, iters))
     v_alignment.append(fill_alignment(V_est, v_star, iters))
@@ -110,11 +130,10 @@ print('Simulation takes %.2f s' % (end_time - start_time))
 print('right PC alignments:', u_alignment)
 print('left PC alignments:', v_alignment)
 
-np.save('output/%s/alignments/u_s_%.1f_n_rep_%i.npy' % (prior_prefix, s_star, n_rep),
+np.save('output/%s/alignments/%s_u_s_%.1f_n_rep_%i.npy' % (prior_prefix, method, s_star, n_rep),
         u_alignment, allow_pickle=False)
-np.save('output/%s/alignments/v_s_%.1f_n_rep_%i.npy' % (prior_prefix, s_star, n_rep),
+np.save('output/%s/alignments/%s_v_s_%.1f_n_rep_%i.npy' % (prior_prefix, method, s_star, n_rep),
         v_alignment, allow_pickle=False)
 
 print('\n Simulation finished. \n')
-
 
