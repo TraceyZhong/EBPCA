@@ -16,7 +16,9 @@ from numba import jit
 import mosek
 import mosek.fusion as fusion
 from scipy import optimize
+from memory_profiler import profile
 
+from ebpca.utils import clock
 
 class _BaseEmpiricalBayes(ABC):
     
@@ -131,7 +133,8 @@ class NonparEB(_BaseEmpiricalBayes):
             if self.to_save:
                 fig.savefig(self.fig_prefix + "_prior" +figname)
             plt.close()         
-
+    
+    @clock
     def estimate_prior(self,f, mu, cov):
         # check initialization  
         self._check_init(f,mu,cov)
@@ -487,80 +490,81 @@ def _mosek_npmle(f, Z, mu, covInv, tol):
 
     return pi, A
 
+# @profile(precision = 4)
 def mosek_npmle(f, Z, mu, covInv, tol=1e-8):
     A = get_W(f, Z, mu, covInv)
     n, m = A.shape
 
     # objective function: the primal in Section 4.2,
     # https://www.tandfonline.com/doi/pdf/10.1080/01621459.2013.869224
-    M = fusion.Model('NPMLE')
-    # set tolerance parameter
-    # https://docs.mosek.com/9.2/pythonapi/solver-parameters.html
-    M.getTask().putdouparam(mosek.dparam.intpnt_co_tol_rel_gap, tol)
-    # print('mosek tolerance: %f' % M.getTask().getdouparam(mosek.dparam.intpnt_co_tol_rel_gap) )
-    logg = M.variable(n)
-    g = M.variable('g', n, fusion.Domain.greaterThan(0.))  # w = exp(v)
-    f = M.variable('f', m, fusion.Domain.greaterThan(0.))
-    ones = np.repeat(1.0, n)
-    ones_m = np.repeat(1.0, m)
-    M.constraint(fusion.Expr.sub(fusion.Expr.dot(ones_m, f), 1), fusion.Domain.equalsTo(0.0))
-    M.constraint(fusion.Expr.sub(fusion.Expr.mul(A, f), g), fusion.Domain.equalsTo(0.0, n))
-    M.constraint(fusion.Expr.hstack(g, fusion.Expr.constTerm(n, 1.0), logg), fusion.Domain.inPExpCone())
+    with fusion.Model('NPMLE') as M:
+        # set tolerance parameter
+        # https://docs.mosek.com/9.2/pythonapi/solver-parameters.html
+        M.getTask().putdouparam(mosek.dparam.intpnt_co_tol_rel_gap, tol)
+        # print('mosek tolerance: %f' % M.getTask().getdouparam(mosek.dparam.intpnt_co_tol_rel_gap) )
+        logg = M.variable(n)
+        g = M.variable('g', n, fusion.Domain.greaterThan(0.))  # w = exp(v)
+        f = M.variable('f', m, fusion.Domain.greaterThan(0.))
+        ones = np.repeat(1.0, n)
+        ones_m = np.repeat(1.0, m)
+        M.constraint(fusion.Expr.sub(fusion.Expr.dot(ones_m, f), 1), fusion.Domain.equalsTo(0.0))
+        M.constraint(fusion.Expr.sub(fusion.Expr.mul(A, f), g), fusion.Domain.equalsTo(0.0, n))
+        M.constraint(fusion.Expr.hstack(g, fusion.Expr.constTerm(n, 1.0), logg), fusion.Domain.inPExpCone())
 
-    # uncomment to enable detailed log
-    # M.setLogHandler(sys.stdout)
+        # uncomment to enable detailed log
+        # M.setLogHandler(sys.stdout)
 
-    # default value if MOSEK gives an error
-    pi = np.repeat(0, m)
+        # default value if MOSEK gives an error
+        pi = np.repeat(0, m)
 
-    M.objective(fusion.ObjectiveSense.Maximize, fusion.Expr.dot(ones, logg))
+        M.objective(fusion.ObjectiveSense.Maximize, fusion.Expr.dot(ones, logg))
 
-    # response handling for Mosek solutions
-    # modified from https://docs.mosek.com/9.2/pythonfusion/errors-exceptions.html
-    try:
-        M.solve()
-        M.acceptedSolutionStatus(fusion.AccSolutionStatus.Optimal)
-        pi = f.level()
-        # address negative values due to numerical instability
-        pi[pi < 0] = 0
-        # normalize the negative values due to numerical issues
-        pi = pi / np.sum(pi)
+        # response handling for Mosek solutions
+        # modified from https://docs.mosek.com/9.2/pythonfusion/errors-exceptions.html
+        try:
+            M.solve()
+            M.acceptedSolutionStatus(fusion.AccSolutionStatus.Optimal)
+            pi = f.level()
+            # address negative values due to numerical instability
+            pi[pi < 0] = 0
+            # normalize the negative values due to numerical issues
+            pi = pi / np.sum(pi)
 
-    except fusion.OptimizeError as e:
-        print(" Optimization failed. Error: {0}".format(e))
+        except fusion.OptimizeError as e:
+            print(" Optimization failed. Error: {0}".format(e))
 
-    except fusion.SolutionError as e:
-        # The solution with at least the expected status was not available.
-        # We try to diagnoze why.
-        print("  Error messages from MOSEK: \n  Requested NPMLE solution was not available.")
-        prosta = M.getProblemStatus()
+        except fusion.SolutionError as e:
+            # The solution with at least the expected status was not available.
+            # We try to diagnoze why.
+            print("  Error messages from MOSEK: \n  Requested NPMLE solution was not available.")
+            prosta = M.getProblemStatus()
 
-        if prosta == fusion.ProblemStatus.DualInfeasible:
-            print("  Dual infeasibility certificate found.")
+            if prosta == fusion.ProblemStatus.DualInfeasible:
+                print("  Dual infeasibility certificate found.")
 
-        elif prosta == fusion.ProblemStatus.PrimalInfeasible:
-            print("  Primal infeasibility certificate found.")
+            elif prosta == fusion.ProblemStatus.PrimalInfeasible:
+                print("  Primal infeasibility certificate found.")
 
-        elif prosta == fusion.ProblemStatus.Unknown:
-            # The solutions status is unknown. The termination code
-            # indicates why the optimizer terminated prematurely.
-            print("  The NPMLE solution status is unknown.")
-            symname, desc = mosek.Env.getcodedesc(mosek.rescode(int(M.getSolverIntInfo("optimizeResponse"))))
-            print("  Termination code: {0} {1}".format(symname, desc))
+            elif prosta == fusion.ProblemStatus.Unknown:
+                # The solutions status is unknown. The termination code
+                # indicates why the optimizer terminated prematurely.
+                print("  The NPMLE solution status is unknown.")
+                symname, desc = mosek.Env.getcodedesc(mosek.rescode(int(M.getSolverIntInfo("optimizeResponse"))))
+                print("  Termination code: {0} {1}".format(symname, desc))
 
-            print('  This warning message is likely caused by numerical errors.',
-                  '\n  For details see "MSK_RES_TRM_STALL" (10006) at \n  https://docs.mosek.com/9.2/rmosek/response-codes.html')
-            # Please note that if a linear optimization problem is solved using the interior-point optimizer with
-            # basis identification turned on, the returned basic solution likely to have high accuracy,
-            # even though the optimizer stalled.
+                print('  This warning message is likely caused by numerical errors.',
+                    '\n  For details see "MSK_RES_TRM_STALL" (10006) at \n  https://docs.mosek.com/9.2/rmosek/response-codes.html')
+                # Please note that if a linear optimization problem is solved using the interior-point optimizer with
+                # basis identification turned on, the returned basic solution likely to have high accuracy,
+                # even though the optimizer stalled.
 
-        else:
-            print("  Another unexpected problem status {0} is obtained.".format(prosta))
+            else:
+                print("  Another unexpected problem status {0} is obtained.".format(prosta))
 
-    except Exception as e:
-        print("  Unexpected error: {0}".format(e))
-
-    return pi, A
+        except Exception as e:
+            print("  Unexpected error: {0}".format(e))
+        
+        return pi, A
 
 def genMatLoc(mat, hCenter, vCenter):
     # vertical location is col
