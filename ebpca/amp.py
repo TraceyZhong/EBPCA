@@ -3,19 +3,6 @@
 AMP
 ==========
 '''
-import time
-def clock(func):
-    def clocked(*args, **kwargs):
-        t0 = time.perf_counter()
-        result = func(*args, **kwargs)
-        elapsed = time.perf_counter() - t0
-        name = func.__name__
-        if 'iters' in kwargs:
-            print('[%0.8fs] %s(iters=%s)' % (elapsed, name, kwargs['iters']))
-        else:
-            print('[%0.8fs] %s' % (elapsed, name))
-        return result
-    return clocked
 
 import numpy as np
 import scipy
@@ -23,7 +10,6 @@ import scipy
 from ebpca.empbayes import NonparEB
 from ebpca.pca import PcaPack
 
-@clock
 def ebamp_gaussian(pcapack, iters = 5, udenoiser = NonparEB(), \
     vdenoiser = NonparEB(), figprefix = '', mutev = False):
     '''HD ebamp gaussian

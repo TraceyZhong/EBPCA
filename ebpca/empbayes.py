@@ -3,22 +3,10 @@
 Empirical Bayes Methods
 ==========
 This module supports empirical Bayes estimation for various prior.
-Typical usage example:
 '''
 import sys
 import time
 from abc import ABC, abstractmethod
-
-import time
-def clock(func):
-    def clocked(*args, **kwargs):
-        t0 = time.perf_counter()
-        result = func(*args, **kwargs)
-        elapsed = time.perf_counter() - t0
-        name = func.__name__
-        print('[%0.8fs] %s' % (elapsed, name))
-        return result
-    return clocked
 
 import numpy as np
 import matplotlib as mpl
@@ -143,7 +131,7 @@ class NonparEB(_BaseEmpiricalBayes):
             if self.to_save:
                 fig.savefig(self.fig_prefix + "_prior" +figname)
             plt.close()         
-    @clock
+
     def estimate_prior(self,f, mu, cov):
         # check initialization  
         self._check_init(f,mu,cov)
@@ -160,14 +148,12 @@ class NonparEB(_BaseEmpiricalBayes):
         scalesq = cov[dim, dim]
         return np.sum(self.pi / np.sqrt(2 * np.pi * scalesq) * np.exp(-(x - loc) ** 2 / (2 * scalesq)))
     
-    @clock
     def denoise(self, f, mu, cov):
         if self.P is None:
             covInv = np.linalg.inv(cov)
             self.P = get_P(f,self.Z, mu, covInv, self.pi)
         return self.P @ self.Z 
 
-    @clock
     def ddenoise(self, f, mu, cov):
         covInv = np.linalg.inv(cov)
         if self.P is None:
@@ -382,7 +368,6 @@ def my_dot(mat, vec):
     return res
 
 # W[i,j] = f(x_i | z_j)
-@clock
 @jit(nopython = True)
 def jit_get_W(f, z, mu, covInv):
     '''
