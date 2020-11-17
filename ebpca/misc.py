@@ -8,6 +8,16 @@ We include it here to compare with EB-PCA method.
 
 Input:
     pcapack: output from pca.get_pca
+    ldenoiser: a PointNormalEB or NonparEB denoiser
+    fdenoiser: a PointNormalEB or NonparEB denoiser
+    update_family: use Point Normal model or nonparametric model to evaluate objective function,
+                    corresponding to the choice of denoiser
+    iters: maximum number of iterations
+    tol: 1e-2, the same as the default setting in flashr
+    ebpca_scaling: whether or not apply scaling to make observations on the same scale with EB-PCA
+                   for plotting purpose (Figure 2) only;
+                   Note that re-scaling doesn't affect the estimates of EBMF, as EBMF model does not
+                   impose any assumption on the scaling of initialization right / left PC
 
 Remarks:
     1. This implementation support nonparametric priors besides parametric priors.
@@ -18,19 +28,29 @@ Reference:
     https://github.com/stephenslab/flashr
 
 Typical usage example:
+    L, F = ebmf(pcapack, update_family = 'nonparametric', iters=50)
 '''
 
 import numpy as np
-from ebpca.empbayes import PointNormalEB, _gaussian_pdf
+from ebpca.empbayes import _gaussian_pdf, NonparEB
 
-
-def ebmf(pcapack, ldenoiser = PointNormalEB(), fdenoiser = PointNormalEB(),
-         update_family = 'point-normal', iters = 50, tol = 1e-1):
+def ebmf(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
+         update_family = 'nonparametric', iters = 50, tol = 1e-2, ebpca_scaling=True):
 
     X = pcapack.X
     u, v = pcapack.U, pcapack.V
     # get dimension
     (n, d) = X.shape
+
+    if ebpca_scaling:
+        # get signal
+        signals = pcapack.signals
+        # apply the same scaling in EB-PCA
+        u = u / np.sqrt((u ** 2).sum(axis=0)) * np.sqrt(n)
+        v = v / np.sqrt((v ** 2).sum(axis=0)) * np.sqrt(d)
+        mu_constant = np.float(signals / n)
+    else:
+        mu_constant = 1
 
     # re-label u, v with l, f
     l_hat = u
@@ -44,11 +64,15 @@ def ebmf(pcapack, ldenoiser = PointNormalEB(), fdenoiser = PointNormalEB(),
     # initialize parameter tau
     tau = n
     # initialize the first update with svd
-    mu = np.diag([1])
-    sigma_sq = np.diag([1 / (np.sum(f_hat**2) * tau)]) # 1 / (np.sum(f_hat**2) * tau)
-
     # first denoise the loadings
-    l_hat = X.dot(f_hat) / np.sum(f_hat**2)
+    l_hat = X.dot(f_hat) / np.sum(f_hat ** 2)
+    mu = np.diag([mu_constant])
+    sigma_sq = np.diag([1 / (np.sum(f_hat ** 2) * tau)])
+    if ebpca_scaling:
+        l_hat = l_hat * np.sum(f_hat ** 2)
+        mu = mu * np.sum(f_hat ** 2)
+        sigma_sq = sigma_sq * np.sum(f_hat ** 2)**2
+
     obj_funcs = []
     t = 0
     flag = False
@@ -67,8 +91,12 @@ def ebmf(pcapack, ldenoiser = PointNormalEB(), fdenoiser = PointNormalEB(),
                NM_posterior_e_loglik(l_hat, mu, sigma_sq, El, El2)
         # Update the estimate of the factor
         f_hat = X.T.dot(El) / np.sum(El2)
-        mu_bar = np.diag([1])
+        mu_bar = np.diag([mu_constant])
         sigma_bar_sq = np.diag([1 / (np.sum(El2) * tau)])
+        if ebpca_scaling:
+            f_hat = f_hat * np.sum(El2)
+            mu_bar = mu_bar * np.sum(El2)
+            sigma_bar_sq = sigma_bar_sq * np.sum(El2)**2
         fdenoiser.fit(f_hat, mu_bar, sigma_bar_sq, figname='_v_iter%02d.png' % (t))
         Ef = fdenoiser.denoise(f_hat, mu_bar, sigma_bar_sq)
         Varf = fdenoiser.ddenoise(f_hat, mu_bar, sigma_bar_sq) * (sigma_bar_sq / mu_bar)
@@ -81,8 +109,12 @@ def ebmf(pcapack, ldenoiser = PointNormalEB(), fdenoiser = PointNormalEB(),
                NM_posterior_e_loglik(f_hat, mu_bar, sigma_bar_sq, Ef, Ef2)
         # Update the estimate of the loading
         l_hat = X.dot(Ef) / np.sum(Ef2)
-        mu = np.diag([1])
+        mu = np.diag([mu_constant])
         sigma_sq = np.diag([1 / (np.sum(Ef2) * tau)])
+        if ebpca_scaling:
+            l_hat = l_hat * np.sum(Ef2)
+            mu = mu_bar * np.sum(Ef2)
+            sigma_sq = sigma_sq * np.sum(Ef2)**2
         # Evaluate objective function
         obj_func = get_cond_logl(El, El2, Ef, Ef2, X, tau) + KL_l + KL_f
         obj_funcs.append(obj_func)
