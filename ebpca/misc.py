@@ -80,8 +80,9 @@ def ebmf(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
 
     obj_funcs = []
     t = 0
-    flag = False
+    new_flag = False
     while t < iters:
+        old_flag = new_flag
         print("at ebmf iter {}".format(t))
         # Denoise l_hat to get l
         ldenoiser.fit(l_hat, mu, sigma_sq, figname='_u_iter%02d.png' % (t))
@@ -125,15 +126,15 @@ def ebmf(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
         obj_funcs.append(obj_func)
         print('Objective F function: {:.5f}'.format(obj_func))
         t += 1
-        if t == 1 or t == 2:
-            flag = False
+        if t == 1:
+            new_flag = False
         else:
             # Use change in objective function as convergence threshold
-            flag = abs(obj_funcs[-1] - obj_funcs[-2]) < tol
-            if flag:
+            new_flag = abs(obj_funcs[-1] - obj_funcs[-2]) < tol
+            if new_flag == True and old_flag == False:
                 print('EBMF converged in {} iterations, tol={:.1e}.'.format(t, tol))
 
-    if not flag:
+    if not new_flag:
         print('EBMF failed to converge in {} iterations.'.format(iters))
 
     return L, F, obj_funcs

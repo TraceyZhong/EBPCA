@@ -41,6 +41,7 @@ print('\nRunning %s rank one simulations with %i replications, %s prior, signal 
 # create directory to save alignemnt, simulated data and figures
 prior_prefix = 'univariate/' + prior
 if not os.path.exists('output/' + prior_prefix):
+    print('Creating directories:')
     os.makedirs('output/%s/alignments' % prior_prefix)
     os.mkdir('output/%s/data' % prior_prefix)
     os.mkdir('output/%s/denoisedPC' % prior_prefix)
@@ -111,7 +112,7 @@ for i in range(n_rep):
         ldenoiser = NonparEB(optimizer="Mosek", to_save=False)
         fdenoiser = NonparEB(optimizer="Mosek", to_save=False)
         U_est, V_est, obj = ebmf(pcapack, ldenoiser, fdenoiser, iters=iters,
-                                 ebpca_scaling=True, update_family='nonparametric', tol=1e-1)
+                                 ebpca_scaling=False, update_family='nonparametric', tol=1e-1)
         obj_funcs.append(obj)
     # evaluate alignment
     # maximal EBMF iterations: 50
@@ -138,6 +139,6 @@ np.save('output/%s/alignments/%s_v_s_%.1f_n_rep_%i.npy' % (prior_prefix, method,
 if method == 'EBMF':
     np.save('output/%s/alignments/%s_obj_funcs_s_%.1f_n_rep_%i.npy' % (prior_prefix, method, s_star, n_rep),
             obj_funcs, allow_pickle=False)
-    print('objective function differences:', np.ediff1d(obj_funcs))
+    print('objective function differences:', [np.ediff1d(obj) for obj in obj_funcs])
 
 print('\n Simulation finished. \n')
