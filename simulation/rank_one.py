@@ -107,11 +107,11 @@ for i in range(n_rep):
             [truePriorLoc, truePriorWeight] = approx_prior(v_star, pcapack.V)
             vdenoiser = NonparBayes(truePriorLoc, truePriorWeight, to_save=False)
         elif prior == 'Point_normal':
-            udenoiser = PointNormalBayes(0.1, np.sqrt(10))
-            vdenoiser = PointNormalBayes(0.1, np.sqrt(10))
+            udenoiser = PointNormalBayes(0.1, np.sqrt(10), to_save=False)
+            vdenoiser = PointNormalBayes(0.1, np.sqrt(10), to_save=False)
         elif prior == 'Two_points':
-            udenoiser = TwoPointsBayes()
-            vdenoiser = TwoPointsBayes()
+            udenoiser = TwoPointsBayes(to_save=False)
+            vdenoiser = TwoPointsBayes(to_save=False)
         # run AMP
         U_est, V_est = ebamp_gaussian(pcapack, iters=iters,
                                       udenoiser=udenoiser, vdenoiser=vdenoiser)
