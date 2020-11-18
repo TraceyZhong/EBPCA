@@ -318,10 +318,11 @@ class TwoPointsBayes(_BaseEmpiricalBayes):
         pass
 
     def denoise(self, f,  mu, cov):
-        return np.tanh(f)
+        return np.tanh(f * mu / cov)
 
     def ddenoise(self, f, mu, cov):
-        return 1 - np.tanh(f)**2
+        dd = (1 - np.tanh(f * mu / cov)**2) * mu / cov
+        return dd[:,np.newaxis]
 
     def get_margin_pdf(self, x,  mu, cov, dim = 0):
         def two_point_normal_pdf(x, mu, sigmasq):
