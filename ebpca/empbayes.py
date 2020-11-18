@@ -332,6 +332,9 @@ class TwoPointsBayes(_BaseEmpiricalBayes):
         ygrid = two_point_normal_pdf(x, mu, cov)
         return ygrid
 
+    def check_prior(self, figname):
+        pass
+
 
 def jit_npmle_em_hd(f, Z, mu, covInv, em_iter, nsample, nsupp):
     # pi = np.full((nsupp,), 1/nsupp, dtype= float)
