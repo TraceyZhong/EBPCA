@@ -3,8 +3,8 @@ import os
 import time
 import sys
 sys.path.extend(['../../generalAMP'])
-from ebpca.empbayes import NonparEB as NonparEB, NonparBayes
-from ebpca.amp import ebamp_gaussian as ebamp_gaussian, ebamp_gaussian_rank_one
+from ebpca.empbayes import NonparEB as NonparEB, NonparBayes, PointNormalBayes, TwoPointsBayes
+from ebpca.amp import ebamp_gaussian as ebamp_gaussian
 from ebpca.preprocessing import normalize_obs
 from ebpca.pca import get_pca
 from ebpca.misc import ebmf
@@ -100,11 +100,18 @@ for i in range(n_rep):
                                       udenoiser=udenoiser, vdenoiser=vdenoiser)
     elif method == 'BayesAMP':
         # initiate denoiser
-        # here we put equal weights on observed PC data points to approximate the true Bayes denoiser
-        [truePriorLoc, truePriorWeight] = approx_prior(u_star, pcapack.U)
-        udenoiser = NonparBayes(truePriorLoc, truePriorWeight, to_save=False)
-        [truePriorLoc, truePriorWeight] = approx_prior(v_star, pcapack.V)
-        vdenoiser = NonparBayes(truePriorLoc, truePriorWeight, to_save=False)
+        if prior == 'Uniform':
+            # here we put equal weights on observed PC data points to approximate the true Bayes denoiser
+            [truePriorLoc, truePriorWeight] = approx_prior(u_star, pcapack.U)
+            udenoiser = NonparBayes(truePriorLoc, truePriorWeight, to_save=False)
+            [truePriorLoc, truePriorWeight] = approx_prior(v_star, pcapack.V)
+            vdenoiser = NonparBayes(truePriorLoc, truePriorWeight, to_save=False)
+        elif prior == 'Point_normal':
+            udenoiser = PointNormalBayes(0.1, np.sqrt(10))
+            vdenoiser = PointNormalBayes(0.1, np.sqrt(10))
+        elif prior == 'Two_points':
+            udenoiser = TwoPointsBayes()
+            vdenoiser = TwoPointsBayes()
         # run AMP
         U_est, V_est = ebamp_gaussian(pcapack, iters=iters,
                                       udenoiser=udenoiser, vdenoiser=vdenoiser)

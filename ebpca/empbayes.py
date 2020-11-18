@@ -266,7 +266,7 @@ class PointNormalEB(_BaseEmpiricalBayes):
         # derivative of phi(y; mu_y_tilde, sigma_y_tilde) * mu_x_tilde
         d_tmp = (phi * (- (f - mu_y_tilde) / sigma_y_tilde**2)) * mu_x_tilde + phi * (mu_y * self.sigma_x**2) / (mu_y**2 * self.sigma_x**2 + sigma_y**2)
 
-        return self.pi * (- phi * mu_x_tilde / py**2 * d_py + 1 / py * d_tmp)
+        return (self.pi * (- phi * mu_x_tilde / py**2 * d_py + 1 / py * d_tmp))[:, np.newaxis]
 
 
     def get_margin_pdf(self, x, mu, sigma_sq, dim = 0):
@@ -297,6 +297,41 @@ class PointNormalEB(_BaseEmpiricalBayes):
     @staticmethod
     def _eval_sigma_x_tilde(mu_y, sigma_x, sigma_y):
         return sigma_x * sigma_y * np.sqrt(1 / (mu_y**2 * sigma_x**2 + sigma_y**2))
+
+
+class PointNormalBayes(PointNormalEB):
+    def __init__(self, truePi, trueSigma_x, to_save = True, to_show = False, fig_prefix = "pointnormalbayes", **kwargs):
+        PointNormalEB.__init__(self, to_save, to_show, "pointnormaleb", **kwargs)
+        self.pi = truePi
+        self.sigma_x = trueSigma_x
+        self.rank = 1 # currently the point normal bayes denoiser only supports univariate denoising
+
+    def estimate_prior(self, f, mu, cov):
+        pass
+
+class TwoPointsBayes(_BaseEmpiricalBayes):
+    def __init__(self, to_save = True, to_show = False, fig_prefix = "twopointsbayes"):
+        _BaseEmpiricalBayes.__init__(self, to_save, to_show, fig_prefix)
+        self.rank = 1 # currently the point normal denoiser only supports univariate denoising
+
+    def estimate_prior(self, f, mu, cov):
+        pass
+
+    def denoise(self, f,  mu, cov):
+        return np.tanh(f)
+
+    def ddenoise(self, f, mu, cov):
+        return 1 - np.tanh(f)**2
+
+    def get_margin_pdf(self, x,  mu, cov, dim = 0):
+        def two_point_normal_pdf(x, mu, sigmasq):
+            pdf_plus = 1 / np.sqrt(2 * np.pi * sigmasq) * np.exp(-(x - mu) ** 2 / (2 * sigmasq))
+            pdf_minus = 1 / np.sqrt(2 * np.pi * sigmasq) * np.exp(-(x + mu) ** 2 / (2 * sigmasq))
+            return 0.5 * pdf_plus + 0.5 * pdf_minus
+
+        ygrid = two_point_normal_pdf(x, mu, cov)
+        return ygrid
+
 
 def jit_npmle_em_hd(f, Z, mu, covInv, em_iter, nsample, nsupp):
     # pi = np.full((nsupp,), 1/nsupp, dtype= float)
