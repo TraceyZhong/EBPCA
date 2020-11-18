@@ -2,7 +2,7 @@
 import numpy as np
 import sys
 sys.path.extend(['../../generalAMP'])
-from tutorial import get_alignment, redirect_pc
+from tutorial import get_alignment, redirect_pc, normalize_pc
 
 def approx_prior(Ustar, pca_U):
     Ustar = redirect_pc(Ustar[:, np.newaxis], pca_U)
@@ -23,6 +23,9 @@ def fill_alignment(U_est, u_star, iters):
             alignment.append(np.nan)
     return alignment
 
+def get_joint_alignment(mar):
+    joint = [np.sqrt(np.mean((np.array(mar[j])**2), axis=0)) for j in range(len(mar))]
+    return joint
 # --------------------
 # rank one simulations
 # --------------------
@@ -59,6 +62,7 @@ def simulate_prior(prior, n=2000, seed=1, rank=1):
             theta_choice = np.random.choice([i for i in range(3)],
                                              size=n, replace=True, p=np.array([1 / 4, 1 / 2, 1 / 4]))
             theta = np.array([Three_points[i] for i in theta_choice])
+        theta = normalize_pc(theta)
     return theta
 
 def signal_plus_noise_model(u, v, s, rank=1):
