@@ -107,8 +107,8 @@ for i in range(n_rep):
             [truePriorLoc, truePriorWeight] = approx_prior(v_star, pcapack.V)
             vdenoiser = NonparBayes(truePriorLoc, truePriorWeight, to_save=False)
         elif prior == 'Point_normal':
-            udenoiser = PointNormalBayes(0.1, np.sqrt(10), to_save=False)
-            vdenoiser = PointNormalBayes(0.1, np.sqrt(10), to_save=False)
+            udenoiser = PointNormalBayes(0.5, np.sqrt(2), to_save=False)
+            vdenoiser = PointNormalBayes(0.5, np.sqrt(2), to_save=False)
         elif prior == 'Two_points':
             udenoiser = TwoPointsBayes(to_save=False)
             vdenoiser = TwoPointsBayes(to_save=False)
