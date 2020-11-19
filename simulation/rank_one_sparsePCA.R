@@ -40,6 +40,8 @@ n_rep = opt$n_rep
 s_star = opt$s_star
 n = 1000
 d = 2000
+prop = 0.5
+prior = 'Point_normal'
 
 # helper function to get alignments
 get_alignment <- function(u1, u2){
@@ -54,24 +56,30 @@ right_dePC <- matrix(0, d, n_rep)
 
 data_prefix = sprintf('output/univariate/%s/data/s_%.1f', prior, s_star)
 for (i in 1:n_rep){
+  print(sprintf('iteration %i', i))
   # load simulated data
   u_star <- npyLoad(sprintf('%s_copy_%i_u_star.npy', data_prefix, i-1))
   v_star <- npyLoad(sprintf('%s_copy_%i_v_star.npy', data_prefix, i-1))
   X <- npyLoad(sprintf('%s_copy_%i.npy', data_prefix, i-1))
   # run sparse PCA
   # left PC
-  left_res <- spca(t(X), 1, para=100, type="predictor",
+  left_res <- spca(t(X), 1, para=n*0.5, type="predictor",
               sparse="varnum", use.corr=FALSE, lambda=1e-6,
               max.iter=200, trace=T, eps.conv=1e-3)
-  left_align[i] <- get_alignment(res$loadings[,1], u_star)
+  left_align[i] <- get_alignment(left_res$loadings[,1], u_star)
   left_dePC[,i] <- left_res$loadings[, 1]
   # right PC
-  right_res <- spca(X, 1, para=100, type="predictor",
+  right_res <- spca(X, 1, para=d*0.5, type="predictor",
               sparse="varnum", use.corr=FALSE, lambda=1e-6,
               max.iter=200, trace=T, eps.conv=1e-3)
-  right_align[i] <- get_alignment(res$loadings[,1], v_star)
+  right_align[i] <- get_alignment(right_res$loadings[,1], v_star)
   right_dePC[,i] <- right_res$loadings[, 1]
+  print('Left PC alignments:')
+  print(left_align[i])
+  print('Right PC alignments:')
+  print(right_align[i])
 }
+
 
 print('Left PC alignments:')
 print(left_align)
@@ -80,16 +88,16 @@ print(right_align)
 
 # save alignments and denoised PCs
 prior_prefix = sprintf('output/univariate/%s', prior)
-write.table(sprintf('output/%s/alignments/spca_u_s_%.1f_n_rep_%i.npy', 
+write.table(abs(left_align), sprintf('%s/alignments/spca_u_s_%.1f_n_rep_%i.txt', 
                     prior_prefix, s_star, n_rep),
-            left_align, row.names = F, quote = F)
-write.table(sprintf('output/%s/alignments/spca_v_s_%.1f_n_rep_%i.npy', 
+            col.names = F, row.names = F, quote = F)
+write.table(abs(right_align), sprintf('%s/alignments/spca_v_s_%.1f_n_rep_%i.txt', 
                     prior_prefix, s_star, n_rep),
-            right_align, row.names = F, quote = F)
+            col.names = F, row.names = F, quote = F)
 
-write.table(sprintf('output/%s/denoisedPC/spca_leftPC_s_%.1f_n_rep_%i.npy', 
+write.table(left_dePC, sprintf('%s/denoisedPC/spca_leftPC_s_%.1f_n_rep_%i.txt', 
                     prior_prefix, s_star, n_rep),
-            U_est, row.names = F, quote = F)
-write.table(sprintf('output/%s/denoisedPC/spca_rightPC_s_%.1f_n_rep_%i.npy', 
+            col.names = F, row.names = F, quote = F)
+write.table(right_dePC, sprintf('%s/denoisedPC/spca_rightPC_s_%.1f_n_rep_%i.txt', 
                     prior_prefix, s_star, n_rep),
-            V_est)
+            col.names = F, row.names = F, quote = F)
