@@ -1,17 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import sys
 sys.path.extend(['../../generalAMP'])
-
-import argparse
-parser = argparse.ArgumentParser()
-parser.add_argument("--prior", type=str, help="enter the prior to visualize",
-                    default='Two_points', const='Two_points', nargs='?')
-parser.add_argument("--PC", type=str, help="enter which PC to visualize",
-                    default='left', const='left', nargs='?')
-args = parser.parse_args()
-prior = args.prior
-PC = args.PC
 
 # ----------------------------------------------
 # Figure 1:
@@ -80,10 +71,18 @@ def alignment_boxplots(res, ticks):
 def load_alignments(prior, method, ind=-1, PC='left', rm_na =True, s_list=[1.3, 1.8, 3.0]):
     n_par = len(s_list)
     align_dir = 'output/univariate/%s/alignments' % prior
-    if PC=='left':
-        aligns = [(np.load('%s/%s_u_s_%.1f_n_rep_50.npy' % (align_dir, method, s))[:, ind]) for s in s_list]
+    if method == 'spca':
+        if PC == 'left':
+            aligns = [(pd.read_table('%s/%s_u_s_%.1f_n_rep_50.txt' % (align_dir, method, s)).values.reshape(-1)) \
+                      for s in s_list]
+        else:
+            aligns = [(pd.read_table('%s/%s_v_s_%.1f_n_rep_50.txt' % (align_dir, method, s)).values.reshape(-1)) \
+                      for s in s_list]
     else:
-        aligns = [(np.load('%s/%s_v_s_%.1f_n_rep_50.npy' % (align_dir, method, s))[:, ind]) for s in s_list]
+        if PC=='left':
+            aligns = [(np.load('%s/%s_u_s_%.1f_n_rep_50.npy' % (align_dir, method, s))[:, ind]) for s in s_list]
+        else:
+            aligns = [(np.load('%s/%s_v_s_%.1f_n_rep_50.npy' % (align_dir, method, s))[:, ind]) for s in s_list]
 
     if rm_na:
         # remove nan values:
@@ -96,11 +95,10 @@ def load_alignments(prior, method, ind=-1, PC='left', rm_na =True, s_list=[1.3, 
 def group_alignments(prior, PC, rm_na = True):
     pca = load_alignments(prior, 'EB-PCA', 0, PC, rm_na)
     bayesamp = load_alignments(prior, 'BayesAMP', -1, PC, rm_na)
-    ebpca = load_alignments(prior, 'EB-PCA', -1, PC, rm_na)
+    ebpca = load_alignments(prior, 'EB-PCA', 5, PC, rm_na)
     ebmf = load_alignments(prior, 'EBMF', -1, PC, rm_na)
     if prior == 'Point_normal':
-        # TODO: load spca
-        spca = pca
+        spca = load_alignments(prior, 'spca', -1, PC, rm_na)
         res = [pca, bayesamp, ebpca, ebmf, spca]
     else:
         res = [pca, bayesamp, ebpca, ebmf]
@@ -112,9 +110,6 @@ def make_comp_plot(res, s_list = [1.3, 1.8, 3.0]):
     plt.title('%s, %s PC, method comparison' % (prior, PC))
     plt.savefig('figures/univariate/Figure1/%s_%sPC_method_comp_boxplots.png' % (prior, PC))
     plt.close()
-
-
-
 
 if __name__ == '__main__':
     # Figure 1
