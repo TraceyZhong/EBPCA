@@ -7,7 +7,8 @@ from ebpca.empbayes import NonparEB as NonparEB
 from ebpca.amp import ebamp_gaussian as ebamp_gaussian
 from ebpca.preprocessing import normalize_obs
 from ebpca.pca import get_pca
-from simulation.helpers import simulate_prior, signal_plus_noise_model, fill_alignment, get_joint_alignment
+from simulation.helpers import simulate_prior, signal_plus_noise_model, \
+    fill_alignment, get_joint_alignment, regress_out_top
 
 # ----------------------
 # Setup for simulation
@@ -83,8 +84,6 @@ for i in range(n_rep):
     u_star = np.load('%s_copy_%i_u_star.npy' % (data_prefix, i), allow_pickle=False)
     v_star = np.load('%s_copy_%i_v_star.npy' % (data_prefix, i), allow_pickle=False)
     X = np.load('%s_copy_%i.npy' % (data_prefix, i), allow_pickle=False)
-    U_est = np.zeros([n, rank, iters + 1])
-    V_est = np.zeros([d, rank, iters + 1])
     if method == 'joint':
         # prepare the PCA pack
         pcapack = get_pca(X, rank)
@@ -95,19 +94,24 @@ for i in range(n_rep):
         U_est, V_est = ebamp_gaussian(pcapack, iters=iters,
                                       udenoiser=udenoiser, vdenoiser=vdenoiser)
     elif method == 'marginal':
+        U_est = np.zeros([n, rank, iters + 1])
+        V_est = np.zeros([d, rank, iters + 1])
         # initiate denoiser
-        for i in range(rank):
+        for j in range(rank):
             udenoiser = NonparEB(optimizer="Mosek", to_save=False)
             vdenoiser = NonparEB(optimizer="Mosek", to_save=False)
+            # regress out top PC
+            X = regress_out_top(X, j)
             # normalize data
-            X = normalize_obs(X, i + 1)
+            X = normalize_obs(X, 1)
             # prepare the PCA pack
-            pcapack = get_pca(X, rank)
+            pcapack = get_pca(X, 1)
             # run AMP
             U_mar_est, V_mar_est = ebamp_gaussian(pcapack, iters=iters,
                                                   udenoiser=udenoiser, vdenoiser=vdenoiser)
-            U_est[:, i, :] = U_mar_est[:, 0, :]
-            V_est[:, i, :] = V_mar_est[:, 0, :]
+            U_est[:, j, :] = U_mar_est[:, 0, :]
+            V_est[:, j, :] = V_mar_est[:, 0, :]
+
     # evaluate alignment
     u_alignment.append([fill_alignment(U_est[:,[j],:], u_star[:,[j]], iters) for j in range(rank)])
     v_alignment.append([fill_alignment(V_est[:,[j],:], v_star[:,[j]], iters) for j in range(rank)])
@@ -115,10 +119,10 @@ for i in range(n_rep):
 end_time = time.time()
 print('Simulation takes %.2f s' % (end_time - start_time))
 
-print('right PC marginal alignments:', u_alignment)
-print('         joint alignments:', get_joint_alignment(u_alignment))
-print('left PC marginal alignments:', v_alignment)
-print('         joint alignments:', get_joint_alignment(v_alignment))
+print('\nright PC alignments:\n\t marginal:', u_alignment)
+print('\t joint alignments:', get_joint_alignment(u_alignment))
+print('\nleft PC alignments:\n\t marginal:', v_alignment)
+print('\t joint alignments:', get_joint_alignment(v_alignment))
 
 np.save('output/%s/alignments/%s_u_s_%.1f_%.1f_n_rep_%i.npy' % (prior_prefix, method, s_star[0], s_star[1], n_rep),
         u_alignment, allow_pickle=False)

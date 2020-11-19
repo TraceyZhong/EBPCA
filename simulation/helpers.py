@@ -24,8 +24,15 @@ def fill_alignment(U_est, u_star, iters):
     return alignment
 
 def get_joint_alignment(mar):
-    joint = [np.sqrt(np.mean((np.array(mar[j])**2), axis=0)) for j in range(len(mar))]
+    joint = np.sqrt(np.mean(np.power(mar, 2), axis = 0))
+    # joint = [np.sqrt(np.mean((np.array(mar[j])**2), axis=0)) for j in range(len(mar))]
     return joint
+
+def regress_out_top(X, i):
+    print('Regression out PC %i' % i)
+    U, Lambdas, Vh = np.linalg.svd(X, full_matrices=False)
+    X = X - U[:, :i].dot(np.diag(Lambdas[:i])).dot(Vh[:i, :])
+    return X
 # --------------------
 # rank one simulations
 # --------------------
