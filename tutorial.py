@@ -14,6 +14,10 @@ def normalize_pc(U):
     return U/np.sqrt((U**2).sum(axis = 0)) * np.sqrt(len(U))
 
 def redirect_pc(pc, reference):
+    '''sample usage see tutorial.html
+    we must redirect the truth
+    redirect_pc(ustar, pcapack.U)
+    '''
     U = pc 
     Ustar  = reference
     M = U.T @ Ustar
