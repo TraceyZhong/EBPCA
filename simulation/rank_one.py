@@ -63,7 +63,7 @@ print('fixed parameters: n=%i, gamma=%.1f\n' % (n, gamma))
 
 # generate simulation data
 np.random.seed(1)
-seeds = [np.random.randint(0, 10000, n_rep) for i in range(2)] # set seed for each dataset
+seeds = [np.random.randint(0, 10000, n_rep) for i in range(3)] # set seed for each dataset
 
 for i in range(n_rep):
     if not os.path.exists('%s_copy_%i.npy' % (data_prefix, i)):
@@ -71,7 +71,7 @@ for i in range(n_rep):
         # simulate data based on the chosen prior
         u_star = simulate_prior(prior, n, seed=seeds[0][i])
         v_star = simulate_prior(prior, d, seed=seeds[1][i])
-        Y = signal_plus_noise_model(u_star, v_star, s_star)
+        Y = signal_plus_noise_model(u_star, v_star, s_star, seed=seeds[2][i])
         # normalize the observational matrix
         X = normalize_obs(Y, rank)
         np.save('%s_copy_%i_u_star.npy' % (data_prefix, i), u_star, allow_pickle=False)

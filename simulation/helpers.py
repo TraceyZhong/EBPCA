@@ -72,7 +72,8 @@ def simulate_prior(prior, n=2000, seed=1, rank=1):
         theta = normalize_pc(theta)
     return theta
 
-def signal_plus_noise_model(u, v, s, rank=1):
+def signal_plus_noise_model(u, v, s, seed, rank = 1):
+    np.random.seed(seed)
     n = u.shape[0]
     d = v.shape[0]
     W = np.random.normal(0, np.sqrt(1/n), n*d).reshape((n, d))
