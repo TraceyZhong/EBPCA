@@ -73,6 +73,7 @@ def ebmf(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
     l_hat = X.dot(f_hat) / np.sum(f_hat ** 2)
     mu = np.diag([mu_constant])
     sigma_sq = np.diag([1 / (np.sum(f_hat ** 2) * tau)])
+    print('fhat %.2f' % np.sum(f_hat ** 2))
     if ebpca_scaling:
         l_hat = l_hat * np.sum(f_hat ** 2)
         mu = mu * np.sum(f_hat ** 2)
@@ -99,6 +100,7 @@ def ebmf(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
         f_hat = X.T.dot(El) / np.sum(El2)
         mu_bar = np.diag([mu_constant])
         sigma_bar_sq = np.diag([1 / (np.sum(El2) * tau)])
+        print('El2: %.2f' % np.sum(El2))
         if ebpca_scaling:
             f_hat = f_hat * np.sum(El2)
             mu_bar = mu_bar * np.sum(El2)
@@ -117,9 +119,10 @@ def ebmf(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
         l_hat = X.dot(Ef) / np.sum(Ef2)
         mu = np.diag([mu_constant])
         sigma_sq = np.diag([1 / (np.sum(Ef2) * tau)])
+        print('Ef2: %.2f' % np.sum(Ef2))
         if ebpca_scaling:
             l_hat = l_hat * np.sum(Ef2)
-            mu = mu_bar * np.sum(Ef2)
+            mu = mu * np.sum(Ef2)
             sigma_sq = sigma_sq * np.sum(Ef2)**2
         # Evaluate objective function
         obj_func = get_cond_logl(El, El2, Ef, Ef2, X, tau) + KL_l + KL_f
