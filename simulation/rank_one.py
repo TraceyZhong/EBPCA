@@ -125,6 +125,8 @@ for i in range(n_rep):
     # maximal EBMF iterations: 50
     u_alignment.append(fill_alignment(U_est, u_star, iters))
     v_alignment.append(fill_alignment(V_est, v_star, iters))
+    print(fill_alignment(U_est, u_star, iters))
+    print(fill_alignment(V_est, v_star, iters))
     # save denoised PC along iterations
     np.save('output/%s/denoisedPC/%s_leftPC_s_%.1f_n_copy_%i.npy' % (prior_prefix, method, s_star, i),
             U_est, allow_pickle=False)
