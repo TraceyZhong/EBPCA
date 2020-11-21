@@ -47,7 +47,7 @@ def ebmf(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
     (n, d) = X.shape
 
     # initialize parameter tau
-    tau = d
+    tau = n
     if ebpca_scaling:
         print('Apply rescaling to match the scale with EB-PCA in marginal plots')
         # get signal
