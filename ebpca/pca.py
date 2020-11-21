@@ -47,7 +47,7 @@ def get_pca(X, K = 0):
             feature_aligns= sol["feature_align"])
     return pca_pack
 
-def check_residual_spectrum(pca_pack, to_show = False, to_save = False):
+def check_residual_spectrum(pca_pack, to_show = False, to_save = False, **kwargs):
     '''we require the noise variance to be 1/n_features
     mu must be sorted in descending order
     '''
@@ -69,7 +69,8 @@ def check_residual_spectrum(pca_pack, to_show = False, to_save = False):
     ax.legend()
     ax.set_title("Residual Spectrum")
     if to_save:
-        fig.savefig("./figures/residual_check.pdf")
+        fig_prefix = kwargs.get('fig_prefix', '')
+        fig.savefig("./figures/%sresidual_check.pdf" % fig_prefix)
     if to_show:
         plt.show()
 
