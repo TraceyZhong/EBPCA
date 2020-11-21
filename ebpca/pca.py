@@ -32,6 +32,21 @@ PcaPack = namedtuple("PCAPack", ["X", "U", "V", "mu", "K", \
 
 ## --- get pca pack and check goe spectra --- ##
 
+def get_pca_u(X, K = 0):
+    if K == 0:
+        raise(ValueError("# PC can not be zero."))
+    n_samples, n_features = X.shape
+    U, Lambdas, Vh = np.linalg.svd(X, full_matrices = False)
+    U = U[:,:K]
+    Lambda = Lambdas[:K]
+    Vh = Vh[:K,:]
+    sol = signal_solver_gaussian_u(Lambda, None, n_samples, n_features)
+    pca_pack = PcaPack(X = X, U = U, V = Vh.transpose(), mu = Lambdas[K:], \
+        n_samples = n_samples, n_features = n_features, \
+        K = K, signals = sol["signal"], sample_aligns= sol["sample_align"], \
+            feature_aligns= sol["feature_align"])
+    return pca_pack
+
 def get_pca(X, K = 0):
     if K == 0:
         raise(ValueError("# PC can not be zero."))
@@ -40,14 +55,14 @@ def get_pca(X, K = 0):
     U = U[:,:K]
     Lambda = Lambdas[:K]
     Vh = Vh[:K,:]
-    sol = signal_solver_gaussian(Lambda, None, n_samples, n_features)
+    sol = signal_solver_gaussian_v(Lambda, None, n_samples, n_features)
     pca_pack = PcaPack(X = X, U = U, V = Vh.transpose(), mu = Lambdas[K:], \
         n_samples = n_samples, n_features = n_features, \
         K = K, signals = sol["signal"], sample_aligns= sol["sample_align"], \
             feature_aligns= sol["feature_align"])
     return pca_pack
 
-def check_residual_spectrum(pca_pack, to_show = False, to_save = False, **kwargs):
+def check_residual_spectrum_u(pca_pack, to_show = False, to_save = False):
     '''we require the noise variance to be 1/n_features
     mu must be sorted in descending order
     '''
@@ -108,7 +123,7 @@ def signal_solver_gaussian_original(singval, mu = None, n_samples = 0, n_feature
 
     return {"alpha": alpha, "sample_align":  sample_align, "feature_align": feature_align}
 
-def signal_solver_gaussian(singval, mu = None, n_samples = 0, n_features = 0, **kwargs):
+def signal_solver_gaussian_u(singval, mu = None, n_samples = 0, n_features = 0, **kwargs):
     '''we require the noise variance to be 1/n_features
     '''
     aspect_ratio = n_samples/n_features
@@ -121,6 +136,25 @@ def signal_solver_gaussian(singval, mu = None, n_samples = 0, n_features = 0, **
     theta = s * np.sqrt(aspect_ratio)
     sample_align = np.sqrt((theta**4 - aspect_ratio)/ (theta**2 + aspect_ratio)) / theta
     feature_align = np.sqrt((theta**4 - aspect_ratio)/ (theta**2 + 1)) / theta
+
+    return {"signal": s, "sample_align":  sample_align, "feature_align": feature_align}
+
+def signal_solver_gaussian_v(singval, mu = None, n_samples = 0, n_features = 0, **kwargs):
+    '''we require the noise variance to be 1/n_samples
+    '''
+    aspect_ratio = n_features/n_samples
+    print("s should be at least {} to satisfy the super critical condition.".format(1/aspect_ratio**(1/4)))
+    print("singval should be at least {} to satisfy the super critical condition.".format(1 + np.sqrt(aspect_ratio)))
+    greek_lambda = singval / np.sqrt(aspect_ratio)
+    s = np.sqrt((greek_lambda**2 * aspect_ratio - 1 - aspect_ratio + \
+        np.sqrt((greek_lambda**2*aspect_ratio - 1 - aspect_ratio)**2 - 4*aspect_ratio) \
+            ) / (2*aspect_ratio))
+    print("Estimation of s is {}.".format(s))
+    # theta = s * np.sqrt(aspect_ratio)
+    # sample_align = np.sqrt((theta**4 - aspect_ratio)/ (theta**2 + aspect_ratio)) / theta
+    # feature_align = np.sqrt((theta**4 - aspect_ratio)/ (theta**2 + 1)) / theta
+    sample_align = np.sqrt(1- (1 + s**2)/(s**2*(aspect_ratio*s**2 + 1)))
+    feature_align = np.sqrt(1- (1 + aspect_ratio*s**2) /(aspect_ratio*s**2*(s**2 + 1)))
 
     return {"signal": s, "sample_align":  sample_align, "feature_align": feature_align}
 
