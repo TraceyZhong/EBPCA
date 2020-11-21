@@ -18,13 +18,13 @@ def normalize_obs(Y, K = 0):
     '''
     if K == 0:
         raise(ValueError("# PC can not be zero."))
-    n_samples = Y.shape[0]
+    n_features = Y.shape[1]
     U, Lambda, Vh = np.linalg.svd(Y, full_matrices = False)
     U = U[:,:K]
     Lambda = Lambda[:K]
     Vh = Vh[:K,:]
     R = Y - U * Lambda @ Vh
-    tauSq = np.sum(R**2) / n_samples
+    tauSq = np.sum(R**2) / n_features
     print("estimated tau={}".format(np.sqrt(tauSq)))
     return Y / np.sqrt(tauSq)
 

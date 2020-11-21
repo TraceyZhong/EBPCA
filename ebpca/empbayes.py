@@ -524,7 +524,6 @@ def _mosek_npmle(f, Z, mu, covInv, tol):
 
     return pi, A
 
-# @profile(precision = 4)
 def mosek_npmle(f, Z, mu, covInv, tol=1e-8):
     A = get_W(f, Z, mu, covInv)
     n, m = A.shape
