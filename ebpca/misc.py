@@ -46,6 +46,8 @@ def ebmf(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
     # get dimension
     (n, d) = X.shape
 
+    # initialize parameter tau
+    tau = n
     if ebpca_scaling:
         print('Apply rescaling to match the scale with EB-PCA in marginal plots')
         # get signal
@@ -53,9 +55,11 @@ def ebmf(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
         # apply the same scaling in EB-PCA
         u = u / np.sqrt((u ** 2).sum(axis=0)) * np.sqrt(n)
         v = v / np.sqrt((v ** 2).sum(axis=0)) * np.sqrt(d)
-        mu_constant = np.float(signals / n)
+        print('signal: %.2f' % signals)
+        mu_constant = np.float(signals / tau)
     else:
         mu_constant = 1
+    print('mu constant: %.2f' % mu_constant)
 
     # re-label u, v with l, f
     l_hat = u
@@ -66,13 +70,12 @@ def ebmf(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
     F = f_hat[:,:, np.newaxis]
 
     # use the same scaling as EBMF
-    # initialize parameter tau
-    tau = n
     # initialize the first update with svd
     # first denoise the loadings
     l_hat = X.dot(f_hat) / np.sum(f_hat ** 2)
     mu = np.diag([mu_constant])
     sigma_sq = np.diag([1 / (np.sum(f_hat ** 2) * tau)])
+    print('fhat %.2f' % np.sum(f_hat ** 2))
     if ebpca_scaling:
         l_hat = l_hat * np.sum(f_hat ** 2)
         mu = mu * np.sum(f_hat ** 2)
@@ -99,10 +102,12 @@ def ebmf(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
         f_hat = X.T.dot(El) / np.sum(El2)
         mu_bar = np.diag([mu_constant])
         sigma_bar_sq = np.diag([1 / (np.sum(El2) * tau)])
+        print('El2: %.2f' % np.sum(El2))
         if ebpca_scaling:
             f_hat = f_hat * np.sum(El2)
             mu_bar = mu_bar * np.sum(El2)
             sigma_bar_sq = sigma_bar_sq * np.sum(El2)**2
+        print('mu_bar/sigma2_bar %.2f' % (mu_bar / sigma_bar_sq))
         fdenoiser.fit(f_hat, mu_bar, sigma_bar_sq, figname='_v_iter%02d.png' % (t))
         Ef = fdenoiser.denoise(f_hat, mu_bar, sigma_bar_sq)
         Varf = fdenoiser.ddenoise(f_hat, mu_bar, sigma_bar_sq) * (sigma_bar_sq / mu_bar)
@@ -117,10 +122,12 @@ def ebmf(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
         l_hat = X.dot(Ef) / np.sum(Ef2)
         mu = np.diag([mu_constant])
         sigma_sq = np.diag([1 / (np.sum(Ef2) * tau)])
+        print('Ef2: %.2f' % np.sum(Ef2))
         if ebpca_scaling:
             l_hat = l_hat * np.sum(Ef2)
-            mu = mu_bar * np.sum(Ef2)
+            mu = mu * np.sum(Ef2)
             sigma_sq = sigma_sq * np.sum(Ef2)**2
+        print('mu/sigma2 %.2f' % (mu / sigma_sq))
         # Evaluate objective function
         obj_func = get_cond_logl(El, El2, Ef, Ef2, X, tau) + KL_l + KL_f
         obj_funcs.append(obj_func)
@@ -175,3 +182,38 @@ def point_normal_e_loglik(pars, y_obs, sigma_y, mu_y):
     log_lik = np.sum(np.log((1 - pars[0]) * _gaussian_pdf(y_obs, 0, sigma_y) +
                     pars[0] * _gaussian_pdf(y_obs, 0, np.sqrt(sigma_y ** 2 + mu_y ** 2 * pars[1] ** 2))))
     return log_lik
+
+if __name__ == '__main__':
+
+    from ebpca.pca import get_pca
+    from simulation.helpers import fill_alignment
+    prior = 'Point_normal'
+    s_star = 1.3
+    i = 0
+    rank = 1
+    iters = 4
+
+    prior_prefix = 'univariate/' + prior
+    data_prefix = '../simulation/output/%s/data/s_%.1f' % (prior_prefix, s_star)
+    u_star = np.load('%s_copy_%i_u_star.npy' % (data_prefix, i), allow_pickle=False)
+    v_star = np.load('%s_copy_%i_v_star.npy' % (data_prefix, i), allow_pickle=False)
+    X = np.load('%s_copy_%i.npy' % (data_prefix, i), allow_pickle=False)
+
+    # prepare the PCA pack
+    pcapack = get_pca(X, rank)
+
+    print('\n No scaling \n')
+    ldenoiser = NonparEB(optimizer="Mosek", to_save=False)
+    fdenoiser = NonparEB(optimizer="Mosek", to_save=False)
+    U_est, V_est, obj = ebmf(pcapack, ldenoiser, fdenoiser, iters=iters,
+                             ebpca_scaling=False, update_family='nonparametric', tol=1e-1)
+    # print alignment
+    print(fill_alignment(U_est, u_star, iters))
+    print(fill_alignment(V_est, v_star, iters))
+
+    print('\n With scaling \n')
+    U_est, V_est, obj = ebmf(pcapack, ldenoiser, fdenoiser, iters=iters,
+                             ebpca_scaling=True, update_family='nonparametric', tol=1e-1)
+    # print alignment
+    print(fill_alignment(U_est, u_star, iters))
+    print(fill_alignment(V_est, v_star, iters))

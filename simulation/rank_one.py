@@ -3,7 +3,7 @@ import os
 import time
 import sys
 sys.path.extend(['../../generalAMP'])
-from ebpca.empbayes import NonparEB as NonparEB, NonparBayes, PointNormalBayes, TwoPointsBayes
+from ebpca.empbayes import NonparEB, NonparBayes, PointNormalBayes, TwoPointsBayes
 from ebpca.amp import ebamp_gaussian as ebamp_gaussian
 from ebpca.preprocessing import normalize_obs
 from ebpca.pca import get_pca
@@ -24,9 +24,9 @@ parser.add_argument("--prior", type=str, help="enter univariate prior",
 parser.add_argument("--n_rep", type=int, help="enter number of independent data to be simulated",
                     default=1, const=1, nargs='?')
 parser.add_argument("--s_star", type=float, help="enter signal strength", 
-                    default=1.4, const=1.4, nargs='?')
+                    default=0.9, const=0.9, nargs='?')
 parser.add_argument("--iters", type=int, help="enter EB-PCA iterations", 
-                    default=5, const=5, nargs='?')
+                    default=10, const=10, nargs='?')
 args = parser.parse_args()
 
 prior = args.prior
@@ -63,7 +63,7 @@ print('fixed parameters: n=%i, gamma=%.1f\n' % (n, gamma))
 
 # generate simulation data
 np.random.seed(1)
-seeds = [np.random.randint(0, 10000, n_rep) for i in range(2)] # set seed for each dataset
+seeds = [np.random.randint(0, 10000, n_rep) for i in range(3)] # set seed for each dataset
 
 for i in range(n_rep):
     if not os.path.exists('%s_copy_%i.npy' % (data_prefix, i)):
@@ -71,7 +71,7 @@ for i in range(n_rep):
         # simulate data based on the chosen prior
         u_star = simulate_prior(prior, n, seed=seeds[0][i])
         v_star = simulate_prior(prior, d, seed=seeds[1][i])
-        Y = signal_plus_noise_model(u_star, v_star, s_star)
+        Y = signal_plus_noise_model(u_star, v_star, s_star, seed=seeds[2][i])
         # normalize the observational matrix
         X = normalize_obs(Y, rank)
         np.save('%s_copy_%i_u_star.npy' % (data_prefix, i), u_star, allow_pickle=False)
@@ -82,6 +82,7 @@ for i in range(n_rep):
 u_alignment = []
 v_alignment = []
 obj_funcs = []
+conv_trace = []
 start_time = time.time()
 for i in range(n_rep):
     print('Replication %i' % i)
@@ -96,8 +97,10 @@ for i in range(n_rep):
         udenoiser = NonparEB(optimizer="Mosek", to_save=False)
         vdenoiser = NonparEB(optimizer="Mosek", to_save=False)
         # run AMP
-        U_est, V_est = ebamp_gaussian(pcapack, iters=iters,
-                                      udenoiser=udenoiser, vdenoiser=vdenoiser)
+        U_est, V_est, conv = ebamp_gaussian(pcapack, iters=iters,
+                                            udenoiser=udenoiser, vdenoiser=vdenoiser,
+                                            return_conv=True)
+        conv_trace.append(conv)
     elif method == 'BayesAMP':
         # initiate denoiser
         if prior == 'Uniform':
@@ -125,11 +128,13 @@ for i in range(n_rep):
     # maximal EBMF iterations: 50
     u_alignment.append(fill_alignment(U_est, u_star, iters))
     v_alignment.append(fill_alignment(V_est, v_star, iters))
+    print(fill_alignment(U_est, u_star, iters))
+    print(fill_alignment(V_est, v_star, iters))
     # save denoised PC along iterations
-    np.save('output/%s/denoisedPC/%s_leftPC_s_%.1f_n_copy_%i.npy' % (prior_prefix, method, s_star, i),
-            U_est, allow_pickle=False)
-    np.save('output/%s/denoisedPC/%s_rightPC_s_%.1f_n_copy_%i.npy' % (prior_prefix, method, s_star, i),
-            V_est, allow_pickle=False)
+    # np.save('output/%s/denoisedPC/%s_leftPC_s_%.1f_n_copy_%i.npy' % (prior_prefix, method, s_star, i),
+    #         U_est, allow_pickle=False)
+    # np.save('output/%s/denoisedPC/%s_rightPC_s_%.1f_n_copy_%i.npy' % (prior_prefix, method, s_star, i),
+    #         V_est, allow_pickle=False)
 
 end_time = time.time()
 print('Simulation takes %.2f s' % (end_time - start_time))
@@ -142,6 +147,13 @@ np.save('output/%s/alignments/%s_u_s_%.1f_n_rep_%i.npy' % (prior_prefix, method,
         u_alignment, allow_pickle=False)
 np.save('output/%s/alignments/%s_v_s_%.1f_n_rep_%i.npy' % (prior_prefix, method, s_star, n_rep),
         v_alignment, allow_pickle=False)
+
+# save convergence trace for EB-PCA
+np.save('output/%s/alignments/conv_%s_u_s_%.1f_n_rep_%i.npy' % (prior_prefix, method, s_star, n_rep),
+        conv_trace, allow_pickle=False)
+np.save('output/%s/alignments/conv_%s_v_s_%.1f_n_rep_%i.npy' % (prior_prefix, method, s_star, n_rep),
+        conv_trace, allow_pickle=False)
+
 # save objective function values for EBMF
 if method == 'EBMF':
     np.save('output/%s/alignments/%s_obj_funcs_s_%.1f_n_rep_%i.npy' % (prior_prefix, method, s_star, n_rep),

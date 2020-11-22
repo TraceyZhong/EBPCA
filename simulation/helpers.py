@@ -52,7 +52,7 @@ def simulate_prior(prior, n=2000, seed=1, rank=1):
     np.random.seed(seed)
     if rank == 1:
         if prior == 'Uniform':
-            theta = np.random.uniform(-2, 1, size=n)
+            theta = np.random.uniform(0, np.sqrt(3), size=n)
         if prior == 'Two_points':
             theta = 2 * np.random.binomial(n=1, p=0.5, size=n) - 1
         if prior == 'Point_normal':
@@ -72,7 +72,8 @@ def simulate_prior(prior, n=2000, seed=1, rank=1):
         theta = normalize_pc(theta)
     return theta
 
-def signal_plus_noise_model(u, v, s, rank=1):
+def signal_plus_noise_model(u, v, s, seed, rank = 1):
+    np.random.seed(seed)
     n = u.shape[0]
     d = v.shape[0]
     W = np.random.normal(0, np.sqrt(1/n), n*d).reshape((n, d))

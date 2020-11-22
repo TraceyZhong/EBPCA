@@ -18,20 +18,25 @@ def normalize_obs(Y, K = 0):
     '''
     if K == 0:
         raise(ValueError("# PC can not be zero."))
-    n_samples = Y.shape[0]
+    n_features = Y.shape[1]
     U, Lambda, Vh = np.linalg.svd(Y, full_matrices = False)
     U = U[:,:K]
     Lambda = Lambda[:K]
     Vh = Vh[:K,:]
     R = Y - U * Lambda @ Vh
-    tauSq = np.sum(R**2) / n_samples
+    tauSq = np.sum(R**2) / n_features
     print("estimated tau={}".format(np.sqrt(tauSq)))
     return Y / np.sqrt(tauSq)
 
 def normalize_pc(U):
     return U/np.sqrt((U**2).sum(axis = 0)) * np.sqrt(len(U))
 
-def plot_pc(samples,label="",nPCs=2,to_show=False, to_save=False):
+# TODO
+# 1. add a function to do column normalization for real data
+# 2. think of better names for these normalization functions
+
+def plot_pc(samples,label="",nPCs=2,to_show=False, to_save=False, **kwargs):
+    fig_prefix = kwargs.get("fig_prefix", "")
     u,s,vh = np.linalg.svd(samples,full_matrices=False)
     plt.figure(figsize = (10,3))
     plt.scatter(range(len(s)), s)
@@ -52,7 +57,10 @@ def plot_pc(samples,label="",nPCs=2,to_show=False, to_save=False):
         ax3.set_title('right PC %d' % (i+1))
         ax4.set_title('right PC %d' % (i+1))
         if to_save:
-            fig.savefig('figures/PC_%d_%s.png' % (i,label))
+            fig.savefig('figures/%sPC_%d_%s.png' % (fig_prefix, i,label))
         if to_show:
             plt.show()
         plt.close()
+
+def get_diff_L2(diff):
+    return np.sqrt(np.mean(np.sum(diff**2, axis=0)))

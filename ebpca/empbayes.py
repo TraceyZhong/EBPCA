@@ -24,6 +24,7 @@ class _BaseEmpiricalBayes(ABC):
         self.to_show = to_show
         self.fig_prefix = "figures/"+fig_prefix
         self.rank = 0
+        self.iter = 1
 
     @abstractmethod
     def estimate_prior(self,f, mu, cov):
@@ -51,10 +52,10 @@ class _BaseEmpiricalBayes(ABC):
         if (self.to_show or self.to_save):
             self.check_margin(f,mu,cov,figname)
             # self.check_prior(figname)
+        self.iter += 1
         return 'normal'
 
     def check_margin(self, fs, mu, cov, figname):
-        # calm down, think waht is the dimension of s
         if self.rank == 1:
             fig, ax = plt.subplots(nrows=self.rank, ncols=1, figsize=(7, 3))
             axes = [ax]
@@ -71,8 +72,12 @@ class _BaseEmpiricalBayes(ABC):
         
         for dim in range(self.rank):
             self.plot_each_margin(axes[dim], fs[:, dim], dim, mu, cov)
-            axes[dim].set_title("PC %i, mu=%.2f, cov=%.2f" % \
-                                (dim + 1, mu[dim, dim], cov[dim, dim]))
+            if self.rank > 1:
+                axes[dim].set_title("Iteration %i, %s%i, mu=%.2f, cov=%.2f" % \
+                                    (self.iter, self.PCname, dim + 1, mu[dim, dim], cov[dim, dim]))
+            else:
+                axes[dim].set_title("Iteration %i, %s, mu=%.2f, cov=%.2f" % \
+                                    (self.iter, self.PCname, mu[dim, dim], cov[dim, dim]))
         if self.to_show:
             plt.show()
         if self.to_save:
@@ -92,7 +97,7 @@ class _BaseEmpiricalBayes(ABC):
 
 class NonparEB(_BaseEmpiricalBayes):
     
-    def __init__(self, optimizer = "EM", ftol = 1e-8, nsupp_ratio = 1, em_iter = 100, maxiter = 100, to_save = False, to_show = False, fig_prefix = "nonpareb", **kwargs):
+    def __init__(self, optimizer = "EM", PCname = 'U', ftol = 1e-8, nsupp_ratio = 1, em_iter = 100, maxiter = 100, to_save = False, to_show = False, fig_prefix = "nonpareb", **kwargs):
         _BaseEmpiricalBayes.__init__(self, to_save, to_show, fig_prefix)
         # check if parameters are valid
         if optimizer in ["EM", "Mosek"]:
@@ -108,6 +113,7 @@ class NonparEB(_BaseEmpiricalBayes):
         self.pi = None
         self.Z = None
         self.P = None
+        self.PCname = PCname
 
     def _check_init(self, f, mu, cov):
         self.rank = len(mu)
@@ -169,10 +175,11 @@ class NonparEB(_BaseEmpiricalBayes):
         return self.pi, self.Z
 
 class NonparEBChecker(NonparEB):
-    def __init__(self, truePriorLoc, truePriorWeight, optimizer = "EM", ftol = 1e-6, nsupp_ratio = 1, em_iter = 10, maxiter = 100, to_save = False, to_show = False, fig_prefix = "nonparebck", **kwargs):
-        NonparEB.__init__(self, optimizer, ftol, nsupp_ratio, em_iter, maxiter, to_save, to_show, fig_prefix, **kwargs)
+    def __init__(self, truePriorLoc, truePriorWeight, optimizer = "EM", PCname = 'U', histcol = 'skyblue', ftol = 1e-6, nsupp_ratio = 1, em_iter = 10, maxiter = 100, to_save = False, to_show = False, fig_prefix = "nonparebck", **kwargs):
+        NonparEB.__init__(self, optimizer, PCname, ftol, nsupp_ratio, em_iter, maxiter, to_save, to_show, fig_prefix, **kwargs)
         self.trueZ = truePriorLoc
-        self.truePi = truePriorWeight 
+        self.truePi = truePriorWeight
+        self.histcol = histcol
         self.redirectd = False
 
     def get_margin_pdf_from_true_prior(self, x, mu, cov, dim):
@@ -190,14 +197,14 @@ class NonparEBChecker(NonparEB):
         # print(self.trueZ.dot(mu.T)[:, dim])
         # print(self.truePi)
         truePdf = [self.get_margin_pdf_from_true_prior(x, mu, cov, dim) for x in xgrid]
-        ax.hist(f, bins=40, alpha=0.5, density=True, color="skyblue", label="empirical dist")
-        ax.plot(xgrid, pdf, color="grey", linestyle="dashed", label="theoretical density")
-        ax.plot(xgrid, truePdf, color="red", linestyle="dashed", label="reference density")
+        ax.hist(f, bins=40, alpha=0.4, density=True, color=self.histcol, label="empirical obs")
+        ax.plot(xgrid, pdf, color="grey", linestyle="dashed", linewidth=2, label="fitted model")
+        ax.plot(xgrid, truePdf, color="grey", linestyle="solid", linewidth=1, label="denoise model")
         ax.legend()
             
 class NonparBayes(NonparEB):
-    def __init__(self, truePriorLoc, truePriorWeight, optimizer = "EM", ftol = 1e-6, nsupp_ratio = 1, em_iter = 10, maxiter = 100, to_save = False, to_show = False, fig_prefix = "nonparebck", **kwargs):
-        NonparEB.__init__(self, optimizer, ftol, nsupp_ratio, em_iter, maxiter, to_save, to_show, fig_prefix, **kwargs)
+    def __init__(self, truePriorLoc, truePriorWeight, optimizer = "EM", PCname = 'U', ftol = 1e-6, nsupp_ratio = 1, em_iter = 10, maxiter = 100, to_save = False, to_show = False, fig_prefix = "nonparebck", **kwargs):
+        NonparEB.__init__(self, optimizer, PCname, ftol, nsupp_ratio, em_iter, maxiter, to_save, to_show, fig_prefix, **kwargs)
         self.Z = truePriorLoc
         self.pi = truePriorWeight
         self.rank = truePriorLoc.shape[1]
@@ -525,7 +532,6 @@ def _mosek_npmle(f, Z, mu, covInv, tol):
 
     return pi, A
 
-# @profile(precision = 4)
 def mosek_npmle(f, Z, mu, covInv, tol=1e-8):
     A = get_W(f, Z, mu, covInv)
     n, m = A.shape
