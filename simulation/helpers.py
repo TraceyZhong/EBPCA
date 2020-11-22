@@ -57,8 +57,8 @@ def simulate_prior(prior, n=2000, seed=1, rank=1):
             theta = 2 * np.random.binomial(n=1, p=0.5, size=n) - 1
         if prior == 'Point_normal':
             point_obs = np.repeat(0, n)
-            assignment = np.random.binomial(n=1, p=0.5, size=n)
-            normal_obs = np.random.normal(loc=0, scale=np.sqrt(2), size=n)
+            assignment = np.random.binomial(n=1, p=0.1, size=n)
+            normal_obs = np.random.normal(loc=0, scale=np.sqrt(10), size=n)
             theta = point_obs * (1 - assignment) + normal_obs * assignment
     elif rank == 2:
         if prior == 'Uniform_circle':
