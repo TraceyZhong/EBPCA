@@ -138,6 +138,5 @@ def ebamp_gaussian_rank_one(pcapack, iters = 5, udenoiser = NonparEB(), \
             sigma_sq = 1 + sigma_bar_sq / (mu**2)
         # update right singular vector gt using ut
         g = np.transpose(X).dot(u) - b_bar * v
-
     # return U,V, don't need to swap them
     return U,V
