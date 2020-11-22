@@ -20,13 +20,13 @@ def get_state_evolution(s, aspect_ratio, ummse, vmmse, amp_iter = 10, ftol = 0.0
     gammas = [gamma]
     gammas_bar=[]
     for _ in range(amp_iter):
-        gamma_bar = s**2*aspect_ratio*(1- ummse(gamma))
-        gamma = s**2*(1-vmmse(gamma_bar))
+        gamma_bar = s**2*aspect_ratio*(1- vmmse(gamma))
+        gamma = s**2*(1-ummse(gamma_bar))
         gammas_bar.append(gamma_bar)
         gammas.append(gamma)
     for _ in range(amp_iter, 100):
-        gamma_bar_new = s**2*aspect_ratio*(1- ummse(gamma))
-        gamma_new = s**2*(1-vmmse(gamma_bar))
+        gamma_bar_new = s**2*aspect_ratio*(1- vmmse(gamma))
+        gamma_new = s**2*(1-ummse(gamma_bar))
         if (abs(gamma_bar - gamma_bar_new) < ftol) and (abs(gamma - gamma_new) < ftol):
             break
         else:
@@ -36,10 +36,10 @@ def get_state_evolution(s, aspect_ratio, ummse, vmmse, amp_iter = 10, ftol = 0.0
     # return ualign, valign
 
 def get_alignment_evolution(se):
-    valigns = np.sqrt(se.gammas) / se.s
-    ualigns = np.sqrt(se.gammas_bar)/ se.s
-    valign_star = np.sqrt(se.gamma_star)/ se.s
-    ualign_star = np.sqrt(se.gamma_star_bar)/ se.s
+    ualigns = np.sqrt(se.gammas_bar) / se.s
+    valigns = np.sqrt(se.gammas_bar / se.aspect_ratio)/ se.s
+    ualign_star = np.sqrt(se.gamma_star)/ se.s
+    valign_star = np.sqrt(se.gamma_star_bar/ se.aspect_ratio)/ se.s
     return AlignmentEvolution(valigns, ualigns, valign_star, ualign_star)
 
 ## --- MMSE updates --- ##
