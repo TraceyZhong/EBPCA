@@ -9,10 +9,10 @@ import scipy
 
 from ebpca.empbayes import NonparEB
 from ebpca.pca import PcaPack
-
+from ebpca.preprocessing import get_diff_L2
 
 def ebamp_gaussian(pcapack, iters = 5, udenoiser = NonparEB(), \
-    vdenoiser = NonparEB(), figprefix = '', muteu = False):
+    vdenoiser = NonparEB(), figprefix = '', muteu = False, tol = 1e-1, return_conv = False):
     '''HD ebamp gaussian
     if u has shape (n, k), set iters
     return U has shape (n, k, iters+1) # with the additional init u.
@@ -82,9 +82,25 @@ def ebamp_gaussian(pcapack, iters = 5, udenoiser = NonparEB(), \
         
         # update left singular vector gt using ut
         g = np.transpose(X).dot(u) - v.dot(b_bar.T)
-    
-    # don't swap u,v
-    return U,V
+
+    diff_U = np.diff(U, axis = -1)
+    print(diff_U.shape)
+    delta_U = [get_diff_L2(diff_U[:, :, i]) for i in range(diff_U.shape[2])]
+    diff_V = np.diff(V, axis = -1)
+    delta_V = [get_diff_L2(diff_V[:, :, i]) for i in range(diff_V.shape[2])]
+
+    flags = np.where(np.maximum(delta_U, delta_V) <= tol)[0]
+    if flags.size == 0:
+        print('EB-PCA failed to converge in %i iterations. (tol=%.1e)' % (iters , tol))
+    else:
+        print('EB-PCA converged in %i iterations. (tol=%.1e)' % (np.min(flags) + 1, tol))
+    print(np.maximum(delta_U, delta_V))
+
+    if not return_conv:
+        # don't swap u,v
+        return U,V
+    else:
+        return U,V,np.maximum(delta_U, delta_V)
 
 def ebamp_gaussian_rank_one(pcapack, iters = 5, udenoiser = NonparEB(), \
     vdenoiser = NonparEB(), figprefix = '', muteu = False):

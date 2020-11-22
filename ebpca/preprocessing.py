@@ -61,3 +61,6 @@ def plot_pc(samples,label="",nPCs=2,to_show=False, to_save=False, **kwargs):
         if to_show:
             plt.show()
         plt.close()
+
+def get_diff_L2(diff):
+    return np.sqrt(np.mean(np.sum(diff**2, axis=0)))
