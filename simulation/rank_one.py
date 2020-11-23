@@ -27,6 +27,10 @@ parser.add_argument("--s_star", type=float, help="enter signal strength",
                     default=0.9, const=0.9, nargs='?')
 parser.add_argument("--iters", type=int, help="enter EB-PCA iterations", 
                     default=10, const=10, nargs='?')
+parser.add_argument("--gamma", type=float, help="enter d/n",
+                    default=2, const=2, nargs='?')
+parser.add_argument("--n", type=int, help="enter n",
+                    default=1000, const=1000, nargs='?')
 args = parser.parse_args()
 
 prior = args.prior
@@ -34,6 +38,8 @@ n_rep = args.n_rep
 s_star = args.s_star
 iters = args.iters
 method = args.method
+gamma = args.gamma
+n = args.n
 
 print('\nRunning %s rank one simulations with %i replications, %s prior, signal strength=%.1f, iterations=%i'\
       % (method, n_rep, prior, s_star, iters))
@@ -53,8 +59,8 @@ data_prefix = 'output/%s/data/s_%.1f' % (prior_prefix, s_star)
 # -----------------
 
 # set fixed parameters for simulation
-n = 1000
-gamma = 2
+# n = 2000
+# gamma = 2
 d = int(n * gamma)
 rank = 1
 alignment = []
@@ -66,7 +72,7 @@ np.random.seed(1)
 seeds = [np.random.randint(0, 10000, n_rep) for i in range(3)] # set seed for each dataset
 
 for i in range(n_rep):
-    if not os.path.exists('%s_copy_%i.npy' % (data_prefix, i)):
+    if not os.path.exists('%s_copy_%i_n_%i_gamma_%.1f.npy' % (data_prefix, i, n, gamma)):
         print('Simulating data for replication %i' % i)
         # simulate data based on the chosen prior
         u_star = simulate_prior(prior, n, seed=seeds[0][i])
@@ -74,9 +80,9 @@ for i in range(n_rep):
         Y = signal_plus_noise_model(u_star, v_star, s_star, seed=seeds[2][i])
         # normalize the observational matrix
         X = normalize_obs(Y, rank)
-        np.save('%s_copy_%i_u_star.npy' % (data_prefix, i), u_star, allow_pickle=False)
-        np.save('%s_copy_%i_v_star.npy' % (data_prefix, i), v_star, allow_pickle=False)
-        np.save('%s_copy_%i.npy' % (data_prefix, i), X, allow_pickle=False)
+        np.save('%s_copy_%i_u_star_n_%i_gamma_%.1f.npy' % (data_prefix, i, n, gamma), u_star, allow_pickle=False)
+        np.save('%s_copy_%i_v_star_n_%i_gamma_%.1f.npy' % (data_prefix, i, n, gamma), v_star, allow_pickle=False)
+        np.save('%s_copy_%i_n_%i_gamma_%.1f.npy' % (data_prefix, i, n, gamma), X, allow_pickle=False)
 
 # run EB-PCA / BayesAMP / EBMF
 u_alignment = []
@@ -87,9 +93,9 @@ start_time = time.time()
 for i in range(n_rep):
     print('Replication %i' % i)
     # load simulation data
-    u_star = np.load('%s_copy_%i_u_star.npy' % (data_prefix, i), allow_pickle=False)
-    v_star = np.load('%s_copy_%i_v_star.npy' % (data_prefix, i), allow_pickle=False)
-    X = np.load('%s_copy_%i.npy' % (data_prefix, i), allow_pickle=False)
+    u_star = np.load('%s_copy_%i_u_star_n_%i_gamma_%.1f.npy' % (data_prefix, i, n, gamma), allow_pickle=False)
+    v_star = np.load('%s_copy_%i_v_star_n_%i_gamma_%.1f.npy' % (data_prefix, i, n, gamma), allow_pickle=False)
+    X = np.load('%s_copy_%i_n_%i_gamma_%.1f.npy' % (data_prefix, i, n, gamma), allow_pickle=False)
     # prepare the PCA pack
     pcapack = get_pca(X, rank)
     if method == 'EB-PCA':
