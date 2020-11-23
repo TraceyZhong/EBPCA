@@ -70,6 +70,7 @@ def get_bayes_pca(X, s, K=0):
     U = U[:,:K]
     Vh = Vh[:K,:]
     # solve init parameters
+    s = np.array(s).reshape(1)
     aspect_ratio = n_features/ n_samples
     sample_align = np.sqrt(1- (1 + s**2)/(s**2*(aspect_ratio*s**2 + 1)))
     feature_align = np.sqrt(1- (1 + aspect_ratio*s**2) /(aspect_ratio*s**2*(s**2 + 1)))

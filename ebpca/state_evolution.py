@@ -24,7 +24,7 @@ def get_state_evolution(s, aspect_ratio, ummse, vmmse, amp_iter = 10, ftol = 0.0
         gamma = s**2*(1-ummse(gamma_bar))
         gammas_bar.append(gamma_bar)
         gammas.append(gamma)
-    for _ in range(amp_iter, 100):
+    for _ in range(amp_iter, 10):
         gamma_bar_new = s**2*aspect_ratio*(1- vmmse(gamma))
         gamma_new = s**2*(1-ummse(gamma_bar))
         if (abs(gamma_bar - gamma_bar_new) < ftol) and (abs(gamma - gamma_new) < ftol):
@@ -36,41 +36,59 @@ def get_state_evolution(s, aspect_ratio, ummse, vmmse, amp_iter = 10, ftol = 0.0
     # return ualign, valign
 
 def get_alignment_evolution(se):
+    svd_alignment = np.sqrt((se.aspect_ratio * se.s**4 - 1)/(se.aspect_ratio * se.s**4 + se.aspect_ratio * se.s**2))
     ualigns = np.sqrt(se.gammas) / se.s
     valigns = np.sqrt(se.gammas_bar / se.aspect_ratio)/ se.s
+    valigns = np.insert(valigns, 0, svd_alignment)
     ualign_star = np.sqrt(se.gamma_star)/ se.s
     valign_star = np.sqrt(se.gamma_star_bar/ se.aspect_ratio)/ se.s
     return AlignmentEvolution(valigns, ualigns, valign_star, ualign_star)
 
 ## --- MMSE updates --- ##
-def two_points(gamma):  
-    # -1 +1
-    truth = np.repeat([1,-1], int(nsamples/2))
-    x = truth * np.sqrt(gamma) + np.random.normal(size = (nsamples,))
-    est = np.tanh(np.sqrt(gamma)*x)
-    return np.mean((est - truth)**2)
+# print("Running Sampling.")
+# def two_points(gamma):  
+#     # -1 +1
+#     truth = np.repeat([1,-1], int(nsamples/2))
+#     x = truth * np.sqrt(gamma) + np.random.normal(size = (nsamples,))
+#     est = np.tanh(np.sqrt(gamma)*x)
+#     return np.mean((est - truth)**2)
+
+# print("Running analytical sol.")
+def two_points(gamma):
+    
+    def integrand(x, gamma):
+        return np.tanh(gamma + x * np.sqrt(gamma))**2 * np.exp(-x*x/2)
+
+    res = integrate.quad(integrand, -np.inf, np.inf, args = (gamma,)) / np.sqrt(2 * np.pi) 
+    res = res[0]
+
+    return 1 - res
 
 
 def uniform(gamma):
     # [0, sqrt(3)]
-    truth = np.random.uniform(0, 1, size=nsamples)
-    truth = truth / np.sqrt(np.sum(truth**2 / nsamples))
+    print("what is gamma ", gamma)
+    truth = np.random.uniform(0, 1, size=(nsamples,1))
+    truth = truth / np.sqrt(np.sum(truth**2) / nsamples)
     truePriorWeight = np.full((nsamples,), 1/nsamples)
     denoiser = NonparBayes(truth, truePriorWeight, optimizer="EM")
-    x = truth * np.sqrt(gamma) + np.random.normal(size = (nsamples,))
-    est = denoiser.denoise(x,np.sqrt(gamma), 1)
+    x = truth * np.sqrt(gamma) + np.random.normal(size = (nsamples,1))
+    est = denoiser.denoise(x,np.array([[np.sqrt(gamma)]]),np.array([[1]]))
+    print("Finish denoising")
     return np.mean((est - truth)**2)
     
 
-def point_normal(gamma, sparsity = 0.1):
-    mask = np.random.binomial(nsamples, sparsity)
-    normals = np.random.normal(size = (nsamples,))
+def point_normal(gamma, sparsity = 0.5):
+    print("what is gamma", gamma)
+    mask = np.random.binomial(1, sparsity, size = (nsamples,1))
+    normals = np.random.normal(size = (nsamples,1))
     truth = mask * normals
-    truth = truth / np.sqrt(np.sum(truth**2 / nsamples))
-    truePriorWeight = np.full((nsamples,), 1/nsamples)
+    truth = truth / np.sqrt(np.sum(truth**2) / nsamples)
+    truePriorWeight = np.full(shape=(nsamples,), fill_value = 1/nsamples)
     denoiser = NonparBayes(truth, truePriorWeight, optimizer="EM")
-    x = truth * np.sqrt(gamma) + np.random.normal(size = (nsamples,))
-    est = denoiser.denoise(x,np.sqrt(gamma), 1)
+    x = truth * np.sqrt(gamma) + np.random.normal(size = (nsamples,1))
+    est = denoiser.denoise(x,np.array([[np.sqrt(gamma)]]),np.array([[1]]))
+    print("Finish denosing")
     return np.mean((est - truth)**2)
     
 
