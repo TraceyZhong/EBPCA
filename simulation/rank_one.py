@@ -6,7 +6,7 @@ sys.path.extend(['../../generalAMP'])
 from ebpca.empbayes import NonparEB, NonparBayes, PointNormalBayes, TwoPointsBayes
 from ebpca.amp import ebamp_gaussian as ebamp_gaussian
 from ebpca.preprocessing import normalize_obs
-from ebpca.pca import get_pca
+from ebpca.pca import get_pca, get_bayes_pca
 from ebpca.misc import ebmf
 from simulation.helpers import simulate_prior, signal_plus_noise_model, fill_alignment, approx_prior
 
@@ -26,11 +26,17 @@ parser.add_argument("--n_rep", type=int, help="enter number of independent data 
 parser.add_argument("--s_star", type=float, help="enter signal strength", 
                     default=0.9, const=0.9, nargs='?')
 parser.add_argument("--iters", type=int, help="enter EB-PCA iterations", 
-                    default=10, const=10, nargs='?')
+                    default=20, const=20, nargs='?')
 parser.add_argument("--gamma", type=float, help="enter d/n",
-                    default=2, const=2, nargs='?')
+                    default=2.0, const=2.0, nargs='?')
 parser.add_argument("--n", type=int, help="enter n",
                     default=1000, const=1000, nargs='?')
+parser.add_argument("--nsupp_ratio_u", type=float, help="enter n",
+                    default=1.0, const=1.0, nargs='?')
+parser.add_argument("--nsupp_ratio_v", type=float, help="enter n",
+                    default=1.0, const=1.0, nargs='?')
+parser.add_argument("--saveDE", type=str, help="enter n",
+                    default=False, const=False, nargs='?')
 args = parser.parse_args()
 
 prior = args.prior
@@ -39,20 +45,26 @@ s_star = args.s_star
 iters = args.iters
 method = args.method
 gamma = args.gamma
+saveDE = args.saveDE
 n = args.n
+nsupp_ratio_u = args.nsupp_ratio_u
+nsupp_ratio_v = args.nsupp_ratio_v
 
 print('\nRunning %s rank one simulations with %i replications, %s prior, signal strength=%.1f, iterations=%i'\
       % (method, n_rep, prior, s_star, iters))
 
+print('Other tuning parameters: n=%i, gamma=%.1f, nsupp_ratio_u=%.1f, nsupp_ratio_v=%.1f' % \
+      (n, gamma, nsupp_ratio_u, nsupp_ratio_v))
+
 # create directory to save alignemnt, simulated data and figures
-prior_prefix = 'univariate/' + prior
+tuning_par_prefix = '/n_%i_gamma_%.1f_nsupp_ratio_%.1f_%.1f' % (n, gamma, nsupp_ratio_u, nsupp_ratio_v)
+prior_prefix = 'univariate/' + prior + tuning_par_prefix
 if not os.path.exists('output/' + prior_prefix):
     print('Creating directories:')
     os.makedirs('output/%s/alignments' % prior_prefix)
     os.mkdir('output/%s/data' % prior_prefix)
     os.mkdir('output/%s/denoisedPC' % prior_prefix)
 data_prefix = 'output/%s/data/s_%.1f' % (prior_prefix, s_star)
-
 
 # -----------------
 # rank-1 simulation
@@ -96,18 +108,21 @@ for i in range(n_rep):
     u_star = np.load('%s_copy_%i_u_star_n_%i_gamma_%.1f.npy' % (data_prefix, i, n, gamma), allow_pickle=False)
     v_star = np.load('%s_copy_%i_v_star_n_%i_gamma_%.1f.npy' % (data_prefix, i, n, gamma), allow_pickle=False)
     X = np.load('%s_copy_%i_n_%i_gamma_%.1f.npy' % (data_prefix, i, n, gamma), allow_pickle=False)
-    # prepare the PCA pack
-    pcapack = get_pca(X, rank)
     if method == 'EB-PCA':
+        # prepare the PCA pack
+        pcapack = get_pca(X, rank)
         # initiate denoiser
-        udenoiser = NonparEB(optimizer="Mosek", to_save=False)
-        vdenoiser = NonparEB(optimizer="Mosek", to_save=False)
+        udenoiser = NonparEB(optimizer="Mosek", to_save=False, nsupp_ratio=nsupp_ratio_u)
+        vdenoiser = NonparEB(optimizer="Mosek", to_save=False, nsupp_ratio=nsupp_ratio_v)
         # run AMP
         U_est, V_est, conv = ebamp_gaussian(pcapack, iters=iters,
                                             udenoiser=udenoiser, vdenoiser=vdenoiser,
                                             return_conv=True)
         conv_trace.append(conv)
     elif method == 'BayesAMP':
+        # Oracle Bayes AMP takes true signal strength and true prior as input
+        # prepare the PCA pack
+        pcapack = get_bayes_pca(X, s_star, rank)
         # initiate denoiser
         if prior == 'Uniform':
             # here we put equal weights on observed PC data points to approximate the true Bayes denoiser
@@ -122,11 +137,15 @@ for i in range(n_rep):
             udenoiser = TwoPointsBayes(to_save=False)
             vdenoiser = TwoPointsBayes(to_save=False)
         # run AMP
-        U_est, V_est = ebamp_gaussian(pcapack, iters=iters,
-                                      udenoiser=udenoiser, vdenoiser=vdenoiser)
+        U_est, V_est, conv = ebamp_gaussian(pcapack, iters=iters,
+                                      udenoiser=udenoiser, vdenoiser=vdenoiser,
+                                      return_conv=True)
+        conv_trace.append(conv)
     elif method == 'EBMF':
-        ldenoiser = NonparEB(optimizer="Mosek", to_save=False)
-        fdenoiser = NonparEB(optimizer="Mosek", to_save=False)
+        # prepare the PCA pack
+        pcapack = get_pca(X, rank)
+        ldenoiser = NonparEB(optimizer="Mosek", to_save=False, nsupp_ratio=nsupp_ratio_u)
+        fdenoiser = NonparEB(optimizer="Mosek", to_save=False, nsupp_ratio=nsupp_ratio_v)
         U_est, V_est, obj = ebmf(pcapack, ldenoiser, fdenoiser, iters=iters,
                                  ebpca_scaling=False, update_family='nonparametric', tol=1e-1)
         obj_funcs.append(obj)
@@ -136,11 +155,13 @@ for i in range(n_rep):
     v_alignment.append(fill_alignment(V_est, v_star, iters))
     print(fill_alignment(U_est, u_star, iters))
     print(fill_alignment(V_est, v_star, iters))
-    # save denoised PC along iterations
-    # np.save('output/%s/denoisedPC/%s_leftPC_s_%.1f_n_copy_%i.npy' % (prior_prefix, method, s_star, i),
-    #         U_est, allow_pickle=False)
-    # np.save('output/%s/denoisedPC/%s_rightPC_s_%.1f_n_copy_%i.npy' % (prior_prefix, method, s_star, i),
-    #         V_est, allow_pickle=False)
+    if saveDE:
+        # save denoised PC along iterations
+        print('Saving denoised PCs')
+        np.save('output/%s/denoisedPC/%s_U_s_%.1f_n_copy_%i.npy' % (prior_prefix, method, s_star, i),
+                U_est, allow_pickle=False)
+        np.save('output/%s/denoisedPC/%s_V_s_%.1f_n_copy_%i.npy' % (prior_prefix, method, s_star, i),
+                V_est, allow_pickle=False)
 
 end_time = time.time()
 print('Simulation takes %.2f s' % (end_time - start_time))
@@ -154,16 +175,16 @@ np.save('output/%s/alignments/%s_u_s_%.1f_n_rep_%i.npy' % (prior_prefix, method,
 np.save('output/%s/alignments/%s_v_s_%.1f_n_rep_%i.npy' % (prior_prefix, method, s_star, n_rep),
         v_alignment, allow_pickle=False)
 
-# save convergence trace for EB-PCA
-np.save('output/%s/alignments/conv_%s_u_s_%.1f_n_rep_%i.npy' % (prior_prefix, method, s_star, n_rep),
-        conv_trace, allow_pickle=False)
-np.save('output/%s/alignments/conv_%s_v_s_%.1f_n_rep_%i.npy' % (prior_prefix, method, s_star, n_rep),
-        conv_trace, allow_pickle=False)
-
-# save objective function values for EBMF
+# save convergence records
 if method == 'EBMF':
+    # save objective function values for EBMF
     np.save('output/%s/alignments/%s_obj_funcs_s_%.1f_n_rep_%i.npy' % (prior_prefix, method, s_star, n_rep),
             obj_funcs, allow_pickle=False)
     print('objective function differences:', [np.ediff1d(obj) for obj in obj_funcs])
+else:
+    # save convergence trace for EB-PCA or BayesAMP
+    np.save('output/%s/alignments/conv_%s_s_%.1f_n_rep_%i.npy' % (prior_prefix, method, s_star, n_rep),
+            conv_trace, allow_pickle=False)
+    print(conv_trace)
 
 print('\n Simulation finished. \n')
