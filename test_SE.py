@@ -7,7 +7,7 @@ from simulation.helpers import signal_plus_noise_model
 from ebpca.state_evolution import get_state_evolution, get_alignment_evolution
 from ebpca.state_evolution import two_points, uniform, point_normal
 from ebpca.preprocessing import normalize_obs
-from ebpca.pca import get_bayes_pca
+from ebpca.pca import get_pca
 from ebpca.empbayes import NonparBayes
 from ebpca.amp import ebamp_gaussian
 
@@ -61,7 +61,7 @@ def simulate_obs(s, uliteral, vliteral, seed):
     X = signal_plus_noise_model(ustar, vstar, s)
 
     X = normalize_obs(X, rank)
-    pcapack = get_bayes_pca(X, s,rank)
+    pcapack = get_pca(X, rank, s)
     print("feature aligns are", pcapack.feature_aligns)
     [truePriorLoc, truePriorWeight] = approx_prior(ustar, pcapack.U)
     udenoiser = NonparBayes(truePriorLoc, truePriorWeight, to_save=False)
@@ -101,22 +101,22 @@ if __name__ == "__main__":
     s = 1.5
     ummse = mmse_funcs[uliteral]
     vmmse = mmse_funcs[vliteral]
-    repeat_simulation(s, uliteral, vliteral, 50)
-    ualigns = np.load("output/Ualigns_%s.npy" % uliteral)
-    valigns = np.load("output/Valigns_%s.npy" % vliteral)
+    repeat_simulation(s, uliteral, vliteral, 5)
+    # ualigns = np.load("output/Ualigns_%s.npy" % uliteral)
+    # valigns = np.load("output/Valigns_%s.npy" % vliteral)
     
-    se = get_state_evolution(s, p/n, ummse, vmmse, amp_iters)
-    ae = get_alignment_evolution(se)
+    # se = get_state_evolution(s, p/n, ummse, vmmse, amp_iters)
+    # ae = get_alignment_evolution(se)
     
-    print("ualigns means are:")
-    print(ualigns.mean(axis = 1))
-    print("ualigns evolutions are:")
-    print(ae.ualigns[:amp_iters])
+    # print("ualigns means are:")
+    # print(ualigns.mean(axis = 1))
+    # print("ualigns evolutions are:")
+    # print(ae.ualigns[:amp_iters])
 
-    print("valigns means are:")
-    print(valigns.mean(axis = 1))
-    print("valigns evolutions are:")
-    print(ae.valigns[:amp_iters])
+    # print("valigns means are:")
+    # print(valigns.mean(axis = 1))
+    # print("valigns evolutions are:")
+    # print(ae.valigns[:amp_iters])
 
 
 
