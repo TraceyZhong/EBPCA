@@ -58,52 +58,56 @@ def alignment_boxplots(res, ticks):
     ax.set_xlabel("signal strength")
     ax.set_ylabel('alignment with ground truth')
     ax.set_xlim(-2, len(ticks) * n)
-    ax.set_ylim(0 - 0.05, 1 + 0.05)
+    ax.set_ylim(0.5 - 0.05, 1 + 0.05)
     return ax
 # os.chdir('/Users/chang/PycharmProjects/generalAMP/simulation/')
 
 # load alignments from 50 replications
-def load_alignments(prior, method, ind=-1, PC='U', rm_na =True, s_list=[1.3, 1.8, 3.0]):
+def load_alignments(prior, method, ind=-1, PC='U', rm_na =True, s_list=[1.3, 1.8, 3.0], n_rep=50):
     n_par = len(s_list)
     align_dir = 'output/univariate/%s/alignments' % prior
     if method == 'spca':
         if PC == 'U':
-            aligns = [(pd.read_table('%s/%s_u_s_%.1f_n_rep_50.txt' % (align_dir, method, s)).values.reshape(-1)) \
+            aligns = [(pd.read_table('%s/%s_u_s_%.1f_n_rep_%i.txt' % (align_dir, method, s, n_rep)).values.reshape(-1)) \
                       for s in s_list]
         else:
-            aligns = [(pd.read_table('%s/%s_v_s_%.1f_n_rep_50.txt' % (align_dir, method, s)).values.reshape(-1)) \
+            aligns = [(pd.read_table('%s/%s_v_s_%.1f_n_rep_%i.txt' % (align_dir, method, s, n_rep)).values.reshape(-1)) \
                       for s in s_list]
     else:
         if PC=='U':
-            aligns = [(np.load('%s/%s_u_s_%.1f_n_rep_50.npy' % (align_dir, method, s))[:, ind]) for s in s_list]
+            aligns = [(np.load('%s/%s_u_s_%.1f_n_rep_%i.npy' % (align_dir, method, s, n_rep))[:, ind]) for s in s_list]
         else:
-            aligns = [(np.load('%s/%s_v_s_%.1f_n_rep_50.npy' % (align_dir, method, s))[:, ind]) for s in s_list]
+            aligns = [(np.load('%s/%s_v_s_%.1f_n_rep_%i.npy' % (align_dir, method, s, n_rep))[:, ind]) for s in s_list]
 
     if rm_na:
         # remove nan values:
+        print('\n %s, %s\n' % (prior, method))
         print('Number of NA alignments for %s, %s' % (method, prior), [np.sum(np.isnan(aligns[i])) for i in range(n_par)])
         aligns = [np.array(aligns[i])[~np.isnan(aligns[i])] for i in range(n_par)]
     else:
         aligns = np.array(aligns)
     return aligns
 
-def group_alignments(prior, PC, rm_na = True, s_list=[1.3, 1.8, 3.0]):
-    pca = load_alignments(prior, 'EB-PCA', 0, PC, rm_na, s_list)
-    bayesamp = load_alignments(prior, 'BayesAMP', -1, PC, rm_na, s_list)
-    ebpca = load_alignments(prior, 'EB-PCA', 5, PC, rm_na, s_list)
-    ebmf = load_alignments(prior, 'EBMF', -1, PC, rm_na, s_list)
+def group_alignments(prior, PC, rm_na = True, s_list=[1.3, 1.8, 3.0], n_rep=50):
+    pca = load_alignments(prior, 'EB-PCA', 0, PC, rm_na, s_list, n_rep)
+    bayesamp = load_alignments(prior, 'BayesAMP', -1, PC, rm_na, s_list, n_rep)
+    ebpca = load_alignments(prior, 'EB-PCA', 5, PC, rm_na, s_list, n_rep)
+    ebmf = load_alignments(prior, 'EBMF', -1, PC, rm_na, s_list, n_rep)
     if prior == 'Point_normal':
-        spca = load_alignments(prior, 'spca', -1, PC, rm_na, s_list)
-        res = [pca, bayesamp, ebpca, ebmf, spca]
+        # spca = load_alignments(prior, 'spca', -1, PC, rm_na, s_list, n_rep)
+        res = [pca, bayesamp, ebpca, ebmf] #, spca
     else:
         res = [pca, bayesamp, ebpca, ebmf]
     return res
 
 # prior = 'Point_normal' # 'Two_points' # 'Uniform'
-def make_comp_plot(res, prior, PC, s_list = [1.3, 1.8, 3.0]):
+def make_comp_plot(res, prior, PC, s_list = [1.3, 1.8, 3.0], to_save=True, suffix=''):
     alignment_boxplots(res, s_list)
     plt.title('%s, %s, method comparison' % (prior.replace('_', ' '), PC))
-    plt.savefig('figures/univariate/Figure1/%s_%s_method_comp_boxplots.png' % (prior, PC))
+    if to_save:
+        plt.savefig('figures/univariate/Figure1/%s_%s_method_comp_boxplots_%s.png' % (prior, PC, suffix))
+    else:
+        plt.show()
     plt.close()
 
 if __name__ == '__main__':
@@ -114,5 +118,5 @@ if __name__ == '__main__':
     if f1:
         for prior in ['Point_normal', 'Two_points', 'Uniform']:
             for PC in ['U', 'V']:
-                res = group_alignments(prior, PC, s_list = [1.3, 1.5, 1.7, 3.0]) # [1.3, 1.4, 1.5, 1.6, 3.0]
-                make_comp_plot(res, prior, PC, s_list = [1.3, 1.5, 1.7, 3.0])
+                res = group_alignments(prior, PC, s_list = [0.9, 1.0, 1.1, 1.2, 1.3], n_rep=5) # [1.3, 1.5, 1.7, 3.0]
+                make_comp_plot(res, prior, PC, s_list = [0.9, 1.0, 1.1, 1.2, 1.3], to_save=True, suffix='min_s_pilot')
