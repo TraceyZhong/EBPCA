@@ -36,7 +36,7 @@ def get_state_evolution(s, aspect_ratio, ummse, vmmse, amp_iter = 10, ftol = 0.0
     # return ualign, valign
 
 def get_alignment_evolution(se):
-    ualigns = np.sqrt(se.gammas_bar) / se.s
+    ualigns = np.sqrt(se.gammas) / se.s
     valigns = np.sqrt(se.gammas_bar / se.aspect_ratio)/ se.s
     ualign_star = np.sqrt(se.gamma_star)/ se.s
     valign_star = np.sqrt(se.gamma_star_bar/ se.aspect_ratio)/ se.s
