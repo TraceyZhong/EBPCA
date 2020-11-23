@@ -62,6 +62,23 @@ def get_pca(X, K = 0):
             feature_aligns= sol["feature_align"])
     return pca_pack
 
+def get_bayes_pca(X, s, K=0):
+    if K == 0:
+        raise(ValueError("# PC can not be zero."))
+    n_samples, n_features = X.shape
+    U, Lambdas, Vh = np.linalg.svd(X, full_matrices = False)
+    U = U[:,:K]
+    Vh = Vh[:K,:]
+    # solve init parameters
+    aspect_ratio = n_features/ n_samples
+    sample_align = np.sqrt(1- (1 + s**2)/(s**2*(aspect_ratio*s**2 + 1)))
+    feature_align = np.sqrt(1- (1 + aspect_ratio*s**2) /(aspect_ratio*s**2*(s**2 + 1)))
+    pca_pack = PcaPack(X = X, U = U, V = Vh.transpose(), mu = Lambdas[K:], \
+        n_samples = n_samples, n_features = n_features, \
+        K = K, signals = s, sample_aligns= sample_align, \
+            feature_aligns= feature_align)
+    return pca_pack
+
 def check_residual_spectrum_u(pca_pack, to_show = False, to_save = False):
     '''we require the noise variance to be 1/n_features
     mu must be sorted in descending order
