@@ -62,5 +62,14 @@ def plot_pc(samples,label="",nPCs=2,to_show=False, to_save=False, **kwargs):
             plt.show()
         plt.close()
 
-def get_diff_L2(diff):
-    return np.sqrt(np.mean(np.sum(diff**2, axis=0)))
+def get_alignment(U,V):
+    # normalize U and V
+    U = U/np.sqrt((U**2).sum(axis = 0))
+    V = V/np.sqrt((V**2).sum(axis = 0))
+    COR = np.abs(np.transpose(U) @ V)
+    return np.sqrt(np.mean(np.diag(COR**2)))
+
+def get_convegence(U):
+    # evaluate convergence by 1 - squared alignments between iterates
+    conv = [get_alignment(U[:, :, i], U[:, :, i + 1]) for i in range(U.shape[2] - 1)]
+    return 1 - np.power(conv, 2)
