@@ -83,7 +83,7 @@ def get_pca(X, K=0, s = None):
         s = np.sqrt((greek_lambda**2 * aspect_ratio - 1 - aspect_ratio + \
             np.sqrt((greek_lambda**2*aspect_ratio - 1 - aspect_ratio)**2 - 4*aspect_ratio) \
                 ) / (2*aspect_ratio))
-        print("Estimation of s is {:.4f}.".format(s))
+        print("Estimation of s is {}.".format(s))
     
     else:
         s = np.array(s).reshape(1)
