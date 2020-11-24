@@ -8,3 +8,4 @@ from . import amp
 from . import pca
 from . import empbayes
 from . import preprocessing
+from . import utils

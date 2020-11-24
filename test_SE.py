@@ -18,7 +18,7 @@ import numpy as np
 n = 2000
 p = 1500
 rank = 1
-amp_iters = 5
+amp_iters = 2
 sparsity = 0.1
 
 literals =["Uniform", "Two_points", "Point_normal"]
@@ -97,15 +97,16 @@ def get_alignments(Uests, ustar):
 
 if __name__ == "__main__":
     uliteral = "Point_normal"
-    vliteral = "Uniform"
+    vliteral = "Point_normal"
     s = 1.5
     ummse = mmse_funcs[uliteral]
     vmmse = mmse_funcs[vliteral]
-    repeat_simulation(s, uliteral, vliteral, 5)
+    # repeat_simulation(s, uliteral, vliteral, 5)
     # ualigns = np.load("output/Ualigns_%s.npy" % uliteral)
     # valigns = np.load("output/Valigns_%s.npy" % vliteral)
     
-    # se = get_state_evolution(s, p/n, ummse, vmmse, amp_iters)
+    se = get_state_evolution(s, p/n, ummse, vmmse, amp_iters)
+    print(se)
     # ae = get_alignment_evolution(se)
     
     # print("ualigns means are:")

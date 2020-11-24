@@ -5,6 +5,8 @@ Empirical Bayes Methods
 This module supports empirical Bayes estimation for various prior.
 '''
 
+from ebpca.utils import clock
+
 import sys
 import time
 from abc import ABC, abstractmethod
