@@ -4,10 +4,13 @@ import numpy as np
 import scipy.integrate as integrate
 
 from ebpca.empbayes import NonparBayes
+from ebpca.empbayes import PointNormalEB
 
 np.random.seed(1997)
 
-nsamples = 2000
+nsamples = 5000
+
+print("nsamples =",nsamples)
 
 StateEvolution = namedtuple("StateEvolutation", "gammas gammas_bar gamma_star, gamma_star_bar aspect_ratio s")
 
@@ -64,6 +67,30 @@ def two_points(gamma):
 
     return 1 - res
 
+# print("Numerical integration for point normal.")
+# def point_normal(gamma, sparsity = 0.5):
+
+#     mu_x = 0
+#     sigma_x = np.sqrt(1/sparsity)
+#     mu_y = np.sqrt(gamma)
+#     sigma_y = 1 
+
+#     mu_y_tilde = PointNormalEB._eval_mu_y_tilde(mu_x,mu_y)
+#     sigma_y_tilde = PointNormalEB._eval_sigma_y_tilde(mu_y, sigma_x, sigma_y)
+
+#     def integrand(y, gamma):
+#         mu_x_tilde = (y * mu_y * sigma_x**2 + mu_x * sigma_y**2) / (mu_y**2 * sigma_x**2 + sigma_y**2)
+#         numerator = (sparsity * mu_x_tilde * np.exp(-(y - mu_y_tilde)**2/sigma_y_tilde**2) / sigma_y_tilde)
+#         # sigma_y == 1
+#         denominator = (1-sparsity)*np.exp(-y**2) + sparsity * np.exp(-(y - mu_y_tilde)**2/sigma_y_tilde**2)/ sigma_y_tilde
+#         return numerator**2/denominator
+
+#     res = integrate.quad(integrand, -100, 100, args = (gamma,)) / np.sqrt(2 * np.pi) 
+#     res = res[0]
+
+#     return 1 - res
+
+
 
 def uniform(gamma):
     # [0, sqrt(3)]
@@ -79,13 +106,16 @@ def uniform(gamma):
     
 
 def point_normal(gamma, sparsity = 0.5):
-    print("what is gamma", gamma)
+    # print("what is gamma", gamma)
     mask = np.random.binomial(1, sparsity, size = (nsamples,1))
     normals = np.random.normal(size = (nsamples,1))
     truth = mask * normals
     truth = truth / np.sqrt(np.sum(truth**2) / nsamples)
-    truePriorWeight = np.full(shape=(nsamples,), fill_value = 1/nsamples)
-    denoiser = NonparBayes(truth, truePriorWeight, optimizer="EM")
+    normals = np.random.normal(size = (int(nsamples*sparsity),1))
+    truth = np.concatenate((normals, np.zeros(shape=(nsamples - int(nsamples*sparsity), 1))), axis = 0)
+    truePriorLoc = np.append(normals, [[0]], axis = 0)
+    truePriorWeight = np.append(np.full(shape=(int(nsamples*sparsity),), fill_value = sparsity/nsamples), 0)
+    denoiser = NonparBayes(truePriorLoc, truePriorWeight, optimizer="EM")
     x = truth * np.sqrt(gamma) + np.random.normal(size = (nsamples,1))
     est = denoiser.denoise(x,np.array([[np.sqrt(gamma)]]),np.array([[1]]))
     print("Finish denosing")
