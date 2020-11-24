@@ -556,7 +556,7 @@ def mosek_npmle(f, Z, mu, covInv, tol=1e-8):
         # M.setLogHandler(sys.stdout)
 
         # default value if MOSEK gives an error
-        pi = np.repeat(0, m)
+        pi = np.repeat(1/m, m)
 
         M.objective(fusion.ObjectiveSense.Maximize, fusion.Expr.dot(ones, logg))
 
@@ -564,7 +564,9 @@ def mosek_npmle(f, Z, mu, covInv, tol=1e-8):
         # modified from https://docs.mosek.com/9.2/pythonfusion/errors-exceptions.html
         try:
             M.solve()
-            M.acceptedSolutionStatus(fusion.AccSolutionStatus.Optimal)
+            # https://docs.mosek.com/9.2/pythonfusion/enum_index.html#accsolutionstatus
+            M.acceptedSolutionStatus(fusion.AccSolutionStatus.Feasible) # Anything Optimal:q
+            print(" Accepted solution setting:", M.getAcceptedSolutionStatus())
             pi = f.level()
             # address negative values due to numerical instability
             pi[pi < 0] = 0

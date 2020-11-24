@@ -58,7 +58,7 @@ def alignment_boxplots(res, ticks):
     ax.set_xlabel("signal strength")
     ax.set_ylabel('alignment with ground truth')
     ax.set_xlim(-2, len(ticks) * n)
-    ax.set_ylim(0.5 - 0.05, 1 + 0.05)
+    ax.set_ylim(0 - 0.05, 1 + 0.05)
     return ax
 # os.chdir('/Users/chang/PycharmProjects/generalAMP/simulation/')
 

@@ -26,7 +26,7 @@ parser.add_argument("--n_rep", type=int, help="enter number of independent data 
 parser.add_argument("--s_star", type=float, help="enter signal strength", 
                     default=1.0, const=1.0, nargs='?')
 parser.add_argument("--iters", type=int, help="enter EB-PCA iterations", 
-                    default=20, const=20, nargs='?')
+                    default=5, const=5, nargs='?')
 parser.add_argument("--gamma", type=float, help="enter d/n",
                     default=2.0, const=2.0, nargs='?')
 parser.add_argument("--n", type=int, help="enter n",
@@ -84,7 +84,7 @@ print('fixed parameters: n=%i, gamma=%.1f\n' % (n, gamma))
 
 # generate simulation data
 np.random.seed(1)
-seeds = [np.random.randint(0, 10000, n_rep) for i in range(3)] # set seed for each dataset
+seeds = [np.random.randint(0, 10000, 50) for i in range(3)] # set seed for each dataset
 
 for i in range(n_rep):
     if not os.path.exists('%s_copy_%i_n_%i_gamma_%.1f.npy' % (data_prefix, i, n, gamma)):
@@ -129,8 +129,6 @@ for i in range(n_rep):
                                             udenoiser=udenoiser, vdenoiser=vdenoiser,
                                             return_conv=True)
             conv_trace.append(conv)
-            print('align', conv)
-            print('1-align^2', 1 - np.power(conv, 2))
         else:
             ldenoiser = NonparEB(optimizer="Mosek", to_save=False, nsupp_ratio=nsupp_ratio_u)
             fdenoiser = NonparEB(optimizer="Mosek", to_save=False, nsupp_ratio=nsupp_ratio_v)
