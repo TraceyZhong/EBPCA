@@ -6,7 +6,7 @@ sys.path.extend(['../../generalAMP'])
 from ebpca.empbayes import NonparEB, NonparBayes, PointNormalBayes, TwoPointsBayes
 from ebpca.amp import ebamp_gaussian as ebamp_gaussian
 from ebpca.preprocessing import normalize_obs
-from ebpca.pca import get_pca, get_bayes_pca
+from ebpca.pca import get_pca
 from ebpca.misc import ebmf
 from simulation.helpers import simulate_prior, signal_plus_noise_model, fill_alignment, approx_prior
 
@@ -39,6 +39,8 @@ parser.add_argument("--saveDE", type=str, help="enter n",
                     default=False, const=False, nargs='?')
 parser.add_argument("--bayesdenoiser", type=str, help="enter n",
                     default=False, const=False, nargs='?')
+parser.add_argument("--useEM", type=str, help="enter n",
+                    default=False, const=False, nargs='?')
 args = parser.parse_args()
 
 prior = args.prior
@@ -52,6 +54,7 @@ n = args.n
 nsupp_ratio_u = args.nsupp_ratio_u
 nsupp_ratio_v = args.nsupp_ratio_v
 bayesdenoiser = args.bayesdenoiser
+useEM = args.useEM
 
 print('\nRunning %s rank one simulations with %i replications, %s prior, signal strength=%.1f, iterations=%i'\
       % (method, n_rep, prior, s_star, iters))
@@ -59,8 +62,10 @@ print('\nRunning %s rank one simulations with %i replications, %s prior, signal 
 print('Other tuning parameters: n=%i, gamma=%.1f, nsupp_ratio_u=%.1f, nsupp_ratio_v=%.1f' % \
       (n, gamma, nsupp_ratio_u, nsupp_ratio_v))
 
+print('UseEM: %s' % useEM)
+
 # create directory to save alignemnt, simulated data and figures
-tuning_par_prefix = '/n_%i_gamma_%.1f_nsupp_ratio_%.1f_%.1f' % (n, gamma, nsupp_ratio_u, nsupp_ratio_v)
+tuning_par_prefix = '/n_%i_gamma_%.1f_nsupp_ratio_%.1f_%.1f_useEM_%s' % (n, gamma, nsupp_ratio_u, nsupp_ratio_v, useEM)
 prior_prefix = 'univariate/' + prior + tuning_par_prefix
 if not os.path.exists('output/' + prior_prefix):
     print('Creating directories:')
@@ -114,13 +119,16 @@ for i in range(n_rep):
     if method == 'EB-PCA' or method == 'EBMF':
         # prepare the PCA pack
         pcapack = get_pca(X, rank)
+        # initiate denoiser
         if bayesdenoiser:
             [truePriorLoc, truePriorWeight] = approx_prior(u_star, pcapack.U)
             udenoiser = NonparBayes(truePriorLoc, truePriorWeight, to_save=False)
             [truePriorLoc, truePriorWeight] = approx_prior(v_star, pcapack.V)
             vdenoiser = NonparBayes(truePriorLoc, truePriorWeight, to_save=False)
+        elif useEM:
+            udenoiser = NonparEB(em_iter = 200, to_save=False, nsupp_ratio=nsupp_ratio_u)
+            vdenoiser = NonparEB(em_iter = 200, to_save=False, nsupp_ratio=nsupp_ratio_v)
         else:
-            # initiate denoiser
             udenoiser = NonparEB(optimizer="Mosek", to_save=False, nsupp_ratio=nsupp_ratio_u)
             vdenoiser = NonparEB(optimizer="Mosek", to_save=False, nsupp_ratio=nsupp_ratio_v)
         if method == 'EB-PCA':
@@ -138,7 +146,7 @@ for i in range(n_rep):
     elif method == 'BayesAMP':
         # Oracle Bayes AMP takes true signal strength and true prior as input
         # prepare the PCA pack
-        pcapack = get_bayes_pca(X, s_star, rank)
+        pcapack = get_pca(X, rank, s_star)
         # initiate denoiser
         if prior == 'Uniform':
             # here we put equal weights on observed PC data points to approximate the true Bayes denoiser
