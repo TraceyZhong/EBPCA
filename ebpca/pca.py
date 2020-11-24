@@ -114,7 +114,7 @@ def get_bayes_pca(X, s, K=0):
             feature_aligns= feature_align)
     return pca_pack
 
-def check_residual_spectrum_u(pca_pack, to_show = False, to_save = False):
+def check_residual_spectrum_u(pca_pack, to_show = False, to_save = False, **kwargs):
     '''we require the noise variance to be 1/n_features
     mu must be sorted in descending order
     '''
@@ -137,7 +137,8 @@ def check_residual_spectrum_u(pca_pack, to_show = False, to_save = False):
     ax.set_title("Residual Spectrum")
     if to_save:
         fig_prefix = kwargs.get('fig_prefix', '')
-        fig.savefig("./figures/%sresidual_check.pdf" % fig_prefix)
+        label = kwargs.get('label', '')
+        fig.savefig("./figures/%sresidual_check_%s.png" % (fig_prefix, label))
     if to_show:
         plt.show()
 

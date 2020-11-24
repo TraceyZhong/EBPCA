@@ -38,16 +38,16 @@ def normalize_pc(U):
 def plot_pc(samples,label="",nPCs=2,to_show=False, to_save=False, **kwargs):
     fig_prefix = kwargs.get("fig_prefix", "")
     u,s,vh = np.linalg.svd(samples,full_matrices=False)
-    plt.figure(figsize = (10,3))
+    plt.figure(figsize = (4,3))
     plt.scatter(range(len(s)), s)
     plt.title('Singular values')
     if to_save:
-        plt.savefig('figures/singvals_%s.png' % label)
+        plt.savefig('figures/%ssingvals_%s.png' % (fig_prefix, label))
     if to_show:
         plt.show()
     plt.close()
     for i in range(nPCs):
-        fig, (ax1,ax2,ax3,ax4) = plt.subplots(nrows = 1, ncols = 4, figsize=(10,3))
+        fig, (ax1,ax2,ax3,ax4) = plt.subplots(nrows = 1, ncols = 4, figsize=(12,3))
         ax1.hist(u[:,i],bins=50)
         scipy.stats.probplot(u[:,i],plot=ax2)
         ax1.set_title('left PC %d' % (i+1))
