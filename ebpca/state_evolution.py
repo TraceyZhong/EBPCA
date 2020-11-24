@@ -90,7 +90,7 @@ def point_normal(gamma, sparsity = 0.5):
     est = denoiser.denoise(x,np.array([[np.sqrt(gamma)]]),np.array([[1]]))
     print("Finish denosing")
     return np.mean((est - truth)**2)
-    
+
 
 if __name__=="__main__":
     n = 2000
