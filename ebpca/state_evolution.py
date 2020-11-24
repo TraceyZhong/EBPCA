@@ -105,21 +105,21 @@ def uniform(gamma):
     return np.mean((est - truth)**2)
     
 
-# def point_normal(gamma, sparsity = 0.5):
-#     # print("what is gamma", gamma)
-#     mask = np.random.binomial(1, sparsity, size = (nsamples,1))
-#     normals = np.random.normal(size = (nsamples,1))
-#     truth = mask * normals
-#     truth = truth / np.sqrt(np.sum(truth**2) / nsamples)
-#     normals = np.random.normal(size = (int(nsamples*sparsity),1))
-#     truth = np.concatenate((normals, np.zeros(shape=(nsamples - int(nsamples*sparsity), 1))), axis = 0)
-#     truePriorLoc = np.append(normals, [[0]], axis = 0)
-#     truePriorWeight = np.append(np.full(shape=(int(nsamples*sparsity),), fill_value = sparsity/nsamples), 0)
-#     denoiser = NonparBayes(truePriorLoc, truePriorWeight, optimizer="EM")
-#     x = truth * np.sqrt(gamma) + np.random.normal(size = (nsamples,1))
-#     est = denoiser.denoise(x,np.array([[np.sqrt(gamma)]]),np.array([[1]]))
-#     print("Finish denosing")
-#     return np.mean((est - truth)**2)
+def point_normal(gamma, sparsity = 0.5):
+    # print("what is gamma", gamma)
+    mask = np.random.binomial(1, sparsity, size = (nsamples,1))
+    normals = np.random.normal(size = (nsamples,1))
+    truth = mask * normals
+    truth = truth / np.sqrt(np.sum(truth**2) / nsamples)
+    normals = np.random.normal(size = (int(nsamples*sparsity),1))
+    truth = np.concatenate((normals, np.zeros(shape=(nsamples - int(nsamples*sparsity), 1))), axis = 0)
+    truePriorLoc = np.append(normals, [[0]], axis = 0)
+    truePriorWeight = np.append(np.full(shape=(int(nsamples*sparsity),), fill_value = sparsity/nsamples), 0)
+    denoiser = NonparBayes(truePriorLoc, truePriorWeight, optimizer="EM")
+    x = truth * np.sqrt(gamma) + np.random.normal(size = (nsamples,1))
+    est = denoiser.denoise(x,np.array([[np.sqrt(gamma)]]),np.array([[1]]))
+    print("Finish denosing")
+    return np.mean((est - truth)**2)
     
 
 if __name__=="__main__":
