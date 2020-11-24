@@ -396,7 +396,7 @@ def npmle_em_hd2(f, Z, mu, covInv, em_iter):
     #     denom = W.dot(pi)[:,np.newaxis] # denom[i] = \sum_j pi[j]*W[i,j]
     #     pi = pi * np.mean(W/denom, axis = 0)
     #     # pi = pi * np.mean(np.divide(W, denom), axis = 0)
-    Wt = np.array(W.T, order = 'F')
+    Wt = np.array(W.T, order = 'C')
     for _ in range(em_iter):
         denom = W.dot(pi)# [:,np.newaxis] # denom[i] = \sum_j pi[j]*W[i,j]
         pi = pi * np.mean(Wt/denom, axis = 1)
