@@ -60,6 +60,26 @@ def simulate_prior(prior, n=2000, seed=1, rank=1):
             assignment = np.random.binomial(n=1, p=0.1, size=n)
             normal_obs = np.random.normal(loc=0, scale=np.sqrt(10), size=n)
             theta = point_obs * (1 - assignment) + normal_obs * assignment
+        if prior == 'Exponential':
+            theta = np.random.exponential(1 / np.sqrt(2), size=n)
+        if prior == 'Exponential_centered':
+            theta = np.random.exponential(1 / np.sqrt(2), size=n)
+            theta = theta - np.mean(theta)
+            theta = theta / np.sqrt(np.mean(theta**2))
+        if prior == 'Poisson':
+            theta = np.random.poisson(1, size=n)
+            theta = theta / np.sqrt(np.mean(theta ** 2))
+        if prior == 'Poisson_centered':
+            theta = np.random.poisson(1, size=n)
+            theta = theta - np.mean(theta)
+            theta = theta / np.sqrt(np.mean(theta ** 2))
+        if prior == 'Beta':
+            theta = np.random.beta(2, 5, size=n)
+            theta = theta / np.sqrt(np.mean(theta ** 2))
+        if prior == 'Beta_centered':
+            theta = np.random.beta(2, 5, size=n)
+            theta = theta - np.mean(theta)
+            theta = theta / np.sqrt(np.mean(theta ** 2))
     elif rank == 2:
         if prior == 'Uniform_circle':
             theta_theta = np.random.uniform(0, 2 * np.pi, n)

@@ -24,7 +24,7 @@ parser.add_argument("--prior", type=str, help="enter univariate prior",
 parser.add_argument("--n_rep", type=int, help="enter number of independent data to be simulated",
                     default=1, const=1, nargs='?')
 parser.add_argument("--s_star", type=float, help="enter signal strength", 
-                    default=0.9, const=0.9, nargs='?')
+                    default=1.0, const=1.0, nargs='?')
 parser.add_argument("--iters", type=int, help="enter EB-PCA iterations", 
                     default=20, const=20, nargs='?')
 parser.add_argument("--gamma", type=float, help="enter d/n",
@@ -36,6 +36,8 @@ parser.add_argument("--nsupp_ratio_u", type=float, help="enter n",
 parser.add_argument("--nsupp_ratio_v", type=float, help="enter n",
                     default=1.0, const=1.0, nargs='?')
 parser.add_argument("--saveDE", type=str, help="enter n",
+                    default=False, const=False, nargs='?')
+parser.add_argument("--bayesdenoiser", type=str, help="enter n",
                     default=False, const=False, nargs='?')
 args = parser.parse_args()
 
@@ -49,6 +51,7 @@ saveDE = args.saveDE
 n = args.n
 nsupp_ratio_u = args.nsupp_ratio_u
 nsupp_ratio_v = args.nsupp_ratio_v
+bayesdenoiser = args.bayesdenoiser
 
 print('\nRunning %s rank one simulations with %i replications, %s prior, signal strength=%.1f, iterations=%i'\
       % (method, n_rep, prior, s_star, iters))
@@ -108,17 +111,32 @@ for i in range(n_rep):
     u_star = np.load('%s_copy_%i_u_star_n_%i_gamma_%.1f.npy' % (data_prefix, i, n, gamma), allow_pickle=False)
     v_star = np.load('%s_copy_%i_v_star_n_%i_gamma_%.1f.npy' % (data_prefix, i, n, gamma), allow_pickle=False)
     X = np.load('%s_copy_%i_n_%i_gamma_%.1f.npy' % (data_prefix, i, n, gamma), allow_pickle=False)
-    if method == 'EB-PCA':
+    if method == 'EB-PCA' or method == 'EBMF':
         # prepare the PCA pack
         pcapack = get_pca(X, rank)
-        # initiate denoiser
-        udenoiser = NonparEB(optimizer="Mosek", to_save=False, nsupp_ratio=nsupp_ratio_u)
-        vdenoiser = NonparEB(optimizer="Mosek", to_save=False, nsupp_ratio=nsupp_ratio_v)
-        # run AMP
-        U_est, V_est, conv = ebamp_gaussian(pcapack, iters=iters,
+        if bayesdenoiser:
+            [truePriorLoc, truePriorWeight] = approx_prior(u_star, pcapack.U)
+            udenoiser = NonparBayes(truePriorLoc, truePriorWeight, to_save=False)
+            [truePriorLoc, truePriorWeight] = approx_prior(v_star, pcapack.V)
+            vdenoiser = NonparBayes(truePriorLoc, truePriorWeight, to_save=False)
+        else:
+            # initiate denoiser
+            udenoiser = NonparEB(optimizer="Mosek", to_save=False, nsupp_ratio=nsupp_ratio_u)
+            vdenoiser = NonparEB(optimizer="Mosek", to_save=False, nsupp_ratio=nsupp_ratio_v)
+        if method == 'EB-PCA':
+            # run AMP
+            U_est, V_est, conv = ebamp_gaussian(pcapack, iters=iters,
                                             udenoiser=udenoiser, vdenoiser=vdenoiser,
                                             return_conv=True)
-        conv_trace.append(conv)
+            conv_trace.append(conv)
+            print('align', conv)
+            print('1-align^2', 1 - np.power(conv, 2))
+        else:
+            ldenoiser = NonparEB(optimizer="Mosek", to_save=False, nsupp_ratio=nsupp_ratio_u)
+            fdenoiser = NonparEB(optimizer="Mosek", to_save=False, nsupp_ratio=nsupp_ratio_v)
+            U_est, V_est, obj = ebmf(pcapack, ldenoiser, fdenoiser, iters=iters,
+                                     ebpca_scaling=False, update_family='nonparametric', tol=1e-1)
+            obj_funcs.append(obj)
     elif method == 'BayesAMP':
         # Oracle Bayes AMP takes true signal strength and true prior as input
         # prepare the PCA pack
@@ -141,14 +159,6 @@ for i in range(n_rep):
                                       udenoiser=udenoiser, vdenoiser=vdenoiser,
                                       return_conv=True)
         conv_trace.append(conv)
-    elif method == 'EBMF':
-        # prepare the PCA pack
-        pcapack = get_pca(X, rank)
-        ldenoiser = NonparEB(optimizer="Mosek", to_save=False, nsupp_ratio=nsupp_ratio_u)
-        fdenoiser = NonparEB(optimizer="Mosek", to_save=False, nsupp_ratio=nsupp_ratio_v)
-        U_est, V_est, obj = ebmf(pcapack, ldenoiser, fdenoiser, iters=iters,
-                                 ebpca_scaling=False, update_family='nonparametric', tol=1e-1)
-        obj_funcs.append(obj)
     # evaluate alignment
     # maximal EBMF iterations: 50
     u_alignment.append(fill_alignment(U_est, u_star, iters))
