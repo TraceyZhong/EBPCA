@@ -43,7 +43,7 @@ def ebamp_gaussian(pcapack, iters = 5, udenoiser = NonparEB(), \
 
     for t in range(iters):
 
-        print('iteration %i' % t)
+        # print('iteration %i' % t)
         # denoise right singular vector gt to get vt
         npmle_status = vdenoiser.fit(g, mu, sigma_sq, figname='_v_iter%02d.png' % (t))
         if npmle_status == 'error':

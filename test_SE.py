@@ -61,7 +61,7 @@ def simulate_obs(s, uliteral, vliteral, seed):
     X = signal_plus_noise_model(ustar, vstar, s)
 
     X = normalize_obs(X, rank)
-    pcapack = get_pca(X, rank, s)
+    pcapack = get_pca(X, rank)
     print("feature aligns are", pcapack.feature_aligns)
     [truePriorLoc, truePriorWeight] = approx_prior(ustar, pcapack.U)
     udenoiser = NonparBayes(truePriorLoc, truePriorWeight, to_save=False)

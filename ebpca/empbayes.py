@@ -4,6 +4,7 @@ Empirical Bayes Methods
 ==========
 This module supports empirical Bayes estimation for various prior.
 '''
+
 import sys
 import time
 from abc import ABC, abstractmethod
@@ -136,7 +137,7 @@ class NonparEB(_BaseEmpiricalBayes):
         self._check_init(f,mu,cov)
         covInv = np.linalg.inv(cov)
         if self.optimizer == "EM":
-            self.pi, W = npmle_em_hd(f, self.Z, mu, covInv, self.em_iter)
+            self.pi, W = npmle_em_hd2(f, self.Z, mu, covInv, self.em_iter)
         if self.optimizer == "Mosek":
             self.pi, W = mosek_npmle(f, self.Z, mu, covInv, self.ftol)
         self.P = get_P_from_W(W, self.pi)
@@ -380,8 +381,25 @@ def npmle_em_hd(f, Z, mu, covInv, em_iter):
     W = get_W(f, Z, mu, covInv)
 
     for _ in range(em_iter):
-        denom = W.dot(pi)[:,np.newaxis]
+        denom = W.dot(pi)[:,np.newaxis] # denom[i] = \sum_j pi[j]*W[i,j]
         pi = pi * np.mean(W/denom, axis = 0)
+    
+    return pi, W
+
+def npmle_em_hd2(f, Z, mu, covInv, em_iter):
+    # I dont need this n_dim
+    nsupp = Z.shape[0]
+    pi = np.array([1/nsupp] * nsupp)
+    W = get_W(f, Z, mu, covInv)
+
+    # for _ in range(em_iter):
+    #     denom = W.dot(pi)[:,np.newaxis] # denom[i] = \sum_j pi[j]*W[i,j]
+    #     pi = pi * np.mean(W/denom, axis = 0)
+    #     # pi = pi * np.mean(np.divide(W, denom), axis = 0)
+    Wt = np.array(W.T, order = 'F')
+    for _ in range(em_iter):
+        denom = W.dot(pi)# [:,np.newaxis] # denom[i] = \sum_j pi[j]*W[i,j]
+        pi = pi * np.mean(Wt/denom, axis = 1)
     
     return pi, W
 
@@ -473,7 +491,7 @@ def _mosek_npmle(f, Z, mu, covInv, tol):
     # M.setLogHandler(sys.stdout)
 
     # default value if MOSEK gives an error
-    pi = np.repeat(0, m)
+    pi = np.repeat(1/m, m)
 
     M.objective(fusion.ObjectiveSense.Maximize, fusion.Expr.dot(ones, logg))
 
@@ -522,6 +540,7 @@ def _mosek_npmle(f, Z, mu, covInv, tol):
     except Exception as e:
         print("  Unexpected error: {0}".format(e))
 
+
     return pi, A
 
 def mosek_npmle(f, Z, mu, covInv, tol=1e-8):
@@ -548,7 +567,7 @@ def mosek_npmle(f, Z, mu, covInv, tol=1e-8):
         # M.setLogHandler(sys.stdout)
 
         # default value if MOSEK gives an error
-        pi = np.repeat(0, m)
+        pi = np.repeat(1/m, m)
 
         M.objective(fusion.ObjectiveSense.Maximize, fusion.Expr.dot(ones, logg))
 
@@ -596,6 +615,11 @@ def mosek_npmle(f, Z, mu, covInv, tol=1e-8):
 
         except Exception as e:
             print("  Unexpected error: {0}".format(e))
+
+        try:
+            pi = f.level()
+        except Exception as e:
+            print("XZ: f level doesn't have a solution.")
         
         return pi, A
 
