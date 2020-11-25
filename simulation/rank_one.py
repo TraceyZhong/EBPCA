@@ -26,7 +26,7 @@ parser.add_argument("--n_rep", type=int, help="enter number of independent data 
 parser.add_argument("--s_star", type=float, help="enter signal strength", 
                     default=1.0, const=1.0, nargs='?')
 parser.add_argument("--iters", type=int, help="enter EB-PCA iterations", 
-                    default=5, const=5, nargs='?')
+                    default=10, const=10, nargs='?')
 parser.add_argument("--gamma", type=float, help="enter d/n",
                     default=2.0, const=2.0, nargs='?')
 parser.add_argument("--n", type=int, help="enter n",
@@ -126,8 +126,8 @@ for i in range(n_rep):
             [truePriorLoc, truePriorWeight] = approx_prior(v_star, pcapack.V)
             vdenoiser = NonparBayes(truePriorLoc, truePriorWeight, to_save=False)
         elif useEM:
-            udenoiser = NonparEB(em_iter = 200, to_save=False, nsupp_ratio=nsupp_ratio_u)
-            vdenoiser = NonparEB(em_iter = 200, to_save=False, nsupp_ratio=nsupp_ratio_v)
+            udenoiser = NonparEB(em_iter = 400, to_save=False, nsupp_ratio=nsupp_ratio_u)
+            vdenoiser = NonparEB(em_iter = 400, to_save=False, nsupp_ratio=nsupp_ratio_v)
         else:
             udenoiser = NonparEB(optimizer="Mosek", to_save=False, nsupp_ratio=nsupp_ratio_u)
             vdenoiser = NonparEB(optimizer="Mosek", to_save=False, nsupp_ratio=nsupp_ratio_v)

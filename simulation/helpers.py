@@ -80,6 +80,8 @@ def simulate_prior(prior, n=2000, seed=1, rank=1):
             theta = np.random.beta(2, 5, size=n)
             theta = theta - np.mean(theta)
             theta = theta / np.sqrt(np.mean(theta ** 2))
+        if prior == 'Uniform_centered':
+            theta = np.random.uniform(-np.sqrt(3), np.sqrt(3), size=n)
     elif rank == 2:
         if prior == 'Uniform_circle':
             theta_theta = np.random.uniform(0, 2 * np.pi, n)

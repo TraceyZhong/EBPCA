@@ -58,7 +58,7 @@ def alignment_boxplots(res, ticks):
     ax.set_xlabel("signal strength")
     ax.set_ylabel('alignment with ground truth')
     ax.set_xlim(-2, len(ticks) * n)
-    ax.set_ylim(0 - 0.05, 1 + 0.05)
+    ax.set_ylim(np.min(res) - 0.05, 1 + 0.05)
     return ax
 # os.chdir('/Users/chang/PycharmProjects/generalAMP/simulation/')
 
@@ -127,22 +127,22 @@ if __name__ == '__main__':
     # make_comp_plot(res, 'Point_normal', 'V', s_list=[1.3, 1.4, 1.5, 1.6, 3.0])
 
     prefix = 'n_1000_gamma_2.0_nsupp_ratio_1.0_1.0_useEM_True/'
-    s_list = [1.0, 1.1, 1.2]
-    n_rep = 10
-    suffix = 'useEM_pilot'
+    s_list = [1.2, 1.4, 1.6, 2.0]
+    n_rep = 50
+    suffix = 'useEM_experiment'
     gamma = 2
     iters = 5
 
-    prior = 'Point_normal'
-    PC = 'U'
-    res = group_alignments(prior, PC, s_list=s_list, n_rep=n_rep, prefix=prefix)  # [0.9, 1.0, 1.1, 1.2, 1.3]
-    se = eval_se(prior, s_list, gamma, iters)
-    print(se)
+    # prior = 'Point_normal'
+    # PC = 'U'
+    # res = group_alignments(prior, PC, s_list=s_list, n_rep=n_rep, prefix=prefix)  # [0.9, 1.0, 1.1, 1.2, 1.3]
+    # se = eval_se(prior, s_list, gamma, iters)
+    # print(se)
     # make_comp_plot(res, se, prior, PC, s_list=s_list, to_save=False, suffix=suffix)  # 'min_s_pilot'
 
-    f1= False
+    f1= True
     if f1:
-        for prior in ['Point_normal', 'Two_points', 'Uniform', 'Beta', 'Beta_centered']:
+        for prior in ['Point_normal']: # ,'Two_points', 'Uniform', 'Beta', 'Beta_centered'
             for PC in ['U', 'V']:
                 res = group_alignments(prior, PC, s_list = s_list, n_rep=n_rep, prefix=prefix) # [0.9, 1.0, 1.1, 1.2, 1.3]
                 # se = eval_se(prior, s_list, gamma, iters)
