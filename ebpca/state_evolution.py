@@ -105,7 +105,7 @@ def uniform(gamma):
     return np.mean((est - truth)**2)
     
 
-def point_normal(gamma, sparsity = 0.5):
+def point_normal(gamma, sparsity = 0.1):
     # print("what is gamma", gamma)
     mask = np.random.binomial(1, sparsity, size = (nsamples,1))
     normals = np.random.normal(size = (nsamples,1))

@@ -65,6 +65,7 @@ def alignment_boxplots(res, ticks):
 # load alignments from 50 replications
 def load_alignments(prior, method, ind=-1, PC='U', rm_na =True, s_list=[1.3, 1.8, 3.0], n_rep=50, prefix = ''):
     n_par = len(s_list)
+    prefix = prefix + '/'
     align_dir = 'output/univariate/%s/%salignments' % (prior, prefix)
     if method == 'spca':
         if PC == 'U':
@@ -126,12 +127,24 @@ if __name__ == '__main__':
     # res = group_alignments('Point_normal', 'V', s_list=[1.3, 1.4, 1.5, 1.6, 3.0])
     # make_comp_plot(res, 'Point_normal', 'V', s_list=[1.3, 1.4, 1.5, 1.6, 3.0])
 
-    prefix = 'n_1000_gamma_2.0_nsupp_ratio_1.0_1.0_useEM_True/'
-    s_list = [1.2, 1.4, 1.6, 2.0]
+    prefixes = {'n_2000': 'n_2000_gamma_2.0_nsupp_ratio_0.5_0.5_useEM_True',
+                'n_1000': 'n_1000_gamma_2.0_nsupp_ratio_1.0_1.0_useEM_True'}
+
+    prefix = prefixes['n_2000']
+    s_list = [1.1, 1.3, 1.5, 2.0]
     n_rep = 50
-    suffix = 'useEM_experiment'
+    suffix = prefix
     gamma = 2
     iters = 5
+
+    f1 = True
+    if f1:
+        for prior in ['Point_normal', 'Two_points', 'Uniform', 'Uniform_centered', 'Beta', 'Beta_centered']:  #
+            for PC in ['U', 'V']:
+                res = group_alignments(prior, PC, s_list=s_list, n_rep=n_rep,
+                                       prefix=prefix)  # [0.9, 1.0, 1.1, 1.2, 1.3]
+                # se = eval_se(prior, s_list, gamma, iters)
+                make_comp_plot(res, prior, PC, s_list=s_list, to_save=True, suffix=suffix)  # 'min_s_pilot'
 
     # prior = 'Point_normal'
     # PC = 'U'
@@ -140,10 +153,3 @@ if __name__ == '__main__':
     # print(se)
     # make_comp_plot(res, se, prior, PC, s_list=s_list, to_save=False, suffix=suffix)  # 'min_s_pilot'
 
-    f1= True
-    if f1:
-        for prior in ['Point_normal']: # ,'Two_points', 'Uniform', 'Beta', 'Beta_centered'
-            for PC in ['U', 'V']:
-                res = group_alignments(prior, PC, s_list = s_list, n_rep=n_rep, prefix=prefix) # [0.9, 1.0, 1.1, 1.2, 1.3]
-                # se = eval_se(prior, s_list, gamma, iters)
-                make_comp_plot(res, prior, PC, s_list = s_list, to_save=True, suffix=suffix) # 'min_s_pilot'
