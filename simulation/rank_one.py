@@ -126,8 +126,8 @@ for i in range(n_rep):
             [truePriorLoc, truePriorWeight] = approx_prior(v_star, pcapack.V)
             vdenoiser = NonparBayes(truePriorLoc, truePriorWeight, to_save=False)
         elif useEM:
-            udenoiser = NonparEB(em_iter = 200, to_save=False, nsupp_ratio=nsupp_ratio_u)
-            vdenoiser = NonparEB(em_iter = 200, to_save=False, nsupp_ratio=nsupp_ratio_v)
+            udenoiser = NonparEB(em_iter = 400, to_save=False, nsupp_ratio=nsupp_ratio_u)
+            vdenoiser = NonparEB(em_iter = 400, to_save=False, nsupp_ratio=nsupp_ratio_v)
         else:
             udenoiser = NonparEB(optimizer="Mosek", to_save=False, nsupp_ratio=nsupp_ratio_u)
             vdenoiser = NonparEB(optimizer="Mosek", to_save=False, nsupp_ratio=nsupp_ratio_v)
@@ -138,9 +138,9 @@ for i in range(n_rep):
                                             return_conv=True)
             conv_trace.append(conv)
         else:
-            ldenoiser = NonparEB(optimizer="Mosek", to_save=False, nsupp_ratio=nsupp_ratio_u)
-            fdenoiser = NonparEB(optimizer="Mosek", to_save=False, nsupp_ratio=nsupp_ratio_v)
-            U_est, V_est, obj = ebmf(pcapack, ldenoiser, fdenoiser, iters=iters,
+            # ldenoiser = NonparEB(optimizer="Mosek", to_save=False, nsupp_ratio=nsupp_ratio_u)
+            # fdenoiser = NonparEB(optimizer="Mosek", to_save=False, nsupp_ratio=nsupp_ratio_v)
+            U_est, V_est, obj = ebmf(pcapack, udenoiser, vdenoiser, iters=iters,
                                      ebpca_scaling=False, update_family='nonparametric', tol=1e-1)
             obj_funcs.append(obj)
     elif method == 'BayesAMP':
@@ -148,7 +148,7 @@ for i in range(n_rep):
         # prepare the PCA pack
         pcapack = get_pca(X, rank, s_star)
         # initiate denoiser
-        if prior == 'Uniform':
+        if (prior != 'Point_normal') and (prior != 'Two_points'):
             # here we put equal weights on observed PC data points to approximate the true Bayes denoiser
             [truePriorLoc, truePriorWeight] = approx_prior(u_star, pcapack.U)
             udenoiser = NonparBayes(truePriorLoc, truePriorWeight, to_save=False)
