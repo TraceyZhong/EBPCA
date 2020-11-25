@@ -15,10 +15,10 @@ from tutorial import get_alignment
 
 import numpy as np
 
-n = 2000
-p = 1500
+n = 1000
+p = 2000
 rank = 1
-amp_iters = 5
+amp_iters = 10
 sparsity = 0.1
 
 literals =["Uniform", "Two_points", "Point_normal"]
@@ -28,7 +28,7 @@ mmse_funcs = {
     "Point_normal": point_normal
 }
 
-def simulate_prior(prior, n=2000, seed=1, rank=1):
+def simulate_prior(prior, n=2000, seed=1, rank=1, sparsity = 0.1):
     '''
     simulate univariate or bivariate distributions with marginal 2nd moment=1
     Univariate distributions:
@@ -98,7 +98,7 @@ def get_alignments(Uests, ustar):
 if __name__ == "__main__":
     uliteral = "Point_normal"
     vliteral = "Point_normal"
-    s = 1.5
+    s = 1.3
     ummse = mmse_funcs[uliteral]
     vmmse = mmse_funcs[vliteral]
     repeat_simulation(s, uliteral, vliteral, 5)
@@ -106,7 +106,6 @@ if __name__ == "__main__":
     valigns = np.load("output/Valigns_%s.npy" % vliteral)
     
     se = get_state_evolution(s, p/n, ummse, vmmse, amp_iters)
-    print(se)
     ae = get_alignment_evolution(se)
     
     print("ualigns means are:")
