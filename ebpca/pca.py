@@ -140,7 +140,7 @@ def check_residual_spectrum(pca_pack, to_show = False, to_save = False, **kwargs
     if to_save:
         fig_prefix = kwargs.get('fig_prefix', '')
         label = kwargs.get('label', '')
-        fig.savefig("./figures/%sresidual_check_%s.png" % (fig_prefix, label))
+        fig.savefig("./figures/%s/residual_check_%s.png" % (fig_prefix, label))
     if to_show:
         plt.show()
 
