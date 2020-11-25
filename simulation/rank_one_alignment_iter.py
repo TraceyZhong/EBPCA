@@ -11,10 +11,10 @@ from ebpca.state_evolution import get_state_evolution, get_alignment_evolution, 
 # boxplot
 # ----------------------------------------------
 
-def load_alignments(prior, method, PC = 'left', rm_na=False, prefix = ''):
+def load_alignments(prior, method, PCname = 'U', rm_na=False, prefix = ''):
     prefix = prefix + '/'
     align_dir = 'output/univariate/%s/%salignments' % (prior, prefix)
-    if PC == 'left':
+    if PCname == 'U':
         align = np.load('%s/%s_u_s_%.1f_n_rep_%i.npy' % (align_dir, method, s, n_rep)).T
     else:
         align = np.load('%s/%s_v_s_%.1f_n_rep_%i.npy' % (align_dir, method, s, n_rep)).T
@@ -24,8 +24,8 @@ def load_alignments(prior, method, PC = 'left', rm_na=False, prefix = ''):
         align = align.tolist()
     return align
 
-def group_alignments(prior, rm_na=False, prefix = ''):
-    res = [load_alignments(prior, method, rm_na=rm_na, prefix=prefix) for method in ['EB-PCA', 'EBMF']]
+def group_alignments(prior, PCname, rm_na=False, prefix = ''):
+    res = [load_alignments(prior, method, PCname, rm_na=rm_na, prefix=prefix) for method in ['EB-PCA', 'EBMF']]
     return res
 
 def alignment_boxplots(res, ticks, plot_seps = [-0.5, 0.5], bp_colors = ['#de2d26', '#3182bd']):
@@ -70,8 +70,8 @@ def add_line_to_boxplots(ax, res, plot_seps = [-0.5, 0.5], bp_colors = ['#fc9272
 
 def make_iter_plot(prior, PCname, iters, plot_seps = [-0.5, 0.5],
                    bp_colors = ['#de2d26', '#3182bd'], suffix = '', prefix = ''):
-    res_clean = group_alignments(prior, True, prefix=prefix)
-    res = group_alignments(prior, False, prefix=prefix)
+    res_clean = group_alignments(prior, PCname, True, prefix=prefix)
+    res = group_alignments(prior, PCname, False, prefix=prefix)
     ax = alignment_boxplots(res_clean, [i + 1 for i in range(iters)], plot_seps, bp_colors)
     add_line_to_boxplots(ax, res, plot_seps, bp_colors)
     plt.title('%s, %s, alignment across iterations (s=%.1f) \n %s' % (prior.replace('_', ' '), PCname, s, suffix))
@@ -90,7 +90,7 @@ if __name__ == '__main__':
     }
 
     # Figure 3
-    for s in [1.1, 1.5, 2.0]:
+    for s in [1.3]: #[1.1, 1.5, 2.0]
         for prior in ['Point_normal', 'Two_points', 'Uniform']:
             for PCname in ['U', 'V']:
                 make_iter_plot(prior, PCname, 10, bp_colors=['tab:red', 'tab:blue'], suffix=suffix, prefix=prefix)
@@ -105,3 +105,21 @@ if __name__ == '__main__':
                 plt.legend(loc='lower right')
                 plt.savefig('figures/univariate/Figure3/%s_%s_%.1f_iterations_boxplots_%s.png' % (prior, PCname, s, suffix))
                 plt.close()
+
+    exit()
+    prior = 'Two_points'
+    PCname = 'V'
+    s = 1.5
+    make_iter_plot(prior, PCname, 10, bp_colors=['tab:red', 'tab:blue'], suffix=suffix, prefix=prefix)
+    se = get_state_evolution(s, gamma, mmse_funcs[prior], mmse_funcs[prior], iters)
+    ae = get_alignment_evolution(se)
+    if PCname == 'U':
+        plt.plot([i + 1 - 1 for i in range(0, 2 * iters, 2)], ae.ualigns[:-1],
+                 c='grey', linestyle='--', label='Bayes Optimal')
+    else:
+        plt.plot([i + 1 - 1 for i in range(0, 2 * iters, 2)], ae.valigns[:-1],
+                 c='grey', linestyle='--', label='Bayes Optimal')
+    plt.legend(loc='lower right')
+    plt.show()
+
+    exit()

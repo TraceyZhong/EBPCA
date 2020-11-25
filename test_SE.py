@@ -18,7 +18,7 @@ import numpy as np
 n = 2000
 p = 1500
 rank = 1
-amp_iters = 2
+amp_iters = 5
 sparsity = 0.1
 
 literals =["Uniform", "Two_points", "Point_normal"]
@@ -28,7 +28,7 @@ mmse_funcs = {
     "Point_normal": point_normal
 }
 
-def simulate_prior(prior, n=2000, seed=1, rank=1, sparsity = 0.5):
+def simulate_prior(prior, n=2000, seed=1, rank=1):
     '''
     simulate univariate or bivariate distributions with marginal 2nd moment=1
     Univariate distributions:
@@ -58,7 +58,7 @@ def simulate_obs(s, uliteral, vliteral, seed):
     ustar = simulate_prior(uliteral, n, seed)
     vstar = simulate_prior(vliteral, p, seed)
 
-    X = signal_plus_noise_model(ustar, vstar, s)
+    X = signal_plus_noise_model(ustar, vstar, s, 1)
 
     X = normalize_obs(X, rank)
     pcapack = get_pca(X, rank)
@@ -101,23 +101,23 @@ if __name__ == "__main__":
     s = 1.5
     ummse = mmse_funcs[uliteral]
     vmmse = mmse_funcs[vliteral]
-    # repeat_simulation(s, uliteral, vliteral, 5)
-    # ualigns = np.load("output/Ualigns_%s.npy" % uliteral)
-    # valigns = np.load("output/Valigns_%s.npy" % vliteral)
+    repeat_simulation(s, uliteral, vliteral, 5)
+    ualigns = np.load("output/Ualigns_%s.npy" % uliteral)
+    valigns = np.load("output/Valigns_%s.npy" % vliteral)
     
     se = get_state_evolution(s, p/n, ummse, vmmse, amp_iters)
     print(se)
-    # ae = get_alignment_evolution(se)
+    ae = get_alignment_evolution(se)
     
-    # print("ualigns means are:")
-    # print(ualigns.mean(axis = 1))
-    # print("ualigns evolutions are:")
-    # print(ae.ualigns[:amp_iters])
+    print("ualigns means are:")
+    print(ualigns.mean(axis = 1))
+    print("ualigns evolutions are:")
+    print(ae.ualigns[:amp_iters])
 
-    # print("valigns means are:")
-    # print(valigns.mean(axis = 1))
-    # print("valigns evolutions are:")
-    # print(ae.valigns[:amp_iters])
+    print("valigns means are:")
+    print(valigns.mean(axis = 1))
+    print("valigns evolutions are:")
+    print(ae.valigns[:amp_iters])
 
 
 
