@@ -9,20 +9,20 @@ sys.path.extend(['../../generalAMP'])
 # boxplot
 # ----------------------------------------------
 
-def load_alignments(prior, method, PC = 'left', s = 1.3, rm_na=False):
-    align_dir = 'output/univariate/%s/alignments' % prior
+def load_alignments(prior, method, PC = 'left', rm_na=False, prefix = ''):
+    align_dir = 'output/univariate/%s/%salignments' % (prior, prefix)
     if PC == 'left':
-        align = np.load('%s/%s_u_s_%.1f_n_rep_50.npy' % (align_dir, method, s)).T
+        align = np.load('%s/%s_u_s_%.1f_n_rep_%i.npy' % (align_dir, method, s, n_rep)).T
     else:
-        align = np.load('%s/%s_v_s_%.1f_n_rep_50.npy' % (align_dir, method, s)).T
+        align = np.load('%s/%s_v_s_%.1f_n_rep_%i.npy' % (align_dir, method, s, n_rep)).T
     if rm_na:
         align = [(align[i])[~np.isnan(align[i])] for i in range(len(align))]
     else:
         align = align.tolist()
     return align
 
-def group_alignments(prior, rm_na=False):
-    res = [load_alignments(prior, method, rm_na=rm_na) for method in ['EB-PCA', 'EBMF']]
+def group_alignments(prior, rm_na=False, prefix = ''):
+    res = [load_alignments(prior, method, rm_na=rm_na, prefix=prefix) for method in ['EB-PCA', 'EBMF']]
     return res
 
 def alignment_boxplots(res, ticks, plot_seps = [-0.5, 0.5], bp_colors = ['#de2d26', '#3182bd']):
@@ -63,18 +63,22 @@ def add_line_to_boxplots(ax, res, plot_seps = [-0.5, 0.5], bp_colors = ['#fc9272
     # Plot a line between the means of each dataset
     [plt.plot(x[i], y[i], 'b-', c=bp_colors[i], linestyle = '--') for i in range(2)]
 
-def make_iter_plot(prior, PCname, iters, s = 1.3, plot_seps = [-0.5, 0.5], bp_colors = ['#de2d26', '#3182bd']):
-    res_clean = group_alignments(prior, True)
-    res = group_alignments(prior, False)
+def make_iter_plot(prior, PCname, iters, s = 1.3, plot_seps = [-0.5, 0.5],
+                   bp_colors = ['#de2d26', '#3182bd'], suffix = '', prefix = ''):
+    res_clean = group_alignments(prior, True, prefix=prefix)
+    res = group_alignments(prior, False, prefix=prefix)
     ax = alignment_boxplots(res_clean, [i + 1 for i in range(iters)], plot_seps, bp_colors)
     add_line_to_boxplots(ax, res, plot_seps, bp_colors)
-    plt.title('%s, %s, alignment across iterations (s=%.1f)' % (prior.replace('_', ' '), PCname, s))
-    plt.savefig('figures/univariate/Figure1/%s_%s_iterations_boxplots.png' % (prior, PCname))
+    plt.title('%s, %s, alignment across iterations (s=%.1f) \n %s' % (prior.replace('_', ' '), PCname, s, suffix))
+    plt.savefig('figures/univariate/Figure1/%s_%s_iterations_boxplots_%s.png' % (prior, PCname, suffix))
     plt.close()
 
 if __name__ == '__main__':
+    prefix = 'n_1000_gamma_2.0_nsupp_ratio_1.0_1.0_useEM_True/'
+    suffix = 'useEM_pilot'
+    n_rep = 10
     # Figure 3
-    s = 1.3
+    s = 1.1
     for prior in ['Point_normal', 'Two_points', 'Uniform']:
         for PCname in ['U', 'V']:
-            make_iter_plot(prior, PCname, 10, s, bp_colors=['tab:red', 'tab:blue'])
+            make_iter_plot(prior, PCname, 10, s, bp_colors=['tab:red', 'tab:blue'], suffix=suffix, prefix=prefix)

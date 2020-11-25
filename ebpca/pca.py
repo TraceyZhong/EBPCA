@@ -114,8 +114,8 @@ def get_bayes_pca(X, s, K=0):
             feature_aligns= feature_align)
     return pca_pack
 
-def check_residual_spectrum_u(pca_pack, to_show = False, to_save = False):
-    '''we require the noise variance to be 1/n_features
+def check_residual_spectrum(pca_pack, to_show = False, to_save = False, **kwargs):
+    '''we require the noise variance to be 1/n_samples
     mu must be sorted in descending order
     '''
     mu = pca_pack.mu
@@ -123,13 +123,15 @@ def check_residual_spectrum_u(pca_pack, to_show = False, to_save = False):
     n_features = pca_pack.n_features
 
     shorter_side = min(n_samples, n_features)
-    mu = np.pad(mu, (0,n_samples - len(mu)))[:n_samples]
+    # mu = np.pad(mu, (0,n_samples - len(mu)))[:n_samples]
+    # I don't think I need to pad
     
     fig, ax = plt.subplots()
     ax.hist(mu[:shorter_side], density = True, bins = 50, label = "sample singular values")
     x = np.linspace(0.01, mu.max(), num = 50)
-    if n_samples > n_features:
-        scaler = n_samples / n_features
+    aspect_ratio = n_features / n_samples
+    if aspect_ratio > 0:
+        scaler = aspect_ratio
     else:
         scaler = 1
     ax.plot(x, scaler*np.array(sqrtMPlaw(x, n_samples, n_features)), label = "MP law prediction of spectral distribution")
@@ -137,7 +139,8 @@ def check_residual_spectrum_u(pca_pack, to_show = False, to_save = False):
     ax.set_title("Residual Spectrum")
     if to_save:
         fig_prefix = kwargs.get('fig_prefix', '')
-        fig.savefig("./figures/%sresidual_check.pdf" % fig_prefix)
+        label = kwargs.get('label', '')
+        fig.savefig("./figures/%s/residual_check_%s.png" % (fig_prefix, label))
     if to_show:
         plt.show()
 
@@ -211,9 +214,9 @@ def signal_solver_gaussian_v(singval, mu = None, n_samples = 0, n_features = 0, 
     return {"signal": s, "sample_align":  sample_align, "feature_align": feature_align}
 
 def sqrtmplaw(x, n_samples = 0, n_features = 0):
-    '''we require the noise variance to be 1/n_features
+    '''we require the noise variance to be 1/n_samples
     '''
-    aspect_ratio = n_samples/n_features
+    aspect_ratio = n_features/n_samples
     lambda_plus = (1+np.sqrt(aspect_ratio))**2
     lambda_minus = (1 - np.sqrt(aspect_ratio))**2
     if x**2 < lambda_minus or x**2 > lambda_plus:

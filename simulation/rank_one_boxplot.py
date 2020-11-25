@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import sys
 sys.path.extend(['../../generalAMP'])
-
+from ebpca.state_evolution import get_state_evolution, uniform, point_normal, two_points
 # ----------------------------------------------
 # Figure 1:
 # alignment comparison across methods
@@ -63,9 +63,9 @@ def alignment_boxplots(res, ticks):
 # os.chdir('/Users/chang/PycharmProjects/generalAMP/simulation/')
 
 # load alignments from 50 replications
-def load_alignments(prior, method, ind=-1, PC='U', rm_na =True, s_list=[1.3, 1.8, 3.0], n_rep=50):
+def load_alignments(prior, method, ind=-1, PC='U', rm_na =True, s_list=[1.3, 1.8, 3.0], n_rep=50, prefix = ''):
     n_par = len(s_list)
-    align_dir = 'output/univariate/%s/alignments' % prior
+    align_dir = 'output/univariate/%s/%salignments' % (prior, prefix)
     if method == 'spca':
         if PC == 'U':
             aligns = [(pd.read_table('%s/%s_u_s_%.1f_n_rep_%i.txt' % (align_dir, method, s, n_rep)).values.reshape(-1)) \
@@ -88,11 +88,11 @@ def load_alignments(prior, method, ind=-1, PC='U', rm_na =True, s_list=[1.3, 1.8
         aligns = np.array(aligns)
     return aligns
 
-def group_alignments(prior, PC, rm_na = True, s_list=[1.3, 1.8, 3.0], n_rep=50):
-    pca = load_alignments(prior, 'EB-PCA', 0, PC, rm_na, s_list, n_rep)
-    bayesamp = load_alignments(prior, 'BayesAMP', -1, PC, rm_na, s_list, n_rep)
-    ebpca = load_alignments(prior, 'EB-PCA', 5, PC, rm_na, s_list, n_rep)
-    ebmf = load_alignments(prior, 'EBMF', -1, PC, rm_na, s_list, n_rep)
+def group_alignments(prior, PC, rm_na = True, s_list=[1.3, 1.8, 3.0], n_rep=50, prefix=''):
+    pca = load_alignments(prior, 'EB-PCA', 0, PC, rm_na, s_list, n_rep, prefix)
+    bayesamp = load_alignments(prior, 'BayesAMP', -1, PC, rm_na, s_list, n_rep, prefix)
+    ebpca = load_alignments(prior, 'EB-PCA', 5, PC, rm_na, s_list, n_rep, prefix)
+    ebmf = load_alignments(prior, 'EBMF', -1, PC, rm_na, s_list, n_rep, prefix)
     if prior == 'Point_normal':
         # spca = load_alignments(prior, 'spca', -1, PC, rm_na, s_list, n_rep)
         res = [pca, bayesamp, ebpca, ebmf] #, spca
@@ -100,10 +100,21 @@ def group_alignments(prior, PC, rm_na = True, s_list=[1.3, 1.8, 3.0], n_rep=50):
         res = [pca, bayesamp, ebpca, ebmf]
     return res
 
+def eval_se(prior, s_list, gamma, iters):
+    mmse_funcs = {
+        "Uniform": uniform,
+        "Two_points": two_points,
+        "Point_normal": point_normal
+    }
+    se = [get_state_evolution(s, gamma, mmse_funcs[prior], mmse_funcs[prior], iters) for s in s_list]
+    return se
+
 # prior = 'Point_normal' # 'Two_points' # 'Uniform'
-def make_comp_plot(res, prior, PC, s_list = [1.3, 1.8, 3.0], to_save=True, suffix=''):
+def make_comp_plot(res, prior, PC, s_list, to_save=True, suffix=''):
     alignment_boxplots(res, s_list)
-    plt.title('%s, %s, method comparison' % (prior.replace('_', ' '), PC))
+    # locs, labels = plt.xticks()
+    # plt.hlines(se, locs-0.5, locs+0.5)
+    plt.title('%s, %s, method comparison \n %s' % (prior.replace('_', ' '), PC, suffix))
     if to_save:
         plt.savefig('figures/univariate/Figure1/%s_%s_method_comp_boxplots_%s.png' % (prior, PC, suffix))
     else:
@@ -114,9 +125,25 @@ if __name__ == '__main__':
     # Figure 1
     # res = group_alignments('Point_normal', 'V', s_list=[1.3, 1.4, 1.5, 1.6, 3.0])
     # make_comp_plot(res, 'Point_normal', 'V', s_list=[1.3, 1.4, 1.5, 1.6, 3.0])
-    f1= True
+
+    prefix = 'n_1000_gamma_2.0_nsupp_ratio_1.0_1.0_useEM_True/'
+    s_list = [1.0, 1.1, 1.2]
+    n_rep = 10
+    suffix = 'useEM_pilot'
+    gamma = 2
+    iters = 5
+
+    prior = 'Point_normal'
+    PC = 'U'
+    res = group_alignments(prior, PC, s_list=s_list, n_rep=n_rep, prefix=prefix)  # [0.9, 1.0, 1.1, 1.2, 1.3]
+    se = eval_se(prior, s_list, gamma, iters)
+    print(se)
+    # make_comp_plot(res, se, prior, PC, s_list=s_list, to_save=False, suffix=suffix)  # 'min_s_pilot'
+
+    f1= False
     if f1:
-        for prior in ['Point_normal', 'Two_points', 'Uniform']:
+        for prior in ['Point_normal', 'Two_points', 'Uniform', 'Beta', 'Beta_centered']:
             for PC in ['U', 'V']:
-                res = group_alignments(prior, PC, s_list = [0.9, 1.0, 1.1, 1.2, 1.3], n_rep=5) # [1.3, 1.5, 1.7, 3.0]
-                make_comp_plot(res, prior, PC, s_list = [0.9, 1.0, 1.1, 1.2, 1.3], to_save=True, suffix='min_s_pilot')
+                res = group_alignments(prior, PC, s_list = s_list, n_rep=n_rep, prefix=prefix) # [0.9, 1.0, 1.1, 1.2, 1.3]
+                # se = eval_se(prior, s_list, gamma, iters)
+                make_comp_plot(res, prior, PC, s_list = s_list, to_save=True, suffix=suffix) # 'min_s_pilot'
