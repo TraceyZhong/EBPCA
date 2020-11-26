@@ -131,7 +131,7 @@ if __name__ == '__main__':
                 'n_1000': 'n_1000_gamma_2.0_nsupp_ratio_1.0_1.0_useEM_True'}
 
     prefix = prefixes['n_2000']
-    s_list = [1.1, 1.3, 1.5, 2.0]
+    s_list = [1.0, 1.3, 1.5, 2.0]
     n_rep = 50
     suffix = prefix
     gamma = 2

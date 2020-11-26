@@ -55,10 +55,15 @@ def simulate_prior(prior, n=2000, seed=1, rank=1):
             theta = np.random.uniform(0, np.sqrt(3), size=n)
         if prior == 'Two_points':
             theta = 2 * np.random.binomial(n=1, p=0.5, size=n) - 1
-        if prior == 'Point_normal':
+        if prior == 'Point_normal_0.1':
             point_obs = np.repeat(0, n)
             assignment = np.random.binomial(n=1, p=0.1, size=n)
             normal_obs = np.random.normal(loc=0, scale=np.sqrt(10), size=n)
+            theta = point_obs * (1 - assignment) + normal_obs * assignment
+        if prior == 'Point_normal_0.5':
+            point_obs = np.repeat(0, n)
+            assignment = np.random.binomial(n=1, p=0.5, size=n)
+            normal_obs = np.random.normal(loc=0, scale=np.sqrt(2), size=n)
             theta = point_obs * (1 - assignment) + normal_obs * assignment
         if prior == 'Exponential':
             theta = np.random.exponential(1 / np.sqrt(2), size=n)
