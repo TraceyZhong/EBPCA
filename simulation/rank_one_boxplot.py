@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import sys
+import os
 sys.path.extend(['../../generalAMP'])
 from ebpca.state_evolution import get_state_evolution, uniform, point_normal, two_points
 # ----------------------------------------------
@@ -47,7 +48,7 @@ def alignment_boxplots(res, ticks):
 
     # draw temporary red and blue lines and use them to create a legend
     ax.plot([], c=bp_colors[0], label='PCA')
-    ax.plot([], c=bp_colors[1], label='BayesAMP')
+    ax.plot([], c=bp_colors[1], label='Oracle Bayes AMP')
     ax.plot([], c=bp_colors[2], label='EB-PCA')
     ax.plot([], c=bp_colors[3], label='EBMF')
     if n == 5:
@@ -117,7 +118,7 @@ def make_comp_plot(res, prior, PC, s_list, to_save=True, suffix=''):
     # plt.hlines(se, locs-0.5, locs+0.5)
     plt.title('%s, %s, method comparison \n %s' % (prior.replace('_', ' '), PC, suffix))
     if to_save:
-        plt.savefig('figures/univariate/Figure1/%s_%s_method_comp_boxplots_%s.png' % (prior, PC, suffix))
+        plt.savefig('figures/univariate/Figure1/%s/%s_%s_method_comp_boxplots.png' % (suffix, prior, PC))
     else:
         plt.show()
     plt.close()
@@ -128,21 +129,34 @@ if __name__ == '__main__':
     # make_comp_plot(res, 'Point_normal', 'V', s_list=[1.3, 1.4, 1.5, 1.6, 3.0])
 
     prefixes = {'n_2000': 'n_2000_gamma_2.0_nsupp_ratio_0.5_0.5_useEM_True',
-                'n_1000': 'n_1000_gamma_2.0_nsupp_ratio_1.0_1.0_useEM_True'}
+                'n_1000': 'n_1000_gamma_2.0_nsupp_ratio_1.0_1.0_useEM_True',
+                'MOSEK_pilot': 'n_2000_gamma_2.0_nsupp_ratio_1.0_1.0_useEM_False'}
+    n_reps = {'n_2000': 50, 'n_1000': 50, 'MOSEK_pilot': 15}
+    priors = {'n_2000': ['Point_normal', 'Two_points', 'Uniform'],
+              'n_1000': ['Point_normal', 'Two_points', 'Uniform'],
+              'MOSEK_pilot': ['Point_normal_0.1', 'Point_normal_0.5', 'Two_points', 'Uniform_centered']}
+    s_lists = {'n_2000': [1.1, 1.3, 1.5, 2.0],
+               'n_1000': [1.1, 1.3, 1.5, 2.0],
+               'MOSEK_pilot': [1.1, 1.3, 1.5]}
 
-    prefix = prefixes['n_2000']
-    s_list = [1.0, 1.3, 1.5, 2.0]
-    n_rep = 50
+    exper_name = 'MOSEK_pilot'
+    prefix = prefixes[exper_name]
+    s_list = s_lists[exper_name]
+    n_rep = n_reps[exper_name]
     suffix = prefix
     gamma = 2
-    iters = 5
+    iters = 10
+
+    if not os.path.exists('figures/univariate/Figure1/%s' % prefix):
+        os.mkdir('figures/univariate/Figure1/%s' % prefix)
 
     f1 = True
     if f1:
-        for prior in ['Point_normal', 'Two_points', 'Uniform', 'Uniform_centered', 'Beta', 'Beta_centered']:  #
+        for prior in priors[exper_name]:  #'Point_normal_0.1', 'Point_normal_0.5'
             for PC in ['U', 'V']:
+                # if not os.path.exists('output/univariate/%s/%s')
                 res = group_alignments(prior, PC, s_list=s_list, n_rep=n_rep,
-                                       prefix=prefix)  # [0.9, 1.0, 1.1, 1.2, 1.3]
+                                       prefix=prefix)
                 # se = eval_se(prior, s_list, gamma, iters)
                 make_comp_plot(res, prior, PC, s_list=s_list, to_save=True, suffix=suffix)  # 'min_s_pilot'
 
