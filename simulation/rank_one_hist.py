@@ -57,14 +57,8 @@ def get_marginal_plots(prior, prefix, s_star = 1.3, i = 0, gamma = None, to_save
     [uTruePriorLoc, uTruePriorWeight] = approx_prior(u_star, pcapack.U)
     [vTruePriorLoc, vTruePriorWeight] = approx_prior(v_star, pcapack.V)
 
-    # transpose X to make both EBMF, EB-PCA denoise v first
-    X_t = np.transpose(X)
-    X_t = normalize_obs(X_t, K=1)
-    pcapack_t = get_pca(X_t, 1)
-
-    # check if signs are the same
-    print(pcapack_t.U.shape)
-    print(pcapack_t.U.T @ pcapack.V)
+    # exchange U and V to make EBMF denoise V first
+    pcapack_t = pcapack
     pcapack_t = pcapack_t._replace(U = pcapack.V)
     pcapack_t = pcapack_t._replace(V = pcapack.U)
 
@@ -78,7 +72,7 @@ def get_marginal_plots(prior, prefix, s_star = 1.3, i = 0, gamma = None, to_save
                                 to_save=to_save, fig_prefix=f2_prefix + 'EBMF' + fig_suffix,
                                 histcol='tab:blue', xRange=xRanges_U[prior], yRange = yRanges_U[prior])
     U_ebmf, V_ebmf, _ = ebmf(pcapack_t, ldenoiser=ldenoiser, fdenoiser=fdenoiser,
-                             iters=iters, ebpca_scaling=True)
+                             iters=iters, ebpca_scaling=True, tau_by_row=False)
 
     # for left PC in U
     print('EBMF alignments:', fill_alignment(V_ebmf, u_star, iters))

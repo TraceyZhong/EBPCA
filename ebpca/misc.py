@@ -39,7 +39,8 @@ import numpy as np
 from ebpca.empbayes import _gaussian_pdf, NonparEB
 
 def ebmf(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
-         update_family = 'nonparametric', iters = 50, tol=1e-1, ebpca_scaling=True):
+         update_family = 'nonparametric', iters = 50, tol=1e-1,
+         ebpca_scaling=True, tau_by_row=True):
 
     X = pcapack.X
     u, v = pcapack.U, pcapack.V
@@ -47,7 +48,11 @@ def ebmf(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
     (n, d) = X.shape
 
     # initialize parameter tau
-    tau = n
+    if tau_by_row:
+        tau = n
+    else:
+        tau = d
+
     if ebpca_scaling:
         print('Apply rescaling to match the scale with EB-PCA in marginal plots')
         # get signal
