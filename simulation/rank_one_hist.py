@@ -104,8 +104,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--iters", type=int, help="number of iterations",
                         default=2, const=2, nargs='?')
+    parser.add_argument("--s_star", type=float, help="true signal strength",
+                        default=1.1, const=1.1, nargs='?')
     args = parser.parse_args()
     iters = args.iters
+    s_star = args.s_star
 
     # load experiment results
     prefixes = {'n_2000': 'n_2000_gamma_2.0_nsupp_ratio_0.5_0.5_useEM_True',
@@ -145,13 +148,13 @@ if __name__ == '__main__':
     for prior in priors[exper_name]:
         print(prior)
         # plot marginal plots
-        get_marginal_plots(prior, prefix, s_list[0], iters=iters)
+        get_marginal_plots(prior, prefix, s_star, iters=iters)
         # double check with alignments from the experiments
         align_dir = 'output/univariate/%s/%s/alignments' % (prior, prefix)
         for method in ['EBMF', 'EB-PCA']:
             print(method)
             aligns = np.load('%s/%s_u_s_%.1f_n_rep_%i.npy' %
-                             (align_dir, method, s_list[0], n_rep))
+                             (align_dir, method, s_star, n_rep))
             print(aligns[0])
 
     # for prior in ['Two_points', 'Uniform', 'Point_normal']:

@@ -10,7 +10,8 @@ import time
 from abc import ABC, abstractmethod
 
 import numpy as np
-import matplotlib as mpl
+import matplotlib
+matplotlib.use('Agg')
 from matplotlib import rcParams
 import matplotlib.pyplot as plt
 from numba import jit
