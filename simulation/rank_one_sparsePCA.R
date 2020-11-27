@@ -45,7 +45,7 @@ prefix = opt$prefix
 n = 1000
 d = 2000
 prop = 0.5
-prior = 'Point_normal'
+prior = 'Point_normal_0.1'
 
 # helper function to get alignments
 get_alignment <- function(u1, u2){
@@ -53,7 +53,10 @@ get_alignment <- function(u1, u2){
 }
 
 # tune parameters: para
-para_prop = seq(0.44, 0.56, by = 0.02)
+# https://crude2refined.wordpress.com/2013/07/30/sparse-pca-example-in-r-part-1/
+# para with sparse='varnum' means number of nonzero entries
+# true parameter is 0.1; span a 5 point grid around 0.1
+para_prop = seq(0.05, 0.15, by = 0.025)
 len_para = length(para_prop)
 
 # save alignments and denoised PCs
@@ -62,7 +65,7 @@ left_align <- right_align <- numeric(n_rep)
 left_dePC <- matrix(0, n, n_rep)
 right_dePC <- matrix(0, d, n_rep)
 
-data_prefix = sprintf('output/univariate/%s/data/s_%.1f', prior, s_star)
+data_prefix = sprintf('output/univariate/%s/%s/data/s_%.1f', prior, prefix, s_star)
 for (i in 1:n_rep){
   print(sprintf('replication %i', i))
   # load simulated data
