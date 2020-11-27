@@ -1,9 +1,10 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import sys
+import os
 sys.path.extend(['../../generalAMP'])
 from ebpca.state_evolution import get_state_evolution, get_alignment_evolution, \
-    uniform, point_normal, two_points
+    uniform, point_normal, two_points, point_normal_p1, point_normal_p5, uniform_centered
 
 # ----------------------------------------------
 # Figure 3:
@@ -78,32 +79,53 @@ def make_iter_plot(prior, PCname, iters, plot_seps = [-0.5, 0.5],
 
 
 if __name__ == '__main__':
-    prefix = 'n_2000_gamma_2.0_nsupp_ratio_0.5_0.5_useEM_True' # 'n_1000_gamma_2.0_nsupp_ratio_1.0_1.0_useEM_True'
-    suffix = prefix # 'useEM_pilot'
-    n_rep = 50
+    prefixes = {'n_2000': 'n_2000_gamma_2.0_nsupp_ratio_0.5_0.5_useEM_True',
+                'n_1000': 'n_1000_gamma_2.0_nsupp_ratio_1.0_1.0_useEM_True',
+                'MOSEK_pilot': 'n_2000_gamma_2.0_nsupp_ratio_1.0_1.0_useEM_False'}
+    n_reps = {'n_2000': 50, 'n_1000': 50, 'MOSEK_pilot': 15}
+    priors = {'n_2000': ['Point_normal', 'Two_points', 'Uniform'],
+              'n_1000': ['Point_normal', 'Two_points', 'Uniform'],
+              'MOSEK_pilot': ['Point_normal_0.1', 'Point_normal_0.5',  'Two_points', 'Uniform_centered']}
+    s_lists = {'n_2000': [1.1, 1.3, 1.5, 2.0],
+              'n_1000': [1.1, 1.3, 1.5, 2.0],
+              'MOSEK_pilot': [1.1, 1.3, 1.5]}
+
+    exper_name = 'MOSEK_pilot'
+    prefix = prefixes[exper_name]
+    suffix = prefix
+    n_rep = n_reps[exper_name]
     iters = 10
     gamma = 2
     mmse_funcs = {
         "Uniform": uniform,
         "Two_points": two_points,
-        "Point_normal": point_normal
+        "Point_normal_0.1": point_normal_p1,
+        "Point_normal_0.5": point_normal_p5,
+        "Point_normal": point_normal,
+        "Uniform_centered": uniform_centered
     }
 
+    if not os.path.exists('figures/univariate/Figure3/%s' % prefix):
+        os.mkdir('figures/univariate/Figure3/%s' % prefix)
+
+    plot_se = True
+
     # Figure 3
-    for s in [1.3]: #[1.1, 1.5, 2.0]
-        for prior in ['Point_normal', 'Two_points', 'Uniform']:
+    for s in s_lists[exper_name]:
+        for prior in priors[exper_name]:
             for PCname in ['U', 'V']:
                 make_iter_plot(prior, PCname, 10, bp_colors=['tab:red', 'tab:blue'], suffix=suffix, prefix=prefix)
-                se = get_state_evolution(s, gamma, mmse_funcs[prior], mmse_funcs[prior], iters)
-                ae = get_alignment_evolution(se)
-                if PCname == 'U':
-                    plt.plot([i + 1 - 1 for i in range(0, 2 * iters, 2)], ae.ualigns[:-1],
-                             c='grey', linestyle='--', label='Bayes Optimal')
-                else:
-                    plt.plot([i + 1 - 1 for i in range(0, 2 * iters, 2)], ae.valigns[:-1],
-                             c='grey', linestyle='--', label='Bayes Optimal')
+                if plot_se:
+                    se = get_state_evolution(s, gamma, mmse_funcs[prior], mmse_funcs[prior], iters)
+                    ae = get_alignment_evolution(se)
+                    if PCname == 'U':
+                        plt.plot([i + 1 - 1 for i in range(0, 2 * iters, 2)], ae.ualigns[:-1],
+                                 c='grey', linestyle='--', label='Bayes Optimal')
+                    else:
+                        plt.plot([i + 1 - 1 for i in range(0, 2 * iters, 2)], ae.valigns[:-1],
+                                 c='grey', linestyle='--', label='Bayes Optimal')
                 plt.legend(loc='lower right')
-                plt.savefig('figures/univariate/Figure3/%s_%s_%.1f_iterations_boxplots_%s.png' % (prior, PCname, s, suffix))
+                plt.savefig('figures/univariate/Figure3/%s/%s_%s_%.1f_iterations_boxplots.png' % (prefix, prior, PCname, s))
                 plt.close()
 
     exit()
