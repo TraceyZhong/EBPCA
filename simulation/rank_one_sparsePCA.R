@@ -30,7 +30,7 @@ option_list = list(
               help="enter number of independent data to be simulated",  metavar="integer"),
   make_option(c("-s", "--s_star"), type="numeric", default=1.3, 
               help="enter signal strength",  metavar="numeric"),
-  make_option(c("-prefix", "--prefix"), type="character", 
+  make_option(c("-p", "--prefix"), type="character", 
               default='n_2000_gamma_2.0_nsupp_ratio_1.0_1.0_useEM_False', 
               help="enter experiment name",  metavar="character")
 ); 

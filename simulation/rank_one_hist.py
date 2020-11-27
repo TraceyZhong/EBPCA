@@ -113,23 +113,28 @@ if __name__ == '__main__':
     s_list = s_lists[exper_name]
 
     # load scaling specification
-    xRanges_U = {'Point_normal_0.1': [-15, 15],
-                 'Point_normal_0.5': [-8, 8],
-                 'Two_points': [-4, 4],
-                 'Uniform_centered': [-5, 5]}
-    yRanges_U = {'Point_normal_0.1': [0, 0.8],
-                 'Point_normal_0.5': [0, 0.7],
-                 'Two_points': [0, 0.55],
-                 'Uniform_centered': [0, 0.6]}
-    xRanges_V = {'Point_normal_0.1': [-17, 17],
-                 'Point_normal_0.5': [-10, 10],
-                 'Two_points': [-6, 6],
-                 'Uniform_centered': [-6, 6]}
-    yRanges_V = {'Point_normal_0.1': [0, 0.45],
-                 'Point_normal_0.5': [0, 0.35],
-                 'Two_points': [0, 0.27],
-                 'Uniform_centered': [0, 0.28]}
-
+    if s_star == 1.1:
+        xRanges_U = {'Point_normal_0.1': [-15, 15],
+                     'Point_normal_0.5': [-8, 8],
+                     'Two_points': [-4, 4],
+                     'Uniform_centered': [-5, 5]}
+        yRanges_U = {'Point_normal_0.1': [0, 0.8],
+                     'Point_normal_0.5': [0, 0.7],
+                     'Two_points': [0, 0.55],
+                     'Uniform_centered': [0, 0.6]}
+        xRanges_V = {'Point_normal_0.1': [-17, 17],
+                     'Point_normal_0.5': [-10, 10],
+                     'Two_points': [-6, 6],
+                     'Uniform_centered': [-6, 6]}
+        yRanges_V = {'Point_normal_0.1': [0, 0.45],
+                     'Point_normal_0.5': [0, 0.35],
+                     'Two_points': [0, 0.27],
+                     'Uniform_centered': [0, 0.28]}
+    else:
+        xRanges_U = yRanges_U = xRanges_V = yRanges_V = {'Point_normal_0.1': None,
+                                                         'Point_normal_0.5': None,
+                                                         'Two_points': None,
+                                                         'Uniform_centered': None}
 
     # plot marginal plots
     print(prior)

@@ -184,7 +184,7 @@ class NonparEB(_BaseEmpiricalBayes):
 
 class NonparEBChecker(NonparEB):
     def __init__(self, truePriorLoc, truePriorWeight, optimizer = "EM",
-                 PCname = 'U', histcol = 'skyblue', xRange = [-15, 15], yRange=[0,1],
+                 PCname = 'U', histcol = 'skyblue', xRange = None, yRange=None,
                  ftol = 1e-6, nsupp_ratio = 1, em_iter = 10, maxiter = 100, to_save = False, to_show = False, fig_prefix = "nonparebck", **kwargs):
         NonparEB.__init__(self, optimizer, PCname, ftol, nsupp_ratio, em_iter, maxiter, to_save, to_show, fig_prefix, **kwargs)
         self.trueZ = truePriorLoc
@@ -221,8 +221,9 @@ class NonparEBChecker(NonparEB):
         ax.hist(f, bins=40, alpha=0.4, density=True, color=self.histcol, label="empirical obs")
         ax.plot(xgrid, pdf, color="grey", linestyle="dashed", linewidth=2, label="fitted model")
         ax.plot(xgrid, truePdf, color="grey", linestyle="solid", linewidth=1, label="denoise model")
-        ax.set_xlim(self.xRange[0], self.xRange[1])
-        ax.set_ylim(self.yRange[0], self.yRange[1])
+        if self.xRange is not None:
+            ax.set_xlim(self.xRange[0], self.xRange[1])
+            ax.set_ylim(self.yRange[0], self.yRange[1])
         ax.legend()
             
 class NonparBayes(NonparEB):
