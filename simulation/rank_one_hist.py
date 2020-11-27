@@ -61,7 +61,8 @@ def get_marginal_plots(prior, prefix, s_star = 1.3, i = 0, gamma = None, to_save
     pcapack_t = pcapack
     pcapack_t = pcapack_t._replace(U = pcapack.V)
     pcapack_t = pcapack_t._replace(V = pcapack.U)
-
+    pcapack_t = pcapack_t._replace(X = np.transpose(pcapack.X))
+    
     # run EBMF
     # exchange u and v true prior
     ldenoiser = NonparEBChecker(vTruePriorLoc, vTruePriorWeight, optimizer="Mosek",
