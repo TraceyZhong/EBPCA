@@ -137,7 +137,7 @@ if __name__ == '__main__':
               'MOSEK_pilot': ['Point_normal_0.1', 'Point_normal_0.5', 'Two_points', 'Uniform_centered']}
     s_lists = {'n_2000': [1.1, 1.3, 1.5, 2.0],
                'n_1000': [1.1, 1.3, 1.5, 2.0],
-               'MOSEK_pilot': [1.1, 1.3, 1.5]}
+               'MOSEK_pilot': [1.1, 1.3, 1.5, 2.0]}
 
     exper_name = 'MOSEK_pilot'
     prefix = prefixes[exper_name]
