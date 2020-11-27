@@ -24,27 +24,14 @@ if not os.path.exists(fig_prefix):
 # ------------------------------------------------------
 
 
-def get_marginal_plots(prior, prefix, s_star = 1.3, i = 0, gamma = None, to_save = True, iters = 5):
-    if gamma is None:
-        # use data from replication 0
-        # generated in n_rep simulations
-        data_prefix = 'output/univariate/%s/%s/data/s_%.1f' % (prior, prefix, s_star)
-        u_star = np.load('%s_copy_%i_u_star_n_2000_gamma_2.0.npy' % (data_prefix, i), allow_pickle=False)
-        v_star = np.load('%s_copy_%i_v_star_n_2000_gamma_2.0.npy' % (data_prefix, i), allow_pickle=False)
-        X = np.load('%s_copy_%i_n_2000_gamma_2.0.npy' % (data_prefix, i), allow_pickle=False)
-        fig_suffix = ''
-    else:
-        # regenerate data for gamma other than 2
-        # to see model performance under other gamma value
-        np.random.seed(100)
-        n = 1000
-        d = int(n * gamma)
-        rank = 2
-        u_star = simulate_prior(prior, n, seed=np.random.randint(0, 10000, 1)[0])
-        v_star = simulate_prior(prior, d, seed=np.random.randint(0, 10000, 1)[0])
-        Y = signal_plus_noise_model(u_star, v_star, s_star)
-        X = normalize_obs(Y, rank)
-        fig_suffix = 'gamma_%.1f' % gamma
+def get_marginal_plots(prior, prefix, s_star = 1.3, i = 0, to_save = True, iters = 5):
+    # use data from replication 0
+    # generated in n_rep simulations
+    data_prefix = 'output/univariate/%s/%s/data/s_%.1f' % (prior, prefix, s_star)
+    u_star = np.load('%s_copy_%i_u_star_n_2000_gamma_2.0.npy' % (data_prefix, i), allow_pickle=False)
+    v_star = np.load('%s_copy_%i_v_star_n_2000_gamma_2.0.npy' % (data_prefix, i), allow_pickle=False)
+    X = np.load('%s_copy_%i_n_2000_gamma_2.0.npy' % (data_prefix, i), allow_pickle=False)
+    fig_suffix = '_s_star_%.1f' % s_star
 
     # Figure 2 folder
     f2_prefix = 'univariate/Figure2/%s/%s/' % (prior, prefix)
@@ -72,11 +59,11 @@ def get_marginal_plots(prior, prefix, s_star = 1.3, i = 0, gamma = None, to_save
     fdenoiser = NonparEBChecker(uTruePriorLoc, uTruePriorWeight, optimizer="Mosek",
                                 to_save=to_save, fig_prefix=f2_prefix + 'EBMF' + fig_suffix,
                                 histcol='tab:blue', xRange=xRanges_U[prior], yRange = yRanges_U[prior])
-    U_ebmf, V_ebmf, _ = ebmf(pcapack_t, ldenoiser=ldenoiser, fdenoiser=fdenoiser,
+    V_ebmf, U_ebmf, _ = ebmf(pcapack_t, ldenoiser=ldenoiser, fdenoiser=fdenoiser,
                              iters=iters, ebpca_scaling=True, tau_by_row=False)
 
     # for left PC in U
-    print('EBMF alignments:', fill_alignment(V_ebmf, u_star, iters))
+    print('EBMF alignments:', fill_alignment(U_ebmf, u_star, iters))
 
     # run EB-PCA
     udenoiser = NonparEBChecker(uTruePriorLoc, uTruePriorWeight, optimizer="Mosek",
@@ -91,7 +78,7 @@ def get_marginal_plots(prior, prefix, s_star = 1.3, i = 0, gamma = None, to_save
     print('EB-PCA alignments:', fill_alignment(U_ebpca, u_star, iters))
 
     return fill_alignment(U_ebpca, u_star, iters), fill_alignment(V_ebpca, v_star, iters),\
-           fill_alignment(V_ebmf, u_star, iters), fill_alignment(U_ebmf, v_star, iters)
+           fill_alignment(U_ebmf, u_star, iters), fill_alignment(V_ebmf, v_star, iters)
 
 if __name__ == '__main__':
     # take argument: number of iterations
@@ -101,9 +88,12 @@ if __name__ == '__main__':
                         default=2, const=2, nargs='?')
     parser.add_argument("--s_star", type=float, help="true signal strength",
                         default=1.1, const=1.1, nargs='?')
+    parser.add_argument("--prior", type=str, help="prior",
+                        default='Two_points', const='Two_points', nargs='?')
     args = parser.parse_args()
     iters = args.iters
     s_star = args.s_star
+    prior = args.prior
 
     # load experiment results
     prefixes = {'n_2000': 'n_2000_gamma_2.0_nsupp_ratio_0.5_0.5_useEM_True',
@@ -140,19 +130,15 @@ if __name__ == '__main__':
                  'Two_points': [0, 0.27],
                  'Uniform_centered': [0, 0.28]}
 
-    for prior in priors[exper_name]:
-        print(prior)
-        # plot marginal plots
-        get_marginal_plots(prior, prefix, s_star, iters=iters)
-        # double check with alignments from the experiments
-        align_dir = 'output/univariate/%s/%s/alignments' % (prior, prefix)
-        for method in ['EBMF', 'EB-PCA']:
-            print(method)
-            aligns = np.load('%s/%s_u_s_%.1f_n_rep_%i.npy' %
-                             (align_dir, method, s_star, n_rep))
-            print(aligns[0])
 
-    # for prior in ['Two_points', 'Uniform', 'Point_normal']:
-    #     get_marginal_plots(prior)
-    # prior = 'Two_points'
-    # get_marginal_plots(prior)
+    # plot marginal plots
+    print(prior)
+    get_marginal_plots(prior, prefix, s_star, iters=iters)
+
+    # double check with alignments from the experiments
+    align_dir = 'output/univariate/%s/%s/alignments' % (prior, prefix)
+    for method in ['EBMF', 'EB-PCA']:
+        print(method)
+        aligns = np.load('%s/%s_u_s_%.1f_n_rep_%i.npy' %
+                         (align_dir, method, s_star, n_rep))
+        print(aligns[0])
