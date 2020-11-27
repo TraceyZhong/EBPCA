@@ -130,7 +130,7 @@ def check_residual_spectrum(pca_pack, to_show = False, to_save = False, **kwargs
     ax.hist(mu[:shorter_side], density = True, bins = 50, label = "sample singular values")
     x = np.linspace(0.01, mu.max(), num = 50)
     aspect_ratio = n_features / n_samples
-    if aspect_ratio > 0:
+    if aspect_ratio > 1:
         scaler = aspect_ratio
     else:
         scaler = 1
