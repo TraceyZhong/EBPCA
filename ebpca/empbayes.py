@@ -26,6 +26,7 @@ class _BaseEmpiricalBayes(ABC):
         self.fig_prefix = "figures/"+fig_prefix
         self.rank = 0
         self.iter = 1
+        self.plot_scaled = True
 
     @abstractmethod
     def estimate_prior(self,f, mu, cov):
@@ -77,8 +78,8 @@ class _BaseEmpiricalBayes(ABC):
                 axes[dim].set_title("Iteration %i, %s%i, mu=%.2f, cov=%.2f" % \
                                     (self.iter, self.PCname, dim + 1, mu[dim, dim], cov[dim, dim]))
             else:
-                axes[dim].set_title("Iteration %i, %s, mu=%.2f, cov=%.2f" % \
-                                    (self.iter, self.PCname, mu[dim, dim], cov[dim, dim]))
+                axes[dim].set_title("Iteration %i, %s, SNR=%.2f" % \
+                                    (self.iter, self.PCname, (mu[dim, dim])**2/ (cov[dim, dim])))
         if self.to_show:
             plt.show()
         if self.to_save:
@@ -87,8 +88,8 @@ class _BaseEmpiricalBayes(ABC):
 
     def plot_each_margin(self, ax, f, dim, mu, cov):
         # span the grid to be plotted
-        xmin = np.quantile(f, 0.05, axis=0)
-        xmax = np.quantile(f, 0.95, axis=0)
+        xmin = np.quantile(f, 0.0, axis=0)
+        xmax = np.quantile(f, 1.0, axis=0)
         xgrid = np.linspace(xmin - abs(xmin) / 3, xmax + abs(xmax) / 3, num=100)
         # evaluate marginal pdf
         pdf = [self.get_margin_pdf(x, mu, cov, dim) for x in xgrid]
@@ -150,8 +151,13 @@ class NonparEB(_BaseEmpiricalBayes):
         del W
 
     def get_margin_pdf(self, x, mu, cov, dim):
-        loc = self.Z.dot(mu.T)[:, dim]
-        scalesq = cov[dim, dim]
+        if self.plot_scaled:
+            x = x / (mu[dim, dim])
+            loc = self.Z[:, dim]
+            scalesq = cov[dim, dim] / ((mu[dim, dim])**2)
+        else:
+            loc = self.Z.dot(mu.T)[:, dim]
+            scalesq = cov[dim, dim]
         return np.sum(self.pi / np.sqrt(2 * np.pi * scalesq) * np.exp(-(x - loc) ** 2 / (2 * scalesq)))
     
     def denoise(self, f, mu, cov):
@@ -176,31 +182,46 @@ class NonparEB(_BaseEmpiricalBayes):
         return self.pi, self.Z
 
 class NonparEBChecker(NonparEB):
-    def __init__(self, truePriorLoc, truePriorWeight, optimizer = "EM", PCname = 'U', histcol = 'skyblue', ftol = 1e-6, nsupp_ratio = 1, em_iter = 10, maxiter = 100, to_save = False, to_show = False, fig_prefix = "nonparebck", **kwargs):
+    def __init__(self, truePriorLoc, truePriorWeight, optimizer = "EM",
+                 PCname = 'U', histcol = 'skyblue', xRange = [-15, 15], yRange=[0,1],
+                 ftol = 1e-6, nsupp_ratio = 1, em_iter = 10, maxiter = 100, to_save = False, to_show = False, fig_prefix = "nonparebck", **kwargs):
         NonparEB.__init__(self, optimizer, PCname, ftol, nsupp_ratio, em_iter, maxiter, to_save, to_show, fig_prefix, **kwargs)
         self.trueZ = truePriorLoc
         self.truePi = truePriorWeight
         self.histcol = histcol
         self.redirectd = False
+        self.xRange = xRange
+        self.yRange = yRange
 
     def get_margin_pdf_from_true_prior(self, x, mu, cov, dim):
-        loc = self.trueZ.dot(mu.T)[:, dim]
-        scalesq = cov[dim, dim]
+        if self.plot_scaled:
+            x = x / mu[dim, dim]
+            loc = self.trueZ[:, dim]
+            scalesq = (cov[dim, dim]) / ((mu[dim, dim]) ** 2)
+        else:
+            loc = self.trueZ.dot(mu.T)[:, dim]
+            scalesq = cov[dim, dim]
         return np.sum(self.truePi / np.sqrt(2 * np.pi * scalesq) * np.exp(-(x - loc) ** 2 / (2 * scalesq)))
 
     def plot_each_margin(self, ax, f, dim, mu, cov):
-        xmin = np.quantile(f, 0.05, axis=0)
-        xmax = np.quantile(f, 0.95, axis=0)
-        xgrid = np.linspace(xmin - abs(xmin) / 3, xmax + abs(xmax) / 3, num=100)
+        xmin = np.quantile(f, 0.0, axis=0)
+        xmax = np.quantile(f, 1.0, axis=0)
+        xgrid = np.linspace(xmin - abs(xmin) / 3, xmax + abs(xmax) / 3, num=1000)
         # evaluate marginal pdf
         pdf = [self.get_margin_pdf(x, mu, cov, dim) for x in xgrid]
         # print("why is this not correct")
         # print(self.trueZ.dot(mu.T)[:, dim])
         # print(self.truePi)
         truePdf = [self.get_margin_pdf_from_true_prior(x, mu, cov, dim) for x in xgrid]
+        # plot scaled marginal:
+        if self.plot_scaled:
+            f = f / (mu[dim, dim])
+            xgrid = xgrid / (mu[dim, dim])
         ax.hist(f, bins=40, alpha=0.4, density=True, color=self.histcol, label="empirical obs")
         ax.plot(xgrid, pdf, color="grey", linestyle="dashed", linewidth=2, label="fitted model")
         ax.plot(xgrid, truePdf, color="grey", linestyle="solid", linewidth=1, label="denoise model")
+        ax.set_xlim(self.xRange[0], self.xRange[1])
+        ax.set_ylim(self.yRange[0], self.yRange[1])
         ax.legend()
             
 class NonparBayes(NonparEB):
@@ -630,6 +651,7 @@ def mosek_npmle(f, Z, mu, covInv, tol=1e-8):
             pi = f.level()
         except Exception as e:
             print("XZ: f level doesn't have a solution.")
+            print(pi)
         
         return pi, A
 
