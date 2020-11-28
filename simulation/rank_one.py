@@ -41,6 +41,8 @@ parser.add_argument("--bayesdenoiser", type=str, help="enter n",
                     default=False, const=False, nargs='?')
 parser.add_argument("--useEM", type=str, help="enter n",
                     default=False, const=False, nargs='?')
+parser.add_argument("--n_rep_start", type=int, help="start from #replications",
+                    default=0, const=0, nargs='?')
 args = parser.parse_args()
 
 prior = args.prior
@@ -55,9 +57,10 @@ nsupp_ratio_u = args.nsupp_ratio_u
 nsupp_ratio_v = args.nsupp_ratio_v
 bayesdenoiser = args.bayesdenoiser
 useEM = args.useEM
+n_rep_start = args.n_rep_start
 
-print('\nRunning %s rank one simulations with %i replications, %s prior, signal strength=%.1f, iterations=%i'\
-      % (method, n_rep, prior, s_star, iters))
+print('\nRunning %s rank one simulations with %i-%i replications, %s prior, signal strength=%.1f, iterations=%i'\
+      % (method, n_rep_start, n_rep, prior, s_star, iters))
 
 print('Other tuning parameters: n=%i, gamma=%.1f, nsupp_ratio_u=%.1f, nsupp_ratio_v=%.1f' % \
       (n, gamma, nsupp_ratio_u, nsupp_ratio_v))
@@ -110,7 +113,7 @@ v_alignment = []
 obj_funcs = []
 conv_trace = []
 start_time = time.time()
-for i in range(n_rep):
+for i in range(n_rep_start, n_rep):
     print('Replication %i' % i)
     # load simulation data
     u_star = np.load('%s_copy_%i_u_star_n_%i_gamma_%.1f.npy' % (data_prefix, i, n, gamma), allow_pickle=False)
@@ -185,21 +188,29 @@ print('Simulation takes %.2f s' % (end_time - start_time))
 print('right PC alignments:', u_alignment)
 print('left PC alignments:', v_alignment)
 
+if n_rep_start == 0:
+    n_rep_start_prefix = ''
+else:
+    n_rep_start_prefix = str(n_rep_start)
 # save alignments
-np.save('output/%s/alignments/%s_u_s_%.1f_n_rep_%i.npy' % (prior_prefix, method, s_star, n_rep),
+np.save('output/%s/alignments/%s_u_s_%.1f_n_rep%s_%i.npy' % \
+        (prior_prefix, method, s_star, n_rep_start_prefix, n_rep),
         u_alignment, allow_pickle=False)
-np.save('output/%s/alignments/%s_v_s_%.1f_n_rep_%i.npy' % (prior_prefix, method, s_star, n_rep),
+np.save('output/%s/alignments/%s_v_s_%.1f_n_rep%s_%i.npy' % \
+        (prior_prefix, method, s_star, n_rep_start_prefix, n_rep),
         v_alignment, allow_pickle=False)
 
 # save convergence records
 if method == 'EBMF':
     # save objective function values for EBMF
-    np.save('output/%s/alignments/%s_obj_funcs_s_%.1f_n_rep_%i.npy' % (prior_prefix, method, s_star, n_rep),
+    np.save('output/%s/alignments/%s_obj_funcs_s_%.1f_n_rep%s_%i.npy' % \
+            (prior_prefix, method, s_star, n_rep_start_prefix, n_rep),
             obj_funcs, allow_pickle=False)
     print('objective function differences:', [np.ediff1d(obj) for obj in obj_funcs])
 else:
     # save convergence trace for EB-PCA or BayesAMP
-    np.save('output/%s/alignments/conv_%s_s_%.1f_n_rep_%i.npy' % (prior_prefix, method, s_star, n_rep),
+    np.save('output/%s/alignments/conv_%s_s_%.1f_n_rep%s_%i.npy' % \
+            (prior_prefix, method, s_star, n_rep_start_prefix, n_rep),
             conv_trace, allow_pickle=False)
     print(conv_trace)
 
