@@ -134,7 +134,7 @@ if __name__ == '__main__':
         xRanges_U = {'Two_points': [-4, 4]}
         yRanges_U = {'Two_points': [0, 0.6]}
         xRanges_V = {'Two_points': [-5, 5]}
-        yRanges_V = {'Two_points': [0, 0.28]}
+        yRanges_V = {'Two_points': [0, 0.3]}
     elif s_star == 1.5:
         xRanges_U = {'Two_points': [-3.5, 3.5]}
         yRanges_U = {'Two_points': [0, 0.6]}
