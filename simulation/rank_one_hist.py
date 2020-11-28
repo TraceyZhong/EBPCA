@@ -130,6 +130,16 @@ if __name__ == '__main__':
                      'Point_normal_0.5': [0, 0.35],
                      'Two_points': [0, 0.27],
                      'Uniform_centered': [0, 0.28]}
+    elif s_star == 1.3:
+        xRanges_U = {'Two_points': [-4, 4]}
+        yRanges_U = {'Two_points': [0, 0.6]}
+        xRanges_V = {'Two_points': [-5, 5]}
+        yRanges_V = {'Two_points': [0, 0.28]}
+    elif s_star == 1.5:
+        xRanges_U = {'Two_points': [-3.5, 3.5]}
+        yRanges_U = {'Two_points': [0, 0.6]}
+        xRanges_V = {'Two_points': [-4.5, 4.5]}
+        yRanges_V = {'Two_points': [0, 0.32]}
     else:
         xRanges_U = yRanges_U = xRanges_V = yRanges_V = {'Point_normal_0.1': None,
                                                          'Point_normal_0.5': None,
