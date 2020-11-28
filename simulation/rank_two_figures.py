@@ -1,7 +1,5 @@
-import matplotlib.pyplot as mpl
 import matplotlib.pyplot as plt
 import numpy as np
-import os
 import sys
 sys.path.extend(['../../generalAMP'])
 from simulation.helpers import get_joint_alignment, get_marginal_alignment, align_pc
@@ -12,19 +10,19 @@ from simulation.helpers import get_joint_alignment, get_marginal_alignment, alig
 # dot plot
 # ----------------------------------------------
 
-def load_PC_star(prior):
+def load_PC_star(prior, s_star, n_copy=0):
     data_prefix = 'output/bivariate/%s/data/s_%.1f_%.1f' % (prior, s_star[0], s_star[1])
-    u_star = np.load('%s_copy_0_u_star.npy' % data_prefix, allow_pickle=False)
+    u_star = np.load('%s_copy_%i_u_star.npy' % (data_prefix, n_copy), allow_pickle=False)
     return u_star
 
-def load_dePC(prior, method):
+def load_dePC(prior, method, s_star, n_copy=0):
     dePC_prefix = 'output/bivariate/%s/denoisedPC/%s_U_s_%.1f_%.1f' % (prior, method, s_star[0], s_star[1])
-    X = np.load('%s_n_copy_0.npy' % dePC_prefix, allow_pickle=False)
+    X = np.load('%s_n_copy_%i.npy' % (dePC_prefix, n_copy), allow_pickle=False)
     return X
 
-def plot_rank2_dePC(star, mar, joint, prior):
+def plot_rank2_dePC(star, mar, joint, prior, s_star):
     # tune aesthetics
-    mpl.rcParams['font.size'] = 14
+    plt.rcParams['font.size'] = 14
 
     # align estimated PC with true PC
     # in both direction and magnitude
@@ -37,15 +35,14 @@ def plot_rank2_dePC(star, mar, joint, prior):
     mar_align = get_marginal_alignment(mar_est, star)
     joint_align = get_marginal_alignment(joint_est, star)
 
-    plot_est = [[star[:, 0], star[:, 1]], [joint[:, 0, 0], joint[:, 1, 0]],
-                [mar[:, 0, -1], mar[:, 1, -1]], [joint[:, 0, -1], joint[:, 1, -1]]]
+    plot_est = [star, pca_est, mar_est, joint_est]
     plot_aligns = [[1, 1], pca_align, mar_align, joint_align]
     plot_method = ['Ground truth', 'PCA', 'EB-PCA marginal estimation', 'EB-PCA joint estimation']
 
     # start plotting
     for i in range(4):
         fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(7, 6))
-        ax.scatter(plot_est[i][0], plot_est[i][1], s = 0.5, alpha = 0.5)
+        ax.scatter(plot_est[i][:, 0], plot_est[i][:, 1], s = 2, alpha = 0.8)
         if i > 0:
             ax.set_title('%s \n bivariate alignment=%.2f' % \
                          (plot_method[i], get_joint_alignment(plot_aligns[i], False)))
@@ -59,6 +56,7 @@ def plot_rank2_dePC(star, mar, joint, prior):
         ax.set_ylim(-2, 2)
         plt.savefig('figures/bivariate/%s_%s_s_%.1f_%.1f.png' % \
                     (prior, plot_method[i].replace(' ', '_'), s_star[0], s_star[1]))
+        plt.close()
     # plt.suptitle('{}'.format(prior.replace('_', ' ')))
 
 
@@ -99,20 +97,28 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--s_star_1", type=float, help="true signal strength 1",
-                        default=3, const=3, nargs='?')
-    parser.add_argument("--s_star_2", type=float, help="true signal strength 2",
                         default=2.5, const=2.5, nargs='?')
+    parser.add_argument("--s_star_2", type=float, help="true signal strength 2",
+                        default=2, const=2, nargs='?')
     args = parser.parse_args()
     s_star = [args.s_star_1, args.s_star_2]
 
-    for prior in ['Uniform_circle']:
+    for prior in ['Three_points']: # 'Uniform_circle',
         # load data
         # assuming results from rank_two.py is available
-        star = load_PC_star(prior)
-        mar = load_dePC(prior, "marginal")
-        joint = load_dePC(prior, "joint")
+        i = 0
+        star = load_PC_star(prior, s_star, i)
+        mar = load_dePC(prior, "marginal", s_star, i)
+
+        plt.scatter(mar[:, 0, -1], mar[:, 1, -1], s = 0.5, alpha = 0.5)
+        plt.xlim([-2,2])
+        plt.ylim([-2,2])
+        plt.savefig('figures/bivariate/tmp_%s.png' % prior)
+        plt.close()
+
+        joint = load_dePC(prior, "joint", s_star, i)
         # make plots
-        plot_rank2_dePC(star, mar, joint, prior)
+        plot_rank2_dePC(star, mar, joint, prior, s_star)
 
         # print table statistics
         # for method in ['marginal', 'joint']:

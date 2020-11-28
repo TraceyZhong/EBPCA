@@ -107,14 +107,19 @@ def signal_plus_noise_model(u, v, s, seed, rank = 1):
 # --------------------
 
 def get_marginal_alignment(est, star):
+    """
+    Evaluate marginal alignments pf estimated PC
+    """
     print(est.shape)
     rank = est.shape[1]
     if len(est.shape) > 2:
+        # Evaluate alignments for sequences of estimates
         iters = est.shape[2]
         print('rank: %i' % rank)
         print('iters: %i' % rank)
         return [fill_alignment(est[:, [j], :], star[:, [j]], iters)[0] for j in range(rank)]
     else:
+        # Evaluate alignments for one dePC
         return [get_alignment(est[:, [j]], star[:, [j]]) for j in range(rank)]
 
 def get_joint_alignment(mar, iterates=True):
@@ -133,7 +138,7 @@ def regress_out_top(X, i):
     """
     Regress out the top i PCs
     """
-    print('Regression out PC %i' % i)
+    print('Regress out PC %i' % i)
     U, Lambdas, Vh = np.linalg.svd(X, full_matrices=False)
     X = X - U[:, :i].dot(np.diag(Lambdas[:i])).dot(Vh[:i, :])
     return X

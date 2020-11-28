@@ -81,16 +81,20 @@ def run_rankK_EBPCA(method, X, rank, iters):
         for j in range(rank):
             udenoiser = NonparEB(optimizer="Mosek", to_save=False)
             vdenoiser = NonparEB(optimizer="Mosek", to_save=False)
-            # regress out top PC
-            X = regress_out_top(X, j)
+            if j > 0:
+                # regress out top PC
+                X = regress_out_top(X, j)
             # normalize data
             X = normalize_obs(X, 1)
             # prepare the PCA pack
             pcapack = get_pca(X, 1)
+            # else:
+            #     pcapack = get_pca(X, rank)
             # run AMP
             U_mar_est, V_mar_est, conv = ebamp_gaussian(pcapack, iters=iters,
-                                                  udenoiser=udenoiser, vdenoiser=vdenoiser,
-                                                  return_conv = True)
+                                                        udenoiser=udenoiser, vdenoiser=vdenoiser,
+                                                        return_conv = True)
+            print(U_mar_est.shape)
             print('marginal dim %i convergence ' % (j + 1), conv)
             U_est[:, j, :] = U_mar_est[:, 0, :]
             V_est[:, j, :] = V_mar_est[:, 0, :]
@@ -133,14 +137,15 @@ for i in range(n_rep):
     u_alignment.append([fill_alignment(U_est[:,[j],:], u_star[:,[j]], iters) for j in range(rank)])
     v_alignment.append([fill_alignment(V_est[:,[j],:], v_star[:,[j]], iters) for j in range(rank)])
 
-    if i == 0:
-        # save replication 0 results for making plots
-        np.save('output/%s/denoisedPC/%s_%s_s_%.1f_%.1f_n_copy_%i.npy' %
-                (prior_prefix, method, "U", s_star[0], s_star[1], i),
-                U_est, allow_pickle=False)
-        np.save('output/%s/denoisedPC/%s_%s_s_%.1f_%.1f_n_copy_%i.npy' %
-                (prior_prefix, method, "V", s_star[0], s_star[1], i),
-                V_est, allow_pickle=False)
+    # save replication 0 results for making plots
+    np.save('output/%s/denoisedPC/%s_%s_s_%.1f_%.1f_n_copy_%i.npy' %
+            (prior_prefix, method, "U", s_star[0], s_star[1], i),
+            U_est, allow_pickle=False)
+    np.save('output/%s/denoisedPC/%s_%s_s_%.1f_%.1f_n_copy_%i.npy' %
+            (prior_prefix, method, "V", s_star[0], s_star[1], i),
+            V_est, allow_pickle=False)
+    # if i == 0 or i == 1:
+
 
 end_time = time.time()
 print('Simulation takes %.2f s' % (end_time - start_time))
