@@ -4,6 +4,10 @@ import sys
 sys.path.extend(['../../generalAMP'])
 from tutorial import get_alignment, redirect_pc, normalize_pc
 
+# --------------------
+# rank one simulations
+# --------------------
+
 def approx_prior(Ustar, pca_U):
     Ustar = redirect_pc(Ustar[:, np.newaxis], pca_U)
     truePriorLoc = Ustar
@@ -22,20 +26,6 @@ def fill_alignment(U_est, u_star, iters):
         else:
             alignment.append(np.nan)
     return alignment
-
-def get_joint_alignment(mar):
-    joint = np.sqrt(np.mean(np.power(mar, 2), axis = 0))
-    # joint = [np.sqrt(np.mean((np.array(mar[j])**2), axis=0)) for j in range(len(mar))]
-    return joint
-
-def regress_out_top(X, i):
-    print('Regression out PC %i' % i)
-    U, Lambdas, Vh = np.linalg.svd(X, full_matrices=False)
-    X = X - U[:, :i].dot(np.diag(Lambdas[:i])).dot(Vh[:i, :])
-    return X
-# --------------------
-# rank one simulations
-# --------------------
 
 # functions for simulating priors and data under the signal-plus-noise model
 def simulate_prior(prior, n=2000, seed=1, rank=1):
@@ -111,3 +101,48 @@ def signal_plus_noise_model(u, v, s, seed, rank = 1):
     elif rank == 2:
         A = 1 / n * u @ s @ v.T + W
     return A
+
+# --------------------
+# rank two simulations
+# --------------------
+
+def get_marginal_alignment(est, star):
+    print(est.shape)
+    rank = est.shape[1]
+    if len(est.shape) > 2:
+        iters = est.shape[2]
+        print('rank: %i' % rank)
+        print('iters: %i' % rank)
+        return [fill_alignment(est[:, [j], :], star[:, [j]], iters)[0] for j in range(rank)]
+    else:
+        return [get_alignment(est[:, [j]], star[:, [j]]) for j in range(rank)]
+
+def get_joint_alignment(mar, iterates=True):
+    """
+    Evaluate the joint alignment
+    iterates: if to evaluate the marginal alignments from a multiple run experiment
+    where the mar is of dimension n_rep * rank * iters
+    """
+    if iterates:
+        joint = np.sqrt(np.mean(np.power(mar, 2), axis = 1))
+    else:
+        joint = np.sqrt(np.mean(np.power(mar, 2)))
+    return joint
+
+def regress_out_top(X, i):
+    """
+    Regress out the top i PCs
+    """
+    print('Regression out PC %i' % i)
+    U, Lambdas, Vh = np.linalg.svd(X, full_matrices=False)
+    X = X - U[:, :i].dot(np.diag(Lambdas[:i])).dot(Vh[:i, :])
+    return X
+
+def align_pc(pc, reference):
+    '''sample usage see examples/showcase.py
+    we use it to convert the pc estimates s.t. it has the same sign and direction as the ground truth pc
+    '''
+    pc = redirect_pc(pc, reference)
+    scale_star = np.sqrt((reference ** 2).sum(axis=0))
+    pc = normalize_pc(pc) / np.sqrt(len(pc)) * scale_star
+    return pc
