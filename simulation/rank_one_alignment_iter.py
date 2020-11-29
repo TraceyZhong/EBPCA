@@ -12,21 +12,19 @@ from ebpca.state_evolution import get_state_evolution, get_alignment_evolution, 
 # boxplot
 # ----------------------------------------------
 
-def load_alignments(prior, method, PCname = 'U', rm_na=False, prefix = ''):
+def load_alignments(prior, method, PC = 'u', rm_na=False, prefix = '', suffix = ''):
     prefix = prefix + '/'
-    align_dir = 'output/univariate/%s/%salignments' % (prior, prefix)
-    if PCname == 'U':
-        align = np.load('%s/%s_u_s_%.1f_n_rep_%i.npy' % (align_dir, method, s, n_rep)).T
-    else:
-        align = np.load('%s/%s_v_s_%.1f_n_rep_%i.npy' % (align_dir, method, s, n_rep)).T
+    align_dir = 'output/univariate/%s/%salignments/%s' % (prior, prefix, method)
+    align = np.load('%s_%s_s_%.1f_n_rep_%i%s.npy' % (align_dir, PC, s, n_rep, suffix)).T
     if rm_na:
         align = [(align[i])[~np.isnan(align[i])] for i in range(len(align))]
     else:
         align = align.tolist()
     return align
 
-def group_alignments(prior, PCname, rm_na=False, prefix = ''):
-    res = [load_alignments(prior, method, PCname, rm_na=rm_na, prefix=prefix) for method in ['EB-PCA', 'EBMF']]
+def group_alignments(prior, PCname, rm_na=False, prefix = '', suffix = ''):
+    res = [load_alignments(prior, method, PCname, rm_na=rm_na, prefix=prefix, suffix = suffix) \
+           for method in ['EB-PCA', 'EBMF']]
     return res
 
 def alignment_boxplots(res, ticks, plot_seps = [-0.5, 0.5], bp_colors = ['#de2d26', '#3182bd']):
@@ -65,15 +63,15 @@ def add_line_to_boxplots(ax, res, plot_seps = [-0.5, 0.5], bp_colors = ['#fc9272
     y = np.nanmedian(res, axis=2)
     x = [ax.get_xticks() + plot_seps[i] for i in range(2)]
     # make labels
-    labels = ['EB-PCA', 'EBMF'] #, label = labels[i]
+    labels = ['EB-PCA', 'EBMF']
     # Plot a line between the means of each dataset
     [plt.plot(x[i], y[i], 'b-', c=bp_colors[i]) for i in range(2)]
 
 def make_iter_plot(prior, PCname, iters, plot_seps = [-0.5, 0.5],
-                   bp_colors = ['#de2d26', '#3182bd'], suffix = '', prefix = ''):
-    res_clean = group_alignments(prior, PCname, True, prefix=prefix)
-    res = group_alignments(prior, PCname, False, prefix=prefix)
-    ax = alignment_boxplots(res_clean, [i + 1 for i in range(iters)], plot_seps, bp_colors)
+                   bp_colors = ['#de2d26', '#3182bd'], suffix = '', prefix = '', data_suffix = ''):
+    # res_clean = group_alignments(prior, PCname, True, prefix=prefix, suffix=suffix)
+    res = group_alignments(prior, PCname, False, prefix=prefix, suffix=data_suffix)
+    ax = alignment_boxplots(res, [i for i in range(iters + 1)], plot_seps, bp_colors)
     add_line_to_boxplots(ax, res, plot_seps, bp_colors)
     plt.title('%s, %s, alignment across iterations (s=%.1f) \n %s' % (prior.replace('_', ' '), PCname, s, suffix))
 
@@ -81,18 +79,20 @@ def make_iter_plot(prior, PCname, iters, plot_seps = [-0.5, 0.5],
 if __name__ == '__main__':
     prefixes = {'n_2000': 'n_2000_gamma_2.0_nsupp_ratio_0.5_0.5_useEM_True',
                 'n_1000': 'n_1000_gamma_2.0_nsupp_ratio_1.0_1.0_useEM_True',
-                'MOSEK_pilot': 'n_2000_gamma_2.0_nsupp_ratio_1.0_1.0_useEM_False'}
-    n_reps = {'n_2000': 50, 'n_1000': 50, 'MOSEK_pilot': 15}
+                'MOSEK_pilot': 'n_2000_gamma_2.0_nsupp_ratio_1.0_1.0_useEM_False',
+                'MOSEK_exper': 'n_2000_gamma_2.0_nsupp_ratio_1.0_1.0_useEM_False'}
+    n_reps = {'n_2000': 50, 'n_1000': 50, 'MOSEK_pilot': 15, 'MOSEK_exper': 50}
     priors = {'n_2000': ['Point_normal', 'Two_points', 'Uniform'],
               'n_1000': ['Point_normal', 'Two_points', 'Uniform'],
-              'MOSEK_pilot': ['Point_normal_0.1', 'Point_normal_0.5',  'Two_points', 'Uniform_centered']}
+              'MOSEK_pilot': ['Point_normal_0.1', 'Point_normal_0.5',  'Two_points', 'Uniform_centered'],
+              'MOSEK_exper': ['Point_normal_0.1', 'Point_normal_0.5',  'Two_points', 'Uniform_centered', 'Normal']}
     s_lists = {'n_2000': [1.1, 1.3, 1.5, 2.0],
               'n_1000': [1.1, 1.3, 1.5, 2.0],
-              'MOSEK_pilot': [1.1, 1.3, 1.5]}
+              'MOSEK_pilot': [1.1, 1.3, 1.5],
+               'MOSEK_exper': [1.1, 1.3, 1.5, 2.0]}
 
-    exper_name = 'MOSEK_pilot'
+    exper_name = 'MOSEK_exper'
     prefix = prefixes[exper_name]
-    suffix = prefix
     n_rep = n_reps[exper_name]
     iters = 10
     gamma = 2
@@ -104,28 +104,31 @@ if __name__ == '__main__':
         "Point_normal": point_normal,
         "Uniform_centered": uniform_centered
     }
+    data_suffix = '_by_5'
 
-    if not os.path.exists('figures/univariate/Figure3/%s' % prefix):
-        os.mkdir('figures/univariate/Figure3/%s' % prefix)
+    if not os.path.exists('figures/univariate/Figure3/%s/%s' % (prefix, exper_name)):
+        os.mkdir('figures/univariate/Figure3/%s/%s' % (prefix, exper_name))
 
     plot_se = True
 
     # Figure 3
     for s in s_lists[exper_name]:
         for prior in priors[exper_name]:
-            for PCname in ['U', 'V']:
-                make_iter_plot(prior, PCname, 10, bp_colors=['tab:red', 'tab:blue'], suffix=suffix, prefix=prefix)
-                if plot_se:
+            for PC in ['u', 'v']:
+                make_iter_plot(prior, PC, 10, bp_colors=['tab:red', 'tab:blue'], \
+                               suffix=exper_name, prefix=prefix, data_suffix=data_suffix)
+                if prior == 'Two_points':
                     se = get_state_evolution(s, gamma, mmse_funcs[prior], mmse_funcs[prior], iters)
                     ae = get_alignment_evolution(se)
-                    if PCname == 'U':
-                        plt.plot([i + 1 - 1 for i in range(0, 2 * iters, 2)], ae.ualigns[:-1],
+                    if PC == 'u':
+                        plt.plot([i + 1 - 1 for i in range(0, 2 * (iters + 1), 2)], ae.ualigns,
                                  c='grey', linestyle='--', label='Bayes Optimal')
                     else:
-                        plt.plot([i + 1 - 1 for i in range(0, 2 * iters, 2)], ae.valigns[:-1],
+                        plt.plot([i + 1 - 1 for i in range(0, 2 * (iters + 1), 2)], ae.valigns,
                                  c='grey', linestyle='--', label='Bayes Optimal')
                 plt.legend(loc='lower right')
-                plt.savefig('figures/univariate/Figure3/%s/%s_%s_%.1f_iterations_boxplots.png' % (prefix, prior, PCname, s))
+                plt.savefig('figures/univariate/Figure3/%s/%s/%s_%s_%.1f.png' % \
+                            (prefix, exper_name, prior, PC, s))
                 plt.close()
 
     exit()
