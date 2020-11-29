@@ -21,7 +21,7 @@ parser.add_argument("--method", type=str, help="enter the version of EB-PCA to r
                     default='joint', const='joint', nargs='?')
 parser.add_argument("--prior", type=str, help="enter bivariate prior",
                     default='Uniform_circle', const='Uniform_circle', nargs='?')
-parser.add_argument("--n_rep", type=int, help="enter number of independent data to be simulated",
+parser.add_argument("--n_copy", type=int, help="enter which independent data to be use",
                     default=1, const=1, nargs='?')
 # set a small default iteration because the signal strength is large in this example
 parser.add_argument("--iters", type=int, help="enter EB-PCA iterations",
@@ -34,11 +34,11 @@ args = parser.parse_args()
 
 method = args.method
 prior = args.prior
-n_rep = args.n_rep
+n_copy = args.n_copy
 iters = args.iters
 
-print('\nRunning EB-PCA with %s estimation for bivariate prior: %i replications, %s prior, %i iterations'\
-      % (method, n_rep, prior, iters))
+print('\nRunning EB-PCA with %s estimation for bivariate prior: #%i replication, %s prior, %i iterations'\
+      % (method, n_copy, prior, iters))
 
 # set other fixed parameters for simulation
 n = 1000
@@ -105,45 +105,48 @@ alignment = []
 np.random.seed(1)
 seeds = [np.random.randint(0, 10000, 50) for i in range(3)] # set seed for each dataset
 
-for i in range(n_rep):
-    if not os.path.exists('%s_copy_%i.npy' % (data_prefix, i)):
-        print('Simulating data for replication %i' % i)
-        # simulate data based on the chosen prior
-        u_star = simulate_prior(prior, n, seed=seeds[0][i], rank=rank)
-        v_star = simulate_prior(prior, d, seed=seeds[1][i], rank=rank)
-        Y = signal_plus_noise_model(u_star, v_star, np.diag(s_star), seed=seeds[2][i], rank=rank)
-        # normalize the observational matrix
-        X = normalize_obs(Y, rank)
-        np.save('%s_copy_%i_u_star.npy' % (data_prefix, i), u_star, allow_pickle=False)
-        np.save('%s_copy_%i_v_star.npy' % (data_prefix, i), v_star, allow_pickle=False)
-        np.save('%s_copy_%i.npy' % (data_prefix, i), X, allow_pickle=False)
+# set i to be the nominal copy number - 1
+i = n_copy - 1
+
+if not os.path.exists('%s_copy_%i.npy' % (data_prefix, i)):
+    print('Simulating data for replication %i' % i)
+    # simulate data based on the chosen prior
+    u_star = simulate_prior(prior, n, seed=seeds[0][i], rank=rank)
+    v_star = simulate_prior(prior, d, seed=seeds[1][i], rank=rank)
+    Y = signal_plus_noise_model(u_star, v_star, np.diag(s_star), seed=seeds[2][i], rank=rank)
+    # normalize the observational matrix
+    X = normalize_obs(Y, rank)
+    np.save('%s_copy_%i_u_star.npy' % (data_prefix, i), u_star, allow_pickle=False)
+    np.save('%s_copy_%i_v_star.npy' % (data_prefix, i), v_star, allow_pickle=False)
+    np.save('%s_copy_%i.npy' % (data_prefix, i), X, allow_pickle=False)
 
 # run EB-PCA with marginal / joint estimation of bivariate priors
 u_alignment = []
 v_alignment = []
 start_time = time.time()
-for i in range(n_rep):
-    print('Replication %i' % i)
-    # load simulation data
-    u_star = np.load('%s_copy_%i_u_star.npy' % (data_prefix, i), allow_pickle=False)
-    v_star = np.load('%s_copy_%i_v_star.npy' % (data_prefix, i), allow_pickle=False)
-    X = np.load('%s_copy_%i.npy' % (data_prefix, i), allow_pickle=False)
 
-    # run EB-PCA with designated method for prior estimation
-    U_est, V_est = run_rankK_EBPCA(method, X, rank, iters)
+# Run EB-PCA for one replication
 
-    # evaluate marginal alignment
-    u_alignment.append(get_marginal_alignment(U_est, u_star))
-    v_alignment.append(get_marginal_alignment(V_est, v_star))
+print('Replication %i' % i)
+# load simulation datau_star = np.load('%s_copy_%i_u_star.npy' % (data_prefix, i), allow_pickle=False)
+v_star = np.load('%s_copy_%i_v_star.npy' % (data_prefix, i), allow_pickle=False)
+X = np.load('%s_copy_%i.npy' % (data_prefix, i), allow_pickle=False)
 
-    if i == 0:
-        # save replication 0 results for making plots
-        np.save('output/%s/denoisedPC/%s_%s_s_%.1f_%.1f_n_copy_%i.npy' %
-                (prior_prefix, method, "U", s_star[0], s_star[1], i),
-                U_est, allow_pickle=False)
-        np.save('output/%s/denoisedPC/%s_%s_s_%.1f_%.1f_n_copy_%i.npy' %
-                (prior_prefix, method, "V", s_star[0], s_star[1], i),
-                V_est, allow_pickle=False)
+# run EB-PCA with designated method for prior estimation
+U_est, V_est = run_rankK_EBPCA(method, X, rank, iters)
+
+# evaluate marginal alignment
+u_alignment.append(get_marginal_alignment(U_est, u_star))
+v_alignment.append(get_marginal_alignment(V_est, v_star))
+
+if i == 0:
+    # save replication 0 results for making plots
+    np.save('output/%s/denoisedPC/%s_%s_s_%.1f_%.1f_n_copy_%i.npy' %
+            (prior_prefix, method, "U", s_star[0], s_star[1], i),
+            U_est, allow_pickle=False)
+    np.save('output/%s/denoisedPC/%s_%s_s_%.1f_%.1f_n_copy_%i.npy' %
+            (prior_prefix, method, "V", s_star[0], s_star[1], i),
+             V_est, allow_pickle=False)
 
 end_time = time.time()
 print('Simulation takes %.2f s' % (end_time - start_time))
@@ -153,9 +156,9 @@ print('\t joint', get_joint_alignment(u_alignment))
 print('\nleft PC alignments:\n\t marginal:', v_alignment)
 print('\t joint', get_joint_alignment(v_alignment))
 
-np.save('output/%s/alignments/%s_u_s_%.1f_%.1f_n_rep_%i.npy' % (prior_prefix, method, s_star[0], s_star[1], n_rep),
+np.save('output/%s/alignments/%s_u_s_%.1f_%.1f_n_copy_%i.npy' % (prior_prefix, method, s_star[0], s_star[1], n_copy),
         u_alignment, allow_pickle=False)
-np.save('output/%s/alignments/%s_v_s_%.1f_%.1f_n_rep_%i.npy' % (prior_prefix, method, s_star[0], s_star[1], n_rep),
+np.save('output/%s/alignments/%s_v_s_%.1f_%.1f_n_copy_%i.npy' % (prior_prefix, method, s_star[0], s_star[1], n_copy),
         v_alignment, allow_pickle=False)
 
 print('\n Simulation finished. \n')
