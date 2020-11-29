@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 from simulation.helpers import get_joint_alignment
+from tutorial import normalize_pc, redirect_pc
 
 def load_sample_labels(data_name, data_dir = 'data'):
     if data_name in ['1000G', 'UKBB', 'pbmc', 'GTEx']:

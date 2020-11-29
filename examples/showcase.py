@@ -9,7 +9,7 @@ For each dataset, we will compare four sets of PCs:
     2. PCA estimates from a subset
     3. EB-PCA estimates with marginal estimation of bivariate priors
     3. EB-PCA estimates with joint estimation of bivariate priors
-The cleaning procedure for these datasets are included in ./data.
+The cleaning procedure for these datasets are included in ./data/.
 
 '''
 
@@ -19,35 +19,32 @@ import sys
 sys.path.extend(['../../generalAMP'])
 from ebpca.preprocessing import normalize_obs, plot_pc
 from ebpca.pca import get_pca, check_residual_spectrum
-from simulation.helpers import fill_alignment
-from simulation.rank_two_figures import get_rank_two_est
-from scipy.linalg import svd
+from simulation.helpers import align_pc
+from simulation.rank_two import run_rankK_EBPCA
 import matplotlib.pyplot as plt
 from visualization import vis_2dim_subspace
-from tutorial import get_alignment, redirect_pc, normalize_pc
+from tutorial import get_alignment
+import time
 
 # load cleaned full data
 def load_data(data_name):
-    data_dir = 'data/'
+    data_dir = 'data/' + data_name
     if data_name == '1000G':
-        full_data = np.load(data_dir + 'normalized_1000G_1e5.npy')
+        full_data = np.load(data_dir + '/normalized_1000G_1e5.npy')
     elif data_name == 'UKBB':
-        full_data = np.load(data_dir + 'normalized_UKBB_1e5.npy')
+        full_data = np.load(data_dir + '/normalized_UKBB_1e5.npy')
     elif data_name == 'PBMC':
-        full_data = np.load(data_dir + 'GTEx_full_norm.npy')
+        full_data = np.load(data_dir + '/GTEx_full_norm.npy')
     elif data_name == 'GTEx':
-        full_data = np.load(data_dir + 'pbmc_norm_clean.npy')
+        full_data = np.load(data_dir + '/pbmc_norm_clean.npy')
     return full_data
 
 # Make directories to save figures
 def make_dir(data_name):
-    all_methods = ['EB-PCA_marginal', 'EB-PCA_joint']
     if not os.path.exists('figures/{}'.format(data_name)):
         print('Creating directories for saving {} figures and results'.format(data_name))
         os.mkdir('results/{}'.format(data_name))
         os.mkdir('figures/{}'.format(data_name))
-        # for i in range(len(all_methods)):
-        #     os.mkdir('figures/{}/{}'.format(data_name, all_methods[i]))
     else:
         print('Directories for {} already exist'.format(data_name))
 
@@ -87,11 +84,11 @@ if __name__ == '__main__':
     # Rank equals the number of PCs in the EB-PCA model
     # For each dataset, we manually inspect the singular value distribution
     # and identify the number of signal components
-    real_data_rank = {'1000G': 4}
+    real_data_rank = {'1000G': 4, 'UKBB': 2, 'PBMC': 2, }
 
     # ---Subset size---
     # The size of the random subsets
-    subset_size = {'1000G': 1000}
+    subset_size = {'1000G': 1000, 'UKBB': 1000}
 
     # take arguments from command line
     # run single example for visualization or multiple replications to demonstrate quantitative performance
@@ -111,6 +108,7 @@ if __name__ == '__main__':
     to_plot = (n_rep == 1)
 
     print('Analyzing dataset: %s, #replications = %i' % (data_name, n_rep))
+    start_time = time.time()
 
     # ---------------------------------------------------
     # step 1: load data and explore ground truth
@@ -158,7 +156,6 @@ if __name__ == '__main__':
             plot_pc(norm_data, label=data_name, nPCs=real_data_rank[data_name],
                     to_show=False, to_save=True, fig_prefix='%s/' % data_name)
 
-    if to_plot:
         # visualize the joint structure of PCs
         for i in range(int(real_data_rank[data_name] / 2) - 1):
             fig, ax = plt.subplots(figsize=(6, 4))
@@ -187,36 +184,45 @@ if __name__ == '__main__':
         sub_pcapack = get_pca(X, real_data_rank[data_name])
 
         # visualize naive PCA
-        # TODO
-        # TAKE V DIRECTION TO PLOT
         if to_plot:
+            # evaluate alignment
             PCA_align = [get_alignment(sub_pcapack.V[:, [j]], full_pcapack.V[:, [j]]) \
                          for j in range(real_data_rank[data_name])]
+            # align the direction and scale of sample PCs with the true PC
+            sub_PCs = sub_pcapack.V
+            sub_PCs = align_pc(sub_PCs, full_pcapack.V)
+
             for i in range(int(real_data_rank[data_name] / 2) - 1):
                 fig, ax = plt.subplots(figsize=(6, 4))
-                vis_2dim_subspace(ax, sub_pcapack.V[:, (2 * i):(2 * i + 2)], PCA_align[(2 * i):(2 * i + 2)],
+                vis_2dim_subspace(ax, sub_PCs[:, (2 * i):(2 * i + 2)], PCA_align[(2 * i):(2 * i + 2)],
                                   data_name, 'naive_PCA',
                                   data_dir='data/', to_save=True)
 
         # ----------------------------------------
         # step 4: Run EB-PCA
         # ----------------------------------------
-        # run EB-PCA with joint and marginal prior estimation
-        # TODO
-        # V JOINT
-        if not os.path.exists('results/%s/PC_estimates_iters_%i_n_rep_%i.npy' % (data_name, iters, n_rep)):
-            _, V_joint, _, V_mar = get_rank_two_est(X, rank=real_data_rank[data_name], iters=iters, to_save=False)
-            np.save('results/%s/PC_estimates_iters_%i_n_rep_%i.npy' % (data_name, iters, n_rep), [V_joint, V_mar],
+        # run EB-PCA with joint estimation (by default)
+        est_dir = 'results/%s/PC_estimates_iters_%i_n_rep_%i' % (data_name, iters, n_rep)
+        if not os.path.exists(est_dir + '.npy'):
+            _, V_joint = run_rankK_EBPCA('joint', X, real_data_rank[data_name], iters)
+            np.save('results/%s/PC_estimates_iters_%i_n_rep_%i.npy' % (data_name, iters, n_rep), V_joint,
                     allow_pickle=False)
         else:
-            V_joint, V_mar = np.load('results/%s/PC_estimates_iters_%i_n_rep_%i.npy' % (data_name, iters, n_rep))
+            V_joint = np.load(est_dir)
+
+        # also run EB-PCA with marginal estimation if to_plot
+        if to_plot:
+            if not os.path.exists(est_dir + '_marginal.npy'):
+                _, V_mar = run_rankK_EBPCA('mar', X, real_data_rank[data_name], iters)
+                np.save(est_dir + '_marginal.npy', V_mar, allow_pickle=False)
+            else:
+                V_mar = np.load(est_dir + '_marginal.npy')
 
         # ----------------------------------------
         # step 5: Visualize estimated PC
         # ----------------------------------------
         if to_plot:
-            # TODO
-            # CHANGE TO V
+            # evaluate alignments
             mar_align = [get_alignment(V_mar[:, [j], -1], full_pcapack.V[:, [j]]) \
                          for j in range(real_data_rank[data_name])]
             joint_align = [get_alignment(V_joint[:, [j], -1], full_pcapack.V[:, [j]]) \
@@ -226,7 +232,12 @@ if __name__ == '__main__':
             print('marginal alignments: ', np.sqrt(1 - np.power(mar_align, 2)))
             print('marginal alignments: ', np.sqrt(1 - np.power(joint_align, 2)))
 
-            V_est = [V_mar[:, :, -1], V_joint[:, :, -1]]
+            # align the direction and scale of sample PCs with the true PC
+            V_mar_est = align_pc(V_mar[:, :, -1], full_pcapack.V)
+            V_joint_est = align_pc(V_joint[:, :, -1], full_pcapack.V)
+
+            # loop over plots
+            V_est = [V_mar_est, V_joint_est]
             method_name = ['EB-PCA_marginal', 'EB-PCA_joint']
             aligns = [mar_align, joint_align]
 
@@ -236,3 +247,6 @@ if __name__ == '__main__':
                     vis_2dim_subspace(ax, V_est[i][:, (2 * j):(2 * j + 2)], aligns[i][(2 * i):(2 * i + 2)],
                                       data_name, method_name[i],
                                       data_dir='data/', to_save=True)
+
+    end_time = time.time()
+    print('Simulation takes %.2f s' % (end_time - start_time))
