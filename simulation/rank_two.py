@@ -95,8 +95,13 @@ def run_rankK_EBPCA(method, X, rank, iters):
                                                         udenoiser=udenoiser, vdenoiser=vdenoiser,
                                                         return_conv = True)
             print('marginal dim %i convergence ' % (j + 1), conv)
+            if U_mar_est.shape[2] < (iters + 1):
+                pad_est = lambda est, ol, sl: np.pad(est, [(0, 0), (0,0), (0, ol-sl)], 'constant', constant_values=np.nan)
+                U_mar_est = pad_est(U_mar_est, iters + 1, U_mar_est.shape[2])
+                V_mar_est = pad_est(V_mar_est, iters + 1, V_mar_est.shape[2])
             U_est[:, j, :] = U_mar_est[:, 0, :]
             V_est[:, j, :] = V_mar_est[:, 0, :]
+	    
     return U_est, V_est
 
 alignment = []
@@ -128,7 +133,8 @@ start_time = time.time()
 # Run EB-PCA for one replication
 
 print('Replication %i' % i)
-# load simulation datau_star = np.load('%s_copy_%i_u_star.npy' % (data_prefix, i), allow_pickle=False)
+# load simulation data
+u_star = np.load('%s_copy_%i_u_star.npy' % (data_prefix, i), allow_pickle=False)
 v_star = np.load('%s_copy_%i_v_star.npy' % (data_prefix, i), allow_pickle=False)
 X = np.load('%s_copy_%i.npy' % (data_prefix, i), allow_pickle=False)
 

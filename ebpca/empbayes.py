@@ -150,7 +150,8 @@ class NonparEB(_BaseEmpiricalBayes):
             self.pi, W = npmle_em_hd2(f, self.Z, mu, covInv, self.em_iter)
         if self.optimizer == "Mosek":
             self.pi, W = mosek_npmle(f, self.Z, mu, covInv, self.ftol)
-        self.P = get_P_from_W(W, self.pi)
+        if not np.all(self.pi == 0):
+            self.P = get_P_from_W(W, self.pi)
         del W
 
     def get_margin_pdf(self, x, mu, cov, dim):
@@ -536,10 +537,11 @@ def mosek_npmle(f, Z, mu, covInv, tol=1e-8):
             M.acceptedSolutionStatus(fusion.AccSolutionStatus.Optimal) # Anything
             print(" Accepted solution setting:", M.getAcceptedSolutionStatus())
             pi = f.level()
-            # address negative values due to numerical instability
-            pi[pi < 0] = 0
-            # normalize the negative values due to numerical issues
-            pi = pi / np.sum(pi)
+            if not np.all(pi==0):
+                # address negative values due to numerical instability
+                pi[pi < 0] = 0
+                # normalize the negative values due to numerical issues
+                pi = pi / np.sum(pi)
 
         except fusion.OptimizeError as e:
             print(" Optimization failed. Error: {0}".format(e))
@@ -575,11 +577,11 @@ def mosek_npmle(f, Z, mu, covInv, tol=1e-8):
         except Exception as e:
             print("  Unexpected error: {0}".format(e))
 
-        try:
-            pi = f.level()
-        except Exception as e:
-            print("XZ: f level doesn't have a solution.")
-            print(pi)
+        # try:
+        #     pi = f.level()
+        # except Exception as e:
+        #     print("XZ: f level doesn't have a solution.")
+        #     print(pi)
         
         return pi, A
 
