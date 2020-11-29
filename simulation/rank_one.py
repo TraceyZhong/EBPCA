@@ -170,10 +170,10 @@ for i in range(n_rep_start, n_rep):
         conv_trace.append(conv)
     # evaluate alignment
     # maximal EBMF iterations: 50
-    u_alignment.append(fill_alignment(U_est, u_star, iters))
-    v_alignment.append(fill_alignment(V_est, v_star, iters))
-    print(fill_alignment(U_est, u_star, iters))
-    print(fill_alignment(V_est, v_star, iters))
+    u_alignment.append(fill_alignment(U_est, u_star, iters + 1))
+    v_alignment.append(fill_alignment(V_est, v_star, iters + 1))
+    print(fill_alignment(U_est, u_star, iters + 1))
+    print(fill_alignment(V_est, v_star, iters + 1))
     if saveDE:
         # save denoised PC along iterations
         print('Saving denoised PCs')

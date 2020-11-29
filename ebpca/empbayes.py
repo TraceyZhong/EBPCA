@@ -51,8 +51,8 @@ class _BaseEmpiricalBayes(ABC):
 
     def fit(self, f, mu, cov, **kwargs):
         self.estimate_prior(f,mu,cov)
-        if np.all(self.pi == 0):
-            return 'error'
+        # if np.all(self.pi == 0):
+        #     return 'error'
         figname = kwargs.get("figname", "")
         if (self.to_show or self.to_save):
             self.check_margin(f,mu,cov,figname)
@@ -150,8 +150,10 @@ class NonparEB(_BaseEmpiricalBayes):
             self.pi, W = npmle_em_hd2(f, self.Z, mu, covInv, self.em_iter)
         if self.optimizer == "Mosek":
             self.pi, W = mosek_npmle(f, self.Z, mu, covInv, self.ftol)
-        if not np.all(self.pi == 0):
-            self.P = get_P_from_W(W, self.pi)
+            # use EM as fallback if encountered error in MOSEK
+            if np.all(self.pi == 0):
+                self.pi, W = npmle_em_hd2(f, self.Z, mu, covInv, self.em_iter)
+        self.P = get_P_from_W(W, self.pi)
         del W
 
     def get_margin_pdf(self, x, mu, cov, dim):
@@ -535,7 +537,7 @@ def mosek_npmle(f, Z, mu, covInv, tol=1e-8):
             M.solve()
             # https://docs.mosek.com/9.2/pythonfusion/enum_index.html#accsolutionstatus
             M.acceptedSolutionStatus(fusion.AccSolutionStatus.Optimal) # Anything
-            print(" Accepted solution setting:", M.getAcceptedSolutionStatus())
+           # print(" Accepted solution setting:", M.getAcceptedSolutionStatus())
             pi = f.level()
             if not np.all(pi==0):
                 # address negative values due to numerical instability
@@ -580,7 +582,9 @@ def mosek_npmle(f, Z, mu, covInv, tol=1e-8):
         # try:
         #     pi = f.level()
         # except Exception as e:
-        #     print("XZ: f level doesn't have a solution.")
+            # print("XZ: f level doesn't have a solution.")
+            # use EM as fallback
+            
         #     print(pi)
         
         return pi, A
