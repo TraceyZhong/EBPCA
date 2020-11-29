@@ -8,7 +8,7 @@ from ebpca.amp import ebamp_gaussian as ebamp_gaussian
 from ebpca.preprocessing import normalize_obs
 from ebpca.pca import get_pca
 from simulation.helpers import simulate_prior, signal_plus_noise_model, \
-    fill_alignment, get_joint_alignment, regress_out_top
+    get_marginal_alignment, get_joint_alignment, regress_out_top
 
 # ----------------------
 # Setup for simulation
@@ -27,7 +27,7 @@ parser.add_argument("--n_rep", type=int, help="enter number of independent data 
 parser.add_argument("--iters", type=int, help="enter EB-PCA iterations",
                     default=5, const=5, nargs='?')
 parser.add_argument("--s_star_1", type=float, help="true signal strength 1",
-                    default=2.5, const=2.5, nargs='?')
+                    default=4, const=4, nargs='?')
 parser.add_argument("--s_star_2", type=float, help="true signal strength 2",
                     default=2, const=2, nargs='?')
 args = parser.parse_args()
@@ -37,7 +37,7 @@ prior = args.prior
 n_rep = args.n_rep
 iters = args.iters
 
-print('\nRunning EB-PCA %s estimation on two PCs rank two simulations with %i replications, %s prior, %i iterations'\
+print('\nRunning EB-PCA with %s estimation for bivariate prior: %i replications, %s prior, %i iterations'\
       % (method, n_rep, prior, iters))
 
 # set other fixed parameters for simulation
@@ -94,7 +94,6 @@ def run_rankK_EBPCA(method, X, rank, iters):
             U_mar_est, V_mar_est, conv = ebamp_gaussian(pcapack, iters=iters,
                                                         udenoiser=udenoiser, vdenoiser=vdenoiser,
                                                         return_conv = True)
-            print(U_mar_est.shape)
             print('marginal dim %i convergence ' % (j + 1), conv)
             U_est[:, j, :] = U_mar_est[:, 0, :]
             V_est[:, j, :] = V_mar_est[:, 0, :]
@@ -134,18 +133,17 @@ for i in range(n_rep):
     U_est, V_est = run_rankK_EBPCA(method, X, rank, iters)
 
     # evaluate marginal alignment
-    u_alignment.append([fill_alignment(U_est[:,[j],:], u_star[:,[j]], iters) for j in range(rank)])
-    v_alignment.append([fill_alignment(V_est[:,[j],:], v_star[:,[j]], iters) for j in range(rank)])
+    u_alignment.append(get_marginal_alignment(U_est, u_star))
+    v_alignment.append(get_marginal_alignment(V_est, v_star))
 
-    # save replication 0 results for making plots
-    np.save('output/%s/denoisedPC/%s_%s_s_%.1f_%.1f_n_copy_%i.npy' %
-            (prior_prefix, method, "U", s_star[0], s_star[1], i),
-            U_est, allow_pickle=False)
-    np.save('output/%s/denoisedPC/%s_%s_s_%.1f_%.1f_n_copy_%i.npy' %
-            (prior_prefix, method, "V", s_star[0], s_star[1], i),
-            V_est, allow_pickle=False)
-    # if i == 0 or i == 1:
-
+    if i == 0:
+        # save replication 0 results for making plots
+        np.save('output/%s/denoisedPC/%s_%s_s_%.1f_%.1f_n_copy_%i.npy' %
+                (prior_prefix, method, "U", s_star[0], s_star[1], i),
+                U_est, allow_pickle=False)
+        np.save('output/%s/denoisedPC/%s_%s_s_%.1f_%.1f_n_copy_%i.npy' %
+                (prior_prefix, method, "V", s_star[0], s_star[1], i),
+                V_est, allow_pickle=False)
 
 end_time = time.time()
 print('Simulation takes %.2f s' % (end_time - start_time))

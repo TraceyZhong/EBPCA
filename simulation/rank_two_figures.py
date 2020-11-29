@@ -97,27 +97,20 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--s_star_1", type=float, help="true signal strength 1",
-                        default=2.5, const=2.5, nargs='?')
+                        default=4, const=4, nargs='?')
     parser.add_argument("--s_star_2", type=float, help="true signal strength 2",
                         default=2, const=2, nargs='?')
     args = parser.parse_args()
     s_star = [args.s_star_1, args.s_star_2]
 
-    for prior in ['Three_points']: # 'Uniform_circle',
+    for prior in ['Uniform_circle', 'Three_points']:
         # load data
         # assuming results from rank_two.py is available
         i = 0
         star = load_PC_star(prior, s_star, i)
         mar = load_dePC(prior, "marginal", s_star, i)
-
-        plt.scatter(mar[:, 0, -1], mar[:, 1, -1], s = 0.5, alpha = 0.5)
-        plt.xlim([-2,2])
-        plt.ylim([-2,2])
-        plt.savefig('figures/bivariate/tmp_%s.png' % prior)
-        plt.close()
-
         joint = load_dePC(prior, "joint", s_star, i)
-        # make plots
+        # plot denoised PC
         plot_rank2_dePC(star, mar, joint, prior, s_star)
 
         # print table statistics

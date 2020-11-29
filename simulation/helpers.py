@@ -110,14 +110,11 @@ def get_marginal_alignment(est, star):
     """
     Evaluate marginal alignments pf estimated PC
     """
-    print(est.shape)
     rank = est.shape[1]
     if len(est.shape) > 2:
         # Evaluate alignments for sequences of estimates
         iters = est.shape[2]
-        print('rank: %i' % rank)
-        print('iters: %i' % rank)
-        return [fill_alignment(est[:, [j], :], star[:, [j]], iters)[0] for j in range(rank)]
+        return [fill_alignment(est[:, [j], :], star[:, [j]], iters) for j in range(rank)]
     else:
         # Evaluate alignments for one dePC
         return [get_alignment(est[:, [j]], star[:, [j]]) for j in range(rank)]
