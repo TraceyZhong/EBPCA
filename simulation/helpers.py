@@ -148,3 +148,6 @@ def align_pc(pc, reference):
     scale_star = np.sqrt((reference ** 2).sum(axis=0))
     pc = normalize_pc(pc) / np.sqrt(len(pc)) * scale_star
     return pc
+
+def get_error(align):
+    return np.sqrt(1 - align**2)

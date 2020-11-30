@@ -1,11 +1,12 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-from simulation.helpers import get_joint_alignment
-from tutorial import normalize_pc, redirect_pc
+import sys
+sys.path.extend(['../../generalAMP'])
+from simulation.helpers import get_joint_alignment, get_error
 
 def load_sample_labels(data_name, data_dir = 'data'):
-    if data_name in ['1000G', 'UKBB', 'pbmc', 'GTEx']:
+    if data_name in ['1000G', 'UKBB', 'PBMC', 'GTEx']:
         if data_name == '1000G':
             popu_label_df = pd.read_csv('%s/%s/Popu_labels.txt' % (data_dir, data_name), sep=' ')
             popu_label = popu_label_df[['Population_broad']].values.flatten()
@@ -16,29 +17,61 @@ def load_sample_labels(data_name, data_dir = 'data'):
                                     header=None)
             popu_label_df = popu_label_df.loc[fam_match[[0]].values.flatten()]
             popu_label = popu_label_df[['board_label']].values.flatten()
-        elif data_name == 'pbmc':
+        elif data_name == 'PBMC':
             popu_label = np.load('%s/%s/pbmc_celltype_clean.npy' % (data_dir, data_name), allow_pickle=True)
         elif data_name == 'GTEx':
             popu_label = np.load('%s/%s/gtex_tissue_labels.npy' % (data_dir, data_name), allow_pickle=True)
     else:
-        print('There are only 4 datasets supported: 1000G, UKBB, pbmc, GTEx')
+        print('There are only 4 datasets supported: 1000G, UKBB, PBMC, GTEx')
     return popu_label
 
-def vis_2dim_subspace(ax, u, plot_aligns, data_name, method_name,
-                      data_dir = 'data/', to_save=True, **kwargs):
+def vis_2dim_subspace(u, plot_aligns, data_name, method_name, xRange, yRange,
+                      data_dir = 'data', to_save=True,
+                      plot_error=True, legend_loc='lower right', **kwargs):
+    # tune aesthetics
+    plt.rcParams['axes.labelsize'] = 14
+    plt.rcParams['axes.titlesize'] = 16
+    plt.rcParams['font.size'] = 10
+
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(7.5, 6))
+
+    # get PC name
+    PC1 = kwargs.get("PC1", 1)
+    PC2 = kwargs.get("PC2", 2)
+    print('Plot PC %i and PC %i ' % (PC1, PC2))
+
+    # load sample label for coloring
     popu_label = load_sample_labels(data_name, data_dir)
     df = pd.DataFrame(dict(x=list(u[:, 0]), y=list(u[:, 1]), label=popu_label))
+
+    # metrics to plot
+    metric = [get_joint_alignment(plot_aligns, iterates=False), plot_aligns[0], plot_aligns[1]]
+    metric_name = 'alignment'
+    if plot_error:
+        metric = [get_error(align) for align in metric]
+        metric_name = 'error'
+
     groups = df.groupby('label')
     for name, group in groups:
-        ax.plot(group.x, group.y, marker='o', linestyle='', ms=1, label=name) # plt.scatter(u1, u2, s=1.5)
-    ax.legend(loc='lower right')
-    ax.set_title('%s \n bivariate alignment=%.2f' % (method_name.replace('_', ' '), get_joint_alignment(plot_aligns)))
-    ax.set_xlabel('PC 1, alignment={:.2f}'.format(plot_aligns[0]))
-    ax.set_ylabel('PC 2, alignment={:.2f}'.format(plot_aligns[1]))
+        ax.plot(group.x, group.y, marker='o', linestyle='', ms=1, label=name)
+
+    if method_name == 'ground_truth_PCA':
+        ax.set_title('%s' % method_name.replace('_', ' '))
+        ax.set_xlabel('PC %s' % PC1)
+        ax.set_ylabel('PC %s' % PC2)
+    else:
+        ax.set_title('%s \n bivariate %s=%.2f' % \
+                     (method_name.replace('_', ' '), metric_name, metric[0]))
+        ax.set_xlabel('PC %i, %s=%.2f' % (PC1, metric_name, metric[1]))
+        ax.set_ylabel('PC %i, %s=%.2f' % (PC2, metric_name, metric[2]))
+
+    # set aesthetics
+    ax.legend(loc=legend_loc)
+    ax.set_xlim(xRange)
+    ax.set_ylim(yRange)
+
     if to_save:
         fig_prefix = kwargs.get('fig_prefix', 'figures/%s/' % data_name)
-        plt.savefig(fig_prefix + '%s_%s.png' % (method_name, data_name))
-        plt.close()
-    else:
-        plt.show()
+        print(fig_prefix + '%s_%s_PC_%i_%i.png' % (method_name, data_name, PC1, PC2))
+        plt.savefig(fig_prefix + '%s_%s_PC_%i_%i.png' % (method_name, data_name, PC1, PC2))
     return ax
