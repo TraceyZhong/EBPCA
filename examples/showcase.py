@@ -162,7 +162,7 @@ if __name__ == '__main__':
 
         # save data
         np.save('results/%s/norm_data.npy' % data_name, norm_data)
-    else:
+    elif not os.path.exists('results/%s/subset_n_copy_%i.npy' % (data_name, 50)):
         print('Load normalized data.')
         norm_data = np.load('results/%s/norm_data.npy' % data_name)
 
@@ -216,6 +216,8 @@ if __name__ == '__main__':
     if not os.path.exists('results/%s/subset_n_copy_%i.npy' % (data_name, 50)):
         print('Making 50 random subsets')
         prep_subsets(norm_data, subset_size[data_name], data_name, seeds, n_rep=50)
+        # remove normalized data
+        del norm_data
 
     # load generated subsets
     X = np.load('results/%s/subset_n_copy_%i.npy' % (data_name, n_copy))

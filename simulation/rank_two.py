@@ -27,7 +27,7 @@ def run_rankK_EBPCA(method, X, rank, iters):
         U_est, V_est, conv = ebamp_gaussian(pcapack, iters=iters,
                                             udenoiser=udenoiser, vdenoiser=vdenoiser,
                                             return_conv=True)
-        # print('joint convergence ', conv)
+        print('joint convergence ', conv)
     elif method == 'marginal':
         U_est = np.empty([n, rank, iters + 1])
         V_est = np.empty([d, rank, iters + 1])
@@ -48,7 +48,7 @@ def run_rankK_EBPCA(method, X, rank, iters):
             U_mar_est, V_mar_est, conv = ebamp_gaussian(pcapack, iters=iters,
                                                         udenoiser=udenoiser, vdenoiser=vdenoiser,
                                                         return_conv = True)
-            # print('marginal dim %i convergence ' % (j + 1), conv)
+            print('marginal dim %i convergence ' % (j + 1), conv)
             if U_mar_est.shape[2] < (iters + 1):
                 pad_est = lambda est, ol, sl: np.pad(est, [(0, 0), (0,0), (0, ol-sl)], 'constant', constant_values=np.nan)
                 U_mar_est = pad_est(U_mar_est, iters + 1, U_mar_est.shape[2])
