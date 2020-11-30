@@ -98,7 +98,7 @@ if __name__ == '__main__':
 
     # ---Subset size---
     # The size of the random subsets
-    subset_size = {'1000G': 1000, 'UKBB': 2000, 'PBMC': 5000, 'GTEx': 2000}
+    subset_size = {'1000G': 1000, 'UKBB': 2000, 'PBMC': 13711, 'GTEx': 2000}
 
     # ---iterations---
     iters_list = {'1000G': 5, 'UKBB': 5, 'PBMC': 5, 'GTEx': 5}
