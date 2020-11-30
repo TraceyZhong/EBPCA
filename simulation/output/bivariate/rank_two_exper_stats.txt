@@ -1,0 +1,62 @@
+
+ Uniform_circle 
+
+Print alignment statistics for EB-PCA with marginal prior estimation: 
+#simulations that returns NA:  1
+marginal alignments: 
+ 	 mean: [0.97368565 0.88726724]
+	 std: [0.00157061 0.00671079]
+marginal errors: 
+ 	 mean: [0.22779179 0.46102666]
+	 std: [0.0066849  0.01289299]
+joint alignments: 
+ 	 mean:  0.9314690766762661
+	 std: 0.003257863617404813
+joint errors: 
+ 	 mean:  0.3637100619060352
+	 std: 0.00835083162463223
+Print alignment statistics for EB-PCA with joint prior estimation: 
+#simulations that returns NA:  0
+marginal alignments: 
+ 	 mean: [0.97609654 0.93209407]
+	 std: [0.00143851 0.00690009]
+marginal errors: 
+ 	 mean: [0.21723624 0.36171392]
+	 std: [0.0064723  0.01777872]
+joint alignments: 
+ 	 mean:  0.954355709453734
+	 std: 0.0034528032647070856
+joint errors: 
+ 	 mean:  0.29844812467205384
+	 std: 0.011044223033304814
+
+ Three_points 
+
+Print alignment statistics for EB-PCA with marginal prior estimation: 
+#simulations that returns NA:  0
+marginal alignments: 
+ 	 mean: [0.99653347 0.95606502]
+	 std: [0.00194923 0.00797024]
+marginal errors: 
+ 	 mean: [0.08081674 0.29188593]
+	 std: [0.01964406 0.02605282]
+joint alignments: 
+ 	 mean:  0.9765167114803613
+	 std: 0.0042920001924930985
+joint errors: 
+ 	 mean:  0.2145617556912402
+	 std: 0.018972188292888863
+Print alignment statistics for EB-PCA with joint prior estimation: 
+#simulations that returns NA:  0
+marginal alignments: 
+ 	 mean: [0.9987584  0.99611598]
+	 std: [0.00132233 0.00388009]
+marginal errors: 
+ 	 mean: [0.04627234 0.08138446]
+	 std: [0.01840621 0.03338357]
+joint alignments: 
+ 	 mean:  0.9974391617163064
+	 std: 0.002492684721168924
+joint errors: 
+ 	 mean:  0.06696497874488254
+	 std: 0.02499193508414837
