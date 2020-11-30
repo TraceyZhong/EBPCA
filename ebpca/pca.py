@@ -62,6 +62,40 @@ def get_pca_v(X, K = 0):
             feature_aligns= sol["feature_align"])
     return pca_pack
 
+# def get_pca(X, K=0, s = None):
+#     if K == 0:
+#         raise(ValueError("# PC can not be zero."))
+#     n_samples, n_features = X.shape
+#     U, Lambdas, Vh = np.linalg.svd(X, full_matrices = False)
+#     U = U[:,:K]
+#     Lambda = Lambdas[:K]
+#     Vh = Vh[:K,:]
+#     # solve init parameters
+#     aspect_ratio = n_features/ n_samples
+#     print("s should be at least {:.4f} to satisfy the super critical condition.".format(1/aspect_ratio**(1/4)))
+    
+#     if s is None:
+#         singval_threshold = 1 + np.sqrt(aspect_ratio)
+#         print("singval should be at least {:.4f} to satisfy the super critical condition.".format(singval_threshold))
+#         if min(Lambda) < singval_threshold:
+#             raise(ValueError("Signal doesn't seperate from the bulk."))
+#         greek_lambda = Lambda / np.sqrt(aspect_ratio)
+#         s = np.sqrt((greek_lambda**2 * aspect_ratio - 1 - aspect_ratio + \
+#             np.sqrt((greek_lambda**2*aspect_ratio - 1 - aspect_ratio)**2 - 4*aspect_ratio) \
+#                 ) / (2*aspect_ratio))
+#         print("Estimation of s is {}.".format(s))
+    
+#     else:
+#         s = np.array(s).reshape(1)
+    
+#     sample_align = np.sqrt(1- (1 + s**2)/(s**2*(aspect_ratio*s**2 + 1)))
+#     feature_align = np.sqrt(1- (1 + aspect_ratio*s**2) /(aspect_ratio*s**2*(s**2 + 1)))
+#     pca_pack = PcaPack(X = X, U = U, V = Vh.transpose(), mu = Lambdas[K:], \
+#         n_samples = n_samples, n_features = n_features, \
+#         K = K, signals = s, sample_aligns= sample_align, \
+#             feature_aligns= feature_align)
+#     return pca_pack
+
 def get_pca(X, K=0, s = None):
     if K == 0:
         raise(ValueError("# PC can not be zero."))
@@ -90,7 +124,7 @@ def get_pca(X, K=0, s = None):
     
     sample_align = np.sqrt(1- (1 + s**2)/(s**2*(aspect_ratio*s**2 + 1)))
     feature_align = np.sqrt(1- (1 + aspect_ratio*s**2) /(aspect_ratio*s**2*(s**2 + 1)))
-    pca_pack = PcaPack(X = X, U = U, V = Vh.transpose(), mu = Lambdas[K:], \
+    pca_pack = PcaPack(X = X, U = U, V = Vh.transpose(), mu = Lambdas, \
         n_samples = n_samples, n_features = n_features, \
         K = K, signals = s, sample_aligns= sample_align, \
             feature_aligns= feature_align)
@@ -114,7 +148,36 @@ def get_bayes_pca(X, s, K=0):
             feature_aligns= feature_align)
     return pca_pack
 
-def check_residual_spectrum(pca_pack, to_show = False, to_save = False):
+# def check_residual_spectrum(pca_pack, to_show = False, to_save = False):
+#     '''we require the noise variance to be 1/n_samples
+#     mu must be sorted in descending order
+#     '''
+#     mu = pca_pack.mu
+#     n_samples = pca_pack.n_samples
+#     n_features = pca_pack.n_features
+
+#     shorter_side = min(n_samples, n_features)
+#     # mu = np.pad(mu, (0,n_samples - len(mu)))[:n_samples]
+#     # I don't think I need to pad
+    
+#     fig, ax = plt.subplots()
+#     ax.hist(mu[:shorter_side], density = True, bins = 50, label = "sample singular values")
+#     x = np.linspace(0.01, mu.max(), num = 50)
+#     aspect_ratio = n_features / n_samples
+#     if aspect_ratio > 1:
+#         scaler = aspect_ratio
+#     else:
+#         scaler = 1
+#     ax.plot(x, scaler*np.array(sqrtMPlaw(x, n_samples, n_features)), label = "MP law prediction of spectral distribution")
+#     ax.legend()
+#     ax.set_title("Residual Spectrum")
+#     if to_save:
+#         fig.savefig("./figures/residual_check.pdf")
+#     if to_show:
+#         plt.show()
+
+
+def check_residual_spectrum(pca_pack, xmin, xmax, to_show = False, to_save = False):
     '''we require the noise variance to be 1/n_samples
     mu must be sorted in descending order
     '''
@@ -135,8 +198,9 @@ def check_residual_spectrum(pca_pack, to_show = False, to_save = False):
     else:
         scaler = 1
     ax.plot(x, scaler*np.array(sqrtMPlaw(x, n_samples, n_features)), label = "MP law prediction of spectral distribution")
-    ax.legend()
-    ax.set_title("Residual Spectrum")
+    # ax.legend()
+    ax.set_xlim(left=xmin, right=xmax)
+    # ax.set_title("Singular values")
     if to_save:
         fig.savefig("./figures/residual_check.pdf")
     if to_show:
