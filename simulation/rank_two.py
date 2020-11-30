@@ -15,14 +15,14 @@ from simulation.helpers import simulate_prior, signal_plus_noise_model, \
 # -----------------
 
 # define a general function to run EB-PCA with marginal estimation and joint estimation
-def run_rankK_EBPCA(method, X, rank, iters):
+def run_rankK_EBPCA(method, X, rank, iters, optimizer="Mosek"):
     n, d = X.shape
     if method == 'joint':
         # prepare the PCA pack
         pcapack = get_pca(X, rank)
         # initiate denoiser
-        udenoiser = NonparEB(optimizer="Mosek", to_save=False)
-        vdenoiser = NonparEB(optimizer="Mosek", to_save=False)
+        udenoiser = NonparEB(optimizer=optimizer, to_save=False)
+        vdenoiser = NonparEB(optimizer=optimizer, to_save=False)
         # run AMP
         U_est, V_est, conv = ebamp_gaussian(pcapack, iters=iters,
                                             udenoiser=udenoiser, vdenoiser=vdenoiser,
@@ -33,8 +33,8 @@ def run_rankK_EBPCA(method, X, rank, iters):
         V_est = np.empty([d, rank, iters + 1])
         # initiate denoiser
         for j in range(rank):
-            udenoiser = NonparEB(optimizer="Mosek", to_save=False)
-            vdenoiser = NonparEB(optimizer="Mosek", to_save=False)
+            udenoiser = NonparEB(optimizer=optimizer, to_save=False)
+            vdenoiser = NonparEB(optimizer=optimizer, to_save=False)
             if j > 0:
                 # regress out top PC
                 X = regress_out_top(X, j)
