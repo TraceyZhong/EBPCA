@@ -27,7 +27,7 @@ def run_rankK_EBPCA(method, X, rank, iters):
         U_est, V_est, conv = ebamp_gaussian(pcapack, iters=iters,
                                             udenoiser=udenoiser, vdenoiser=vdenoiser,
                                             return_conv=True)
-        print('joint convergence ', conv)
+        # print('joint convergence ', conv)
     elif method == 'marginal':
         U_est = np.empty([n, rank, iters + 1])
         V_est = np.empty([d, rank, iters + 1])
@@ -48,14 +48,14 @@ def run_rankK_EBPCA(method, X, rank, iters):
             U_mar_est, V_mar_est, conv = ebamp_gaussian(pcapack, iters=iters,
                                                         udenoiser=udenoiser, vdenoiser=vdenoiser,
                                                         return_conv = True)
-            print('marginal dim %i convergence ' % (j + 1), conv)
+            # print('marginal dim %i convergence ' % (j + 1), conv)
             if U_mar_est.shape[2] < (iters + 1):
                 pad_est = lambda est, ol, sl: np.pad(est, [(0, 0), (0,0), (0, ol-sl)], 'constant', constant_values=np.nan)
                 U_mar_est = pad_est(U_mar_est, iters + 1, U_mar_est.shape[2])
                 V_mar_est = pad_est(V_mar_est, iters + 1, V_mar_est.shape[2])
             U_est[:, j, :] = U_mar_est[:, 0, :]
             V_est[:, j, :] = V_mar_est[:, 0, :]
-    return U_est, V_est
+    return U_est, V_est, conv
 
 if __name__ == '__main__':
     # ----------------------
@@ -140,7 +140,7 @@ if __name__ == '__main__':
     X = np.load('%s_copy_%i.npy' % (data_prefix, i), allow_pickle=False)
 
     # run EB-PCA with designated method for prior estimation
-    U_est, V_est = run_rankK_EBPCA(method, X, rank, iters)
+    U_est, V_est, conv = run_rankK_EBPCA(method, X, rank, iters)
 
     # evaluate marginal alignment
     u_alignment.append(get_marginal_alignment(U_est, u_star))
@@ -169,5 +169,7 @@ if __name__ == '__main__':
     np.save(
         'output/%s/alignments/%s_v_s_%.1f_%.1f_n_copy_%i.npy' % (prior_prefix, method, s_star[0], s_star[1], n_copy),
         v_alignment, allow_pickle=False)
+    np.save('output/%s/alignments/conv_%s_v_s_%.1f_%.1f_n_copy_%i.npy' % (prior_prefix, method, s_star[0], s_star[1], n_copy),
+        conv, allow_pickle=False)
 
     print('\n Simulation finished. \n')
