@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sys
 sys.path.extend(['../../generalAMP'])
-from simulation.helpers import get_joint_alignment, get_marginal_alignment, align_pc
+from simulation.helpers import get_joint_alignment, get_marginal_alignment, align_pc, get_error
 
 # ----------------------------------------------
 # Figure 4:
@@ -20,7 +20,7 @@ def load_dePC(prior, method, s_star, n_copy=0):
     X = np.load('%s_n_copy_%i.npy' % (dePC_prefix, n_copy), allow_pickle=False)
     return X
 
-def plot_rank2_dePC(star, mar, joint, prior, s_star):
+def plot_rank2_dePC(star, mar, joint, prior, s_star, plot_error=True):
     # tune aesthetics
     plt.rcParams['font.size'] = 14
 
@@ -41,13 +41,21 @@ def plot_rank2_dePC(star, mar, joint, prior, s_star):
 
     # start plotting
     for i in range(4):
+        # metrics to plot
+        metric = [get_joint_alignment(plot_aligns[i], iterates=False), plot_aligns[i][0], plot_aligns[i][1]]
+        metric_name = 'alignment'
+        # if plot_error:
+        #     metric = [get_error(align) for align in metric]
+        #     metric_name = 'error'
+
+        # generate plot
         fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(7, 6))
         ax.scatter(plot_est[i][:, 0], plot_est[i][:, 1], s = 2, alpha = 0.8)
         if i > 0:
-            ax.set_title('%s \n bivariate alignment=%.2f' % \
-                         (plot_method[i], get_joint_alignment(plot_aligns[i], False)))
-            ax.set_xlabel('PC 1, alignment={:.2f}'.format(plot_aligns[i][0]))
-            ax.set_ylabel('PC 2, alignment={:.2f}'.format(plot_aligns[i][1]))
+            ax.set_title('%s \n bivariate %s=%.2f (error=%.2f)' % \
+                         (plot_method[i], metric_name, metric[0], get_error(metric[0])))
+            ax.set_xlabel('PC 1, %s=%.2f (error=%.2f)' % (metric_name, metric[1], get_error(metric[1])))
+            ax.set_ylabel('PC 2, %s=%.2f (error=%.2f)' % (metric_name, metric[2], get_error(metric[2])))
         if i == 0:
             ax.set_title('%s' % (plot_method[i]))
             ax.set_xlabel('PC 1')
