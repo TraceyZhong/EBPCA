@@ -19,7 +19,7 @@ import sys
 sys.path.extend(['../../generalAMP'])
 from ebpca.preprocessing import normalize_obs, plot_pc
 from ebpca.pca import get_pca, check_residual_spectrum
-from simulation.helpers import align_pc
+from simulation.helpers import align_pc, get_error
 from simulation.rank_two import run_rankK_EBPCA
 import matplotlib.pyplot as plt
 from tutorial import get_alignment
@@ -86,6 +86,21 @@ def prep_subsets(X_norm, n_sub, data_name, seeds, n_rep=50):
         # normalize data to satisfy the EB-PCA assumption
         X = normalize_obs(X, real_data_rank[data_name])
         np.save('results/%s/subset_n_copy_%i.npy' % (data_name, i + 1), X)
+
+def eval_align_stats(data_name, method, s_star, ind=-1):
+    align_dir = 'results/%s' % data_name
+    for i in range(50):
+        if i == 0:
+            aligns = np.load('%s/joint_alignment_n_copy_%i.npy' % (align_dir, i+1))
+        else:
+            sec = np.load('%s/joint_alignment_n_copy_%i.npy' % (align_dir, i+1))
+            aligns = np.vstack([aligns, sec])
+
+    print('Print alignment statistics for sample PCA:')
+
+    print('\n Print alignment statistics for EB-PCA: \n')
+    print('\t mean:', np.mean(aligns, axis=0))
+    print('\t mean:', np.std(aligns, axis=0))
 
 if __name__ == '__main__':
     # set parameters for different datasets
