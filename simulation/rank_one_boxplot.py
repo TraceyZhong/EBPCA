@@ -11,6 +11,10 @@ from ebpca.state_evolution import get_state_evolution, uniform, point_normal, tw
 # boxplot
 # ----------------------------------------------
 
+plt.rcParams['axes.titlesize'] = 25
+plt.rcParams['axes.labelsize'] = 20
+plt.rcParams['font.size'] = 18
+
 def alignment_boxplots(res, ticks):
     n = len(res)
     if n == 5:
@@ -24,19 +28,26 @@ def alignment_boxplots(res, ticks):
         bp_width = 0.45
     bp_colors = ['tab:grey', 'tab:orange', 'tab:red', 'tab:blue', 'tab:green']
     # reference: https://stackoverflow.com/questions/16592222/matplotlib-group-boxplots 2nd answer
-    f, ax = plt.subplots(figsize=(8, 6))
+    f, ax = plt.subplots(figsize=(9, 6.5))
     def set_box_color(bp, color):
         plt.setp(bp['boxes'], color=color)
         plt.setp(bp['whiskers'], color=color)
         plt.setp(bp['caps'], color=color)
         plt.setp(bp['medians'], color=color)
 
-    bp1 = ax.boxplot(pca, positions=np.array(range(len(pca))) * float(n) + plot_seps[0], sym='', widths=bp_width)
-    bp2 = ax.boxplot(bayesamp, positions=np.array(range(len(bayesamp))) * float(n) + plot_seps[1], sym='', widths=bp_width)
-    bp3 = ax.boxplot(ebpca, positions=np.array(range(len(ebpca))) * float(n) + plot_seps[2], sym='', widths=bp_width)
-    bp4 = ax.boxplot(ebmf, positions=np.array(range(len(ebmf))) * float(n) + plot_seps[3], sym='', widths=bp_width)
+    # https://matplotlib.org/3.2.1/gallery/statistics/boxplot.html
+    boxprops = dict(linewidth=2)
+    bp1 = ax.boxplot(pca, positions=np.array(range(len(pca))) * float(n) + plot_seps[0], sym='', widths=bp_width,
+                     boxprops=boxprops, medianprops=boxprops, whiskerprops=boxprops)
+    bp2 = ax.boxplot(bayesamp, positions=np.array(range(len(bayesamp))) * float(n) + plot_seps[1], sym='', widths=bp_width,
+                     boxprops=boxprops, medianprops=boxprops, whiskerprops=boxprops)
+    bp3 = ax.boxplot(ebpca, positions=np.array(range(len(ebpca))) * float(n) + plot_seps[2], sym='', widths=bp_width,
+                     boxprops=boxprops, medianprops=boxprops, whiskerprops=boxprops)
+    bp4 = ax.boxplot(ebmf, positions=np.array(range(len(ebmf))) * float(n) + plot_seps[3], sym='', widths=bp_width,
+                     boxprops=boxprops, medianprops=boxprops, whiskerprops=boxprops)
     if n == 5:
-        bp5 = ax.boxplot(spca, positions=np.array(range(len(spca))) * float(n) + plot_seps[4], sym='', widths=bp_width)
+        bp5 = ax.boxplot(spca, positions=np.array(range(len(spca))) * float(n) + plot_seps[4], sym='', widths=bp_width,
+                         boxprops=boxprops, medianprops=boxprops, whiskerprops=boxprops)
 
     # https://matplotlib.org/3.1.0/gallery/color/named_colors.html
     set_box_color(bp1, bp_colors[0])
@@ -52,13 +63,13 @@ def alignment_boxplots(res, ticks):
     ax.plot([], c=bp_colors[2], label='EB-PCA')
     ax.plot([], c=bp_colors[3], label='EBMF')
     if n == 5:
-        ax.plot([], c=bp_colors[4], label='sPCA')
+        ax.plot([], c=bp_colors[4], label='SPCA')
 
-    ax.legend(loc='lower right')
+    # ax.legend(loc='lower right')
     plt.xticks(range(0, len(ticks) * n, n), ticks)
-    ax.set_xlabel("signal strength")
-    ax.set_ylabel('alignment with ground truth')
-    ax.set_xlim(-2, len(ticks) * n)
+    ax.set_xlabel("Signal strength s")
+    ax.set_ylabel('Alignment with ground truth')
+    ax.set_xlim(-2, len(ticks) * n-2)
     ax.set_ylim(np.min([np.min(res[i]) for i in range(len(res))]) - 0.05, 1 + 0.05)
     return ax
 # os.chdir('/Users/chang/PycharmProjects/generalAMP/simulation/')
@@ -77,7 +88,6 @@ def load_alignments(prior, method, s_list, ind=-1, PC='u', rm_na =True, \
     else:
         # take the result from the last iterate
         aligns = [(np.load('%s_s_%.1f_%s.npy' % (align_dir, s, n_rep_suffix))[:, ind]) for s in s_list]
-
     if rm_na:
         # remove nan values:
         print('\n %s, %s\n' % (prior, method))
@@ -109,17 +119,50 @@ def eval_se(prior, s_list, gamma, iters):
     return se
 
 # prior = 'Point_normal' # 'Two_points' # 'Uniform'
-def make_comp_plot(res, prior, PC, s_list, to_save=True, prefix = '', suffix=''):
+def make_comp_plot(res, prior, prior_name, PC, s_list, to_save=True, prefix = '', suffix=''):
     alignment_boxplots(res, s_list)
-    # locs, labels = plt.xticks()
-    # plt.hlines(se, locs-0.5, locs+0.5)
-    plt.title('%s, %s, method comparison \n %s' % (prior.replace('_', ' '), PC, suffix))
+    plt.title('%s, %s' % (prior_name, PC))
     if to_save:
         print('figures/univariate/Figure1/%s/%s_%s_%s.png' % (prefix, suffix, prior, PC))
         plt.savefig('figures/univariate/Figure1/%s/%s/%s_%s.png' % (prefix, suffix, prior, PC))
     else:
         plt.show()
     plt.close()
+
+def plot_legend(colors = ['tab:grey', 'tab:orange', 'tab:red', 'tab:blue', 'tab:green'],
+                labels = ['PCA', 'Oracle Bayes AMP', 'EB-PCA', 'Mean-field VB', 'SPCA']):
+    plt.rcParams['axes.labelsize'] = 14
+    plt.rcParams['font.size'] = 26
+    # 5 methods
+    fig = plt.figure()
+    fig_legend = plt.figure(figsize=(5, 4))
+    ax = fig.add_subplot(111)
+    lines = ax.plot(range(2), range(2), colors[0],
+                    range(2), range(2), colors[1],
+                    range(2), range(2), colors[2],
+                    range(2), range(2), colors[3],
+                    range(2), range(2), colors[4], linewidth=4)
+    fig_legend.legend(lines, labels, loc='center', frameon=True)
+    plt.savefig('figures/univariate/legend_5_methods.png')
+    # 2 methods
+    fig = plt.figure()
+    fig_legend = plt.figure(figsize=(4, 3))
+    ax = fig.add_subplot(111)
+    lines = ax.plot(range(2), range(2), colors[2],
+                    range(2), range(2), colors[3], linewidth = 4)
+    fig_legend.legend(lines, labels[2:4], loc='center', frameon=True)
+    plt.savefig('figures/univariate/legend_2_methods.png')
+    # block version
+    import matplotlib.patches as mpatches
+    fig = plt.figure(figsize=(5, 3))
+    patches = [
+        mpatches.Patch(color=color, label=label, alpha=0.4, linewidth=4)
+        for label, color in zip(labels[2:4], colors[2:4])]
+    patches.append(ax.plot(range(2), range(2), color='grey', linestyle="dashed"))
+    fig.legend(patches, labels[2:4], loc='center', frameon=True)
+    plt.savefig('figures/univariate/legend_2_methods_box.png')
+
+# plot_legend()
 
 if __name__ == '__main__':
     # Figure 1
@@ -134,11 +177,13 @@ if __name__ == '__main__':
     priors = {'n_2000': ['Point_normal', 'Two_points', 'Uniform'],
               'n_1000': ['Point_normal', 'Two_points', 'Uniform'],
               'MOSEK_pilot': ['Point_normal_0.1', 'Point_normal_0.5', 'Two_points', 'Uniform_centered'],
-              'MOSEK_exper': ['Point_normal_0.1', 'Point_normal_0.5', 'Two_points', 'Uniform_centered', 'Normal']}
+              'MOSEK_exper': ['Point_normal_0.1', 'Two_points', 'Uniform_centered', 'Normal']}# 'Point_normal_0.5',
     s_lists = {'n_2000': [1.1, 1.3, 1.5, 2.0],
                'n_1000': [1.1, 1.3, 1.5, 2.0],
                'MOSEK_pilot': [1.1, 1.3, 1.5, 2.0],
                'MOSEK_exper': [1.1, 1.3, 1.5, 2.0]}
+    prior_name = {'Normal': 'Normal', 'Point_normal_0.1': 'Point normal',
+                  'Two_points': 'Two points', 'Uniform_centered': 'Uniform'}
 
     exper_name = 'MOSEK_exper'
     prefix = prefixes[exper_name]
@@ -158,13 +203,9 @@ if __name__ == '__main__':
                 res = group_alignments(prior, PC, s_list=s_list, n_rep=n_rep,
                                        prefix=prefix, suffix='_by_5')
                 # se = eval_se(prior, s_list, gamma, iters)
-                make_comp_plot(res, prior, PC, s_list=s_list, to_save=True, \
+                make_comp_plot(res, prior, prior_name[prior], PC, s_list=s_list, to_save=True, \
                                prefix = prefix, suffix=exper_name)
 
-    # prior = 'Point_normal'
-    # PC = 'U'
-    # res = group_alignments(prior, PC, s_list=s_list, n_rep=n_rep, prefix=prefix)  # [0.9, 1.0, 1.1, 1.2, 1.3]
-    # se = eval_se(prior, s_list, gamma, iters)
-    # print(se)
-    # make_comp_plot(res, se, prior, PC, s_list=s_list, to_save=False, suffix=suffix)  # 'min_s_pilot'
+    # plot legend
+    plot_legend()
 
