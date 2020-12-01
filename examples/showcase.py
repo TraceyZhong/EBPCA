@@ -19,7 +19,7 @@ import sys
 sys.path.extend(['../../generalAMP'])
 from ebpca.preprocessing import normalize_obs, plot_pc
 from ebpca.pca import get_pca, check_residual_spectrum
-from simulation.helpers import get_error
+from simulation.helpers import get_error, get_space_distance
 from simulation.rank_two import run_rankK_EBPCA
 from tutorial import get_alignment, redirect_pc
 import time
@@ -141,6 +141,9 @@ if __name__ == '__main__':
     # ---pcs----
     pcs = {'1000G': [[0,1], [2,3]], 'UKBB': [[0,1],[]], 'PBMC': [[0,1],[1,2]]}
 
+    # ---npc---
+    npc = {'1000G': 2, 'UKBB': 1, 'PBMC': 2}
+
     # take arguments from command line
     # run single example for visualization or multiple replications to demonstrate quantitative performance
     import argparse
@@ -206,7 +209,7 @@ if __name__ == '__main__':
     if to_plot:
         # print('Load normalized data.')
         norm_data = np.load('results/%s/norm_data.npy' % data_name)
-        full_pcapack = get_pca(norm_data, real_data_rank[data_name])
+        # full_pcapack = get_pca(norm_data, real_data_rank[data_name])
         # visualize spectrum of the residual matrix (noise)
         if not os.path.exists('figures/%s/singvals_dist_%s.png' % (data_name, data_name)):
             check_residual_spectrum(full_pcapack, xmin = sv_lim[data_name][0], xmax = sv_lim[data_name][1],
@@ -219,7 +222,7 @@ if __name__ == '__main__':
                     to_show=False, to_save=True, fig_prefix='%s/' % data_name)
 
         # visualize the joint structure of PCs
-        for i in range(2):
+        for i in range(npc[data_name]):
             xRange = [l * np.sqrt(n) for l in xRange_list[data_name][i]]
             yRange = [l * np.sqrt(n) for l in yRange_list[data_name][i]]
             pc1 = pcs[data_name][i][0]
@@ -266,24 +269,24 @@ if __name__ == '__main__':
 
         # visualize naive PCA
         if to_plot:
-            # evaluate alignment
-            PCA_align = [get_alignment(sub_pcapack.V[:, [j]], V_star[:, [j]]) \
+            # evaluate error
+            PCA_error = [get_space_distance(sub_pcapack.V[:, [j]], V_star[:, [j]])
                          for j in range(real_data_rank[data_name])]
-            # align the direction and scale of sample PCs with the true PC
+            # align the direction f sample PCs with the true PC
             sub_PCs = sub_pcapack.V
             sub_PCs = redirect_pc(sub_PCs, V_star)
 
             # loop over pairs of PCs
-            for i in range(2):
+            for i in range(npc[data_name]):
                 xRange = [l * np.sqrt(n) for l in xRange_list[data_name][i]]
                 yRange = [l * np.sqrt(n) for l in yRange_list[data_name][i]]
                 pc1 = pcs[data_name][i][0]
                 pc2 = pcs[data_name][i][1]
                 print(pcs[data_name][i])
-                ax = vis_2dim_subspace(sub_PCs[:, pc1:(pc2+1)] * np.sqrt(n), PCA_align[pc1:(pc2+1)],
+                ax = vis_2dim_subspace(sub_PCs[:, pc1:(pc2+1)] * np.sqrt(n), PCA_error[pc1:(pc2+1)],
                                        data_name, 'Sample PC (%i subsample)' % subset_size[data_name], xRange=xRange, yRange=yRange,
                                        data_dir='data/', to_save=True, legend_loc=legend_pos[data_name][i],
-                                       PC1=pc1+1, PC2=pc2[1]+1)
+                                       PC1=pc1+1, PC2=pc2+1)
 
     # ----------------------------------------
     # step 4: Run EB-PCA
@@ -322,12 +325,15 @@ if __name__ == '__main__':
         # evaluate alignments
         # mar_align = [get_alignment(V_mar[:, [j], -1], V_star[:, [j]]) \
         #              for j in range(real_data_rank[data_name])]
-        joint_align = [get_alignment(V_joint[:, [j], -1], V_star[:, [j]]) \
+        # joint_align = [get_alignment(V_joint[:, [j], -1], V_star[:, [j]]) \
+        #                for j in range(real_data_rank[data_name])]
+        # evaluate error
+        joint_error = [get_space_distance(V_joint[:, [j], -1], V_star[:, [j]])
                        for j in range(real_data_rank[data_name])]
 
         # test sqrt(1-align^2)
         # print('marginal sqrt(1-alignments): ', np.sqrt(1 - np.power(mar_align, 2)))
-        print('marginal sqrt(1-alignments): ', [get_error(a) for a in joint_align])
+        # print('marginal sqrt(1-alignments): ', [get_error(a) for a in PCA_error])
 
         # align the direction and scale of sample PCs with the true PC
         # V_mar_est = align_pc(V_mar[:, :, -1], V_star)
@@ -342,13 +348,13 @@ if __name__ == '__main__':
         # for i in range(2):
 
         # loop over sets of PCs
-        for i in range(2):
+        for i in range(npc[data_name]):
             xRange = [l * np.sqrt(n) for l in xRange_list[data_name][i]]
             yRange = [l * np.sqrt(n) for l in yRange_list[data_name][i]]
             pc1 = pcs[data_name][i][0]
             pc2 = pcs[data_name][i][1]
             print(pcs[data_name][i])
-            ax = vis_2dim_subspace(V_joint_est[:, pc1:(pc2+1)], joint_align[pc1:(pc2+1)],
+            ax = vis_2dim_subspace(V_joint_est[:, pc1:(pc2+1)], joint_error[pc1:(pc2+1)],
                                    data_name, 'Joint EB-PCA',
                                    xRange=xRange, yRange=yRange,
                                    data_dir='data', to_save=True,

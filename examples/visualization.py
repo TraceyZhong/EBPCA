@@ -2,7 +2,22 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 import sys
+from simulation.helpers import get_space_distance
 sys.path.extend(['../../generalAMP'])
+
+def plot_legend(labels):
+    plt.rcParams['axes.labelsize'] = 14
+    plt.rcParams['font.size'] = 26
+    # 5 methods
+    fig = plt.figure()
+    fig_legend = plt.figure(figsize=(5, 4))
+    ax = fig.add_subplot(111)
+    for i in range(len(labels)):
+        ax.scatter(range(2), range(2), label=labels[i], s=2)
+    fig_legend.legend(labels, loc='center', frameon=True)
+    plt.show()
+
+
 from simulation.helpers import get_joint_alignment, get_error
 
 def load_sample_labels(data_name, data_dir = 'data'):
@@ -25,53 +40,42 @@ def load_sample_labels(data_name, data_dir = 'data'):
         print('There are only 4 datasets supported: 1000G, UKBB, PBMC, GTEx')
     return popu_label
 
-def vis_2dim_subspace(u, plot_aligns, data_name, method_name, xRange, yRange,
-                      data_dir = 'data', to_save=True,
-                      plot_error=True, legend_loc='lower right', **kwargs):
+def vis_2dim_subspace(u, errors, data_name, method_name, xRange, yRange,
+                      data_dir = 'data', to_save=True, plot_error=True, legend_loc='lower right',
+                      plot_legend=False, **kwargs):
     # tune aesthetics
-    plt.rcParams['axes.labelsize'] = 16
-    plt.rcParams['axes.titlesize'] = 20
-    plt.rcParams['font.size'] = 14
-
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(7.5, 6))
-
+    plt.rcParams['axes.labelsize'] = 18
+    plt.rcParams['axes.titlesize'] = 22
+    plt.rcParams['xtick.labelsize'] = 12
+    plt.rcParams['ytick.labelsize'] = 12
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8, 6), constrained_layout = True)
     # get PC name
     PC1 = kwargs.get("PC1", 1)
     PC2 = kwargs.get("PC2", 2)
     print('Plot PC %i and PC %i ' % (PC1, PC2))
-
     # load sample label for coloring
     popu_label = load_sample_labels(data_name, data_dir)
     df = pd.DataFrame(dict(x=list(u[:, 0]), y=list(u[:, 1]), label=popu_label))
-
-    # metrics to plot
-    metric = [get_joint_alignment(plot_aligns, iterates=False), plot_aligns[0], plot_aligns[1]]
-    metric_name = 'alignment'
-    if plot_error:
-        metric = [get_error(align) for align in metric]
-        metric_name = 'error'
-
+    # make scatter plot
     groups = df.groupby('label')
     for name, group in groups:
-        ax.plot(group.x, group.y, marker='o', linestyle='', ms=1, label=name)
-
-    if method_name == 'ground_truth_PCA':
-        ax.set_title('%s' % method_name.replace('_', ' '))
+        ax.scatter(group.x, group.y, marker='o', s=3, label=name) # linestyle='',
+    # add title
+    ax.set_title('%s' % method_name)
+    # add quantitative evaluation
+    if method_name == 'Ground truth PC' or data_name == 'PBMC':
         ax.set_xlabel('PC %s' % PC1)
         ax.set_ylabel('PC %s' % PC2)
     else:
-        ax.set_title('%s \n bivariate %s=%.2f' % \
-                     (method_name.replace('_', ' '), metric_name, metric[0]))
-        ax.set_xlabel('PC %i, %s=%.2f' % (PC1, metric_name, metric[1]))
-        ax.set_ylabel('PC %i, %s=%.2f' % (PC2, metric_name, metric[2]))
-
+        ax.set_xlabel('PC %i, error=%.2f' % (PC1, errors[0]))
+        ax.set_ylabel('PC %i, error=%.2f' % (PC2, errors[1]))
     # set aesthetics
-    ax.legend(loc=legend_loc)
+    if plot_legend:
+        # https://stackoverflow.com/questions/24706125/setting-a-fixed-size-for-points-in-legend
+        plt.legend(loc=legend_loc, scatterpoints=1, fontsize=16, markerscale=4)
     ax.set_xlim(xRange)
     ax.set_ylim(yRange)
-
     if to_save:
         fig_prefix = kwargs.get('fig_prefix', 'figures/%s/' % data_name)
-        print(fig_prefix + '%s_%s_PC_%i_%i.png' % (method_name, data_name, PC1, PC2))
-        plt.savefig(fig_prefix + '%s_%s_PC_%i_%i.png' % (method_name, data_name, PC1, PC2))
+        plt.savefig(fig_prefix + '%s_%s_PC_%i_%i.png' % (method_name.replace(' ', '_'), data_name, PC1, PC2))
     return ax
