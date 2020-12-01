@@ -7,8 +7,6 @@ from ebpca.empbayes import NonparEBChecker
 from ebpca.amp import ebamp_gaussian
 from ebpca.misc import ebmf
 from simulation.helpers import approx_prior, simulate_prior, signal_plus_noise_model, fill_alignment
-from tutorial import redirect_pc
-from ebpca.preprocessing import normalize_obs
 
 # create directories to save the figures
 fig_prefix = 'figures/univariate'
@@ -68,11 +66,13 @@ def get_marginal_plots(prior, prefix, s_star = 1.3, i = 0, to_save = True, iters
     # run EB-PCA
     udenoiser = NonparEBChecker(uTruePriorLoc, uTruePriorWeight, optimizer="Mosek",
                                 to_save=to_save, fig_prefix=f2_prefix + 'EB-PCA' + fig_suffix,
-                                histcol='tab:red', xRange=xRanges_U[prior], yRange = yRanges_U[prior])
+                                histcol='tab:red', xRange=xRanges_U[prior], yRange = yRanges_U[prior],
+                                print_SNR=True)
     vdenoiser = NonparEBChecker(vTruePriorLoc, vTruePriorWeight, optimizer="Mosek",
                                 to_save=to_save, fig_prefix=f2_prefix + 'EB-PCA' + fig_suffix,
                                 histcol='tab:red', PCname = 'V',
-                                xRange = xRanges_V[prior], yRange = yRanges_V[prior])
+                                xRange = xRanges_V[prior], yRange = yRanges_V[prior],
+                                print_SNR=True)
     U_ebpca, V_ebpca = ebamp_gaussian(pcapack, iters=iters, udenoiser=udenoiser, vdenoiser=vdenoiser)
 
     print('EB-PCA alignments:', fill_alignment(U_ebpca, u_star, iters))
@@ -80,7 +80,7 @@ def get_marginal_plots(prior, prefix, s_star = 1.3, i = 0, to_save = True, iters
     return fill_alignment(U_ebpca, u_star, iters), fill_alignment(V_ebpca, v_star, iters),\
            fill_alignment(U_ebmf, u_star, iters), fill_alignment(V_ebmf, v_star, iters)
 
-def plot_legend(labels = ['theoretical density', '']):
+def plot_legend(labels = ['theoretical density', 'empirical obs']):
     import matplotlib.pyplot as plt
     plt.rcParams['axes.labelsize'] = 14
     plt.rcParams['font.size'] = 26
@@ -89,7 +89,7 @@ def plot_legend(labels = ['theoretical density', '']):
     fig_legend = plt.figure(figsize=(5, 4))
     ax = fig.add_subplot(111)
     ax.plot(range(2), range(2), linestyle = '--')
-    ax.plot(range(2), range(2), color = "tab-red")
+    ax.plot(range(2), range(2), color = "tab-red" )
     lines = ax.plot(range(2), range(2), range(2), range(2), linestyle = ['--', '-'])
     fig_legend.legend(lines, labels, loc='center', frameon=True)
     plt.savefig('figures/univariate/legend_5_methods.png')
@@ -145,10 +145,10 @@ if __name__ == '__main__':
                      'Two_points': [0, 0.27],
                      'Uniform_centered': [0, 0.28]}
     elif s_star == 1.3:
-        xRanges_U = {'Two_points': [-4, 4]}
-        yRanges_U = {'Two_points': [0, 0.6]}
-        xRanges_V = {'Two_points': [-5, 5]}
-        yRanges_V = {'Two_points': [0, 0.3]}
+        xRanges_U = {'Two_points': [-4, 4], 'Uniform_centered': [-5, 5]}
+        yRanges_U = {'Two_points': [0, 0.6], 'Uniform_centered': [0, 0.6]}
+        xRanges_V = {'Two_points': [-5, 5], 'Uniform_centered': [-5, 5]}
+        yRanges_V = {'Two_points': [0, 0.4], 'Uniform_centered': [0, 0.40]}
     elif s_star == 1.5:
         xRanges_U = {'Two_points': [-3.5, 3.5]}
         yRanges_U = {'Two_points': [0, 0.6]}
@@ -171,3 +171,6 @@ if __name__ == '__main__':
         aligns = np.load('%s/%s_u_s_%.1f_n_rep_%i.npy' %
                          (align_dir, method, s_star, n_rep))
         print(aligns[0])
+
+    # --prior=Two_points --s_star=1.3 --iters=3
+    # --prior=Uniform_centered --s_star=1.3 --iters=3
