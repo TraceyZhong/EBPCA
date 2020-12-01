@@ -12,6 +12,12 @@ from ebpca.state_evolution import get_state_evolution, get_alignment_evolution, 
 # boxplot
 # ----------------------------------------------
 
+plt.rcParams['axes.titlesize'] = 20
+plt.rcParams['axes.labelsize'] = 18
+plt.rcParams['font.size'] = 18
+plt.rcParams['xtick.labelsize'] = 12
+plt.rcParams['ytick.labelsize'] = 12
+
 def load_alignments(prior, method, PC = 'u', rm_na=False, prefix = '', suffix = ''):
     prefix = prefix + '/'
     align_dir = 'output/univariate/%s/%salignments/%s' % (prior, prefix, method)
@@ -33,7 +39,7 @@ def alignment_boxplots(res, ticks, plot_seps = [-0.5, 0.5], bp_colors = ['#de2d2
     bp_width = 0.3
 
     # reference: https://stackoverflow.com/questions/16592222/matplotlib-group-boxplots 2nd answer
-    f, ax = plt.subplots(figsize=(8, 6))
+    f, ax = plt.subplots(figsize=(6, 4), constrained_layout = True)
     def set_box_color(bp, color):
         plt.setp(bp['boxes'], color=color)
         plt.setp(bp['whiskers'], color=color)
@@ -50,12 +56,11 @@ def alignment_boxplots(res, ticks, plot_seps = [-0.5, 0.5], bp_colors = ['#de2d2
     ax.plot([], c=bp_colors[0], label='EB-PCA')
     ax.plot([], c=bp_colors[1], label='EBMF')
 
-    ax.legend(loc='lower right')
+    ax.legend(loc='lower right', scatterpoints=3, fontsize=20)
     plt.xticks(range(0, len(ticks) * n, n), ticks)
-    ax.set_xlabel("iteration")
-    ax.set_ylabel('alignment with ground truth')
+    ax.set_xlabel("Iteration")
+    ax.set_ylabel('Accuracy')
     ax.set_xlim(-2, len(ticks) * n)
-    # ax.set_ylim(0 - 0.05, 1 + 0.05)
     return ax
 
 def add_line_to_boxplots(ax, res, plot_seps = [-0.5, 0.5], bp_colors = ['#fc9272', '#de2d26']):
@@ -73,7 +78,7 @@ def make_iter_plot(prior, PCname, iters, plot_seps = [-0.5, 0.5],
     res = group_alignments(prior, PCname, False, prefix=prefix, suffix=data_suffix)
     ax = alignment_boxplots(res, [i for i in range(iters + 1)], plot_seps, bp_colors)
     add_line_to_boxplots(ax, res, plot_seps, bp_colors)
-    plt.title('%s, %s, alignment across iterations (s=%.1f) \n %s' % (prior.replace('_', ' '), PCname, s, suffix))
+    plt.title('Alignment across iterations, %s (s=%.1f)' % (PCname, s))
 
 
 if __name__ == '__main__':
@@ -112,39 +117,24 @@ if __name__ == '__main__':
     plot_se = True
 
     # Figure 3
-    for s in s_lists[exper_name]:
-        for prior in priors[exper_name]:
+    for s in [1.3]:
+        for prior in ['Uniform_centered', 'Two_points']:
             for PC in ['u', 'v']:
                 make_iter_plot(prior, PC, 10, bp_colors=['tab:red', 'tab:blue'], \
                                suffix=exper_name, prefix=prefix, data_suffix=data_suffix)
-                if prior == 'Two_points':
-                    se = get_state_evolution(s, gamma, mmse_funcs[prior], mmse_funcs[prior], iters)
-                    ae = get_alignment_evolution(se)
-                    if PC == 'u':
-                        plt.plot([i + 1 - 1 for i in range(0, 2 * (iters + 1), 2)], ae.ualigns,
-                                 c='grey', linestyle='--', label='Bayes Optimal')
-                    else:
-                        plt.plot([i + 1 - 1 for i in range(0, 2 * (iters + 1), 2)], ae.valigns,
-                                 c='grey', linestyle='--', label='Bayes Optimal')
-                plt.legend(loc='lower right')
+                # remove Bayes optimal
+                # if prior == 'Two_points':
+                #     se = get_state_evolution(s, gamma, mmse_funcs[prior], mmse_funcs[prior], iters)
+                #     ae = get_alignment_evolution(se)
+                #     if PC == 'u':
+                #         plt.plot([i + 1 - 1 for i in range(0, 2 * (iters + 1), 2)], ae.ualigns,
+                #                  c='grey', linestyle='--', label='Bayes Optimal')
+                #     else:
+                #         plt.plot([i + 1 - 1 for i in range(0, 2 * (iters + 1), 2)], ae.valigns,
+                #                  c='grey', linestyle='--', label='Bayes Optimal')
+                plt.legend(loc='lower right', fontsize=15)
                 plt.savefig('figures/univariate/Figure3/%s/%s/%s_%s_%.1f.png' % \
                             (prefix, exper_name, prior, PC, s))
                 plt.close()
-
-    exit()
-    prior = 'Two_points'
-    PCname = 'V'
-    s = 1.5
-    make_iter_plot(prior, PCname, 10, bp_colors=['tab:red', 'tab:blue'], suffix=suffix, prefix=prefix)
-    se = get_state_evolution(s, gamma, mmse_funcs[prior], mmse_funcs[prior], iters)
-    ae = get_alignment_evolution(se)
-    if PCname == 'U':
-        plt.plot([i + 1 - 1 for i in range(0, 2 * iters, 2)], ae.ualigns[:-1],
-                 c='grey', linestyle='--', label='Bayes Optimal')
-    else:
-        plt.plot([i + 1 - 1 for i in range(0, 2 * iters, 2)], ae.valigns[:-1],
-                 c='grey', linestyle='--', label='Bayes Optimal')
-    plt.legend(loc='lower right')
-    plt.show()
 
     exit()
