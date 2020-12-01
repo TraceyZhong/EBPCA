@@ -109,7 +109,7 @@ if __name__ == '__main__':
     # Rank equals the number of PCs in the EB-PCA model
     # For each dataset, we manually inspect the singular value distribution
     # and identify the number of signal components
-    real_data_rank = {'1000G': 4, 'UKBB': 2, 'PBMC': 2, 'GTEx': 2}
+    real_data_rank = {'1000G': 4, 'UKBB': 2, 'PBMC': 4, 'GTEx': 2}
 
     # ---Subset size---
     # The size of the random subsets
@@ -119,13 +119,19 @@ if __name__ == '__main__':
     iters_list = {'1000G': 5, 'UKBB': 5, 'PBMC': 5, 'GTEx': 5}
 
     # ---plot: x range---
-    xRange_list = {'1000G': [-0.045, 0.03], 'UKBB': [-0.025, 0.12], 'PBMC': [-0.06,0.025], 'GTEx': [-0.13, 0.08]}
+    xRange_list = {'1000G': [[-0.045, 0.03], [-0.055, 0.07]], 'UKBB': [[-0.025, 0.12], []],
+                   'PBMC': [[-0.06, 0.025], [-0.04, 0.10]], 'GTEx': [-0.13, 0.08]}
 
     # ---plot: y range---
-    yRange_list = {'1000G': [-0.045, 0.045], 'UKBB': [-0.15, 0.05], 'PBMC': [-0.045, 0.105], 'GTEx': [-0.1, 0.05]}
+    yRange_list = {'1000G': [[-0.045, 0.045], [-0.045, 0.11]], 'UKBB': [[-0.025, 0.12], []],
+                   'PBMC': [[-0.045, 0.105], [-0.05, 0.12]], 'GTEx': [-0.1, 0.05]}
 
     # ---legend position---
-    legend_pos = {'1000G': 'lower left', 'UKBB': 'lower right', 'PBMC': 'upper left', 'GTEx': 'upper left'}
+    legend_pos = {'1000G': ['lower left', 'lower left'], 'UKBB': ['lower right', []],
+                  'PBMC': ['upper left', 'upper left'], 'GTEx': 'upper left'}
+
+    # ---optmizer-----
+    optimizer = {'1000G': 'Mosek', 'UKBB': 'Mosek', 'PBMC': 'EM', 'GTEx': 'Mosek'}
 
     # take arguments from command line
     # run single example for visualization or multiple replications to demonstrate quantitative performance
@@ -177,12 +183,11 @@ if __name__ == '__main__':
 
         # save data
         np.save('results/%s/norm_data.npy' % data_name, norm_data)
-    elif not os.path.exists('results/%s/subset_n_copy_%i.npy' % (data_name, 50)):
-        print('Load normalized data.')
-        norm_data = np.load('results/%s/norm_data.npy' % data_name)
 
     # save true PC
     if not os.path.exists('results/%s/ground_truth_PC.npy' % data_name):
+        print('Load normalized data.')
+        norm_data = np.load('results/%s/norm_data.npy' % data_name)
         full_pcapack = get_pca(norm_data, real_data_rank[data_name])
         V_star = full_pcapack.V
         np.save('results/%s/ground_truth_PC.npy' % data_name, full_pcapack.V)
@@ -190,6 +195,8 @@ if __name__ == '__main__':
         V_star = np.load('results/%s/ground_truth_PC.npy' % data_name)
 
     if to_plot:
+        print('Load normalized data.')
+        norm_data = np.load('results/%s/norm_data.npy' % data_name)
         # visualize spectrum of the residual matrix (noise)
         if not os.path.exists('figures/%s/residual_check_%s.png' % (data_name, data_name)):
             full_pcapack = get_pca(norm_data, real_data_rank[data_name])
@@ -204,17 +211,12 @@ if __name__ == '__main__':
 
         # visualize the joint structure of PCs
         for i in range(int(real_data_rank[data_name] / 2)):
-            # explicitly deal with 1000G PC2 and PC3
-            if data_name == '1000G' and i == 1:
-                xRange = [-0.055, 0.07]
-                yRange = [-0.045, 0.11]
-            else:
-                xRange = xRange_list[data_name]
-                yRange = yRange_list[data_name]
+            xRange = xRange_list[data_name][i]
+            yRange = yRange_list[data_name][i]
             vis_2dim_subspace(V_star[:, (2 * i):(2 * i + 2)], [1,1], data_name, 'ground_truth_PCA',
                               xRange=xRange, yRange=yRange,
                               data_dir='data/', to_save=True, PC1=2 * i + 1, PC2=2 * i + 2,
-                              legend_loc=legend_pos[data_name])
+                              legend_loc=legend_pos[data_name][i])
 
     # -------------------------------------------
     # step 3: Get random subset(s) from full data
@@ -229,6 +231,8 @@ if __name__ == '__main__':
 
     # make subsets
     if not os.path.exists('results/%s/subset_n_copy_%i.npy' % (data_name, 50)):
+        print('Load normalized data.')
+        norm_data = np.load('results/%s/norm_data.npy' % data_name)
         print('Making 50 random subsets')
         prep_subsets(norm_data, subset_size[data_name], data_name, seeds, n_rep=50)
         # remove normalized data
@@ -251,16 +255,11 @@ if __name__ == '__main__':
 
         # loop over pairs of PCs
         for i in range(int(real_data_rank[data_name] / 2)):
-            # explicitly deal with 1000G PC2 and PC3
-            if data_name == '1000G' and i == 1:
-                xRange = [-0.055, 0.07]
-                yRange = [-0.045, 0.11]
-            else:
-                xRange = xRange_list[data_name]
-                yRange = yRange_list[data_name]
+            xRange = xRange_list[data_name][i]
+            yRange = yRange_list[data_name][i]
             ax = vis_2dim_subspace(sub_PCs[:, (2 * i):(2 * i + 2)], PCA_align[(2 * i):(2 * i + 2)],
                                    data_name, 'naive_PCA', xRange=xRange, yRange=yRange,
-                                   data_dir='data/', to_save=True, legend_loc=legend_pos[data_name],
+                                   data_dir='data/', to_save=True, legend_loc=legend_pos[data_name][i],
                                    PC1=2 * i + 1, PC2=2 * i + 2)
 
     # ----------------------------------------
@@ -320,18 +319,13 @@ if __name__ == '__main__':
         for i in range(2):
             # loop over sets of PCs
             for j in range(int(real_data_rank[data_name] / 2)):
-                # explicitly deal with 1000G PC2 and PC3
-                if data_name == '1000G' and j == 1:
-                    xRange = [-0.055, 0.07]
-                    yRange = [-0.045, 0.11]
-                else:
-                    xRange = xRange_list[data_name]
-                    yRange = yRange_list[data_name]
+                xRange = xRange_list[data_name][i]
+                yRange = yRange_list[data_name][i]
                 ax = vis_2dim_subspace(V_est[i][:, (2 * j):(2 * j + 2)], aligns[i][(2 * j):(2 * j + 2)],
                                        data_name, method_name[i] + '_estimation',
                                        xRange=xRange, yRange=yRange,
                                        data_dir='data', to_save=True,
-                                       PC1=2 * j + 1, PC2=2 * j + 2, legend_loc=legend_pos[data_name])
+                                       PC1=2 * j + 1, PC2=2 * j + 2, legend_loc=legend_pos[data_name][i])
 
     end_time = time.time()
     print('Simulation takes %.2f s' % (end_time - start_time))

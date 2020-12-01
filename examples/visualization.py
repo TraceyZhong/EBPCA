@@ -29,9 +29,9 @@ def vis_2dim_subspace(u, plot_aligns, data_name, method_name, xRange, yRange,
                       data_dir = 'data', to_save=True,
                       plot_error=True, legend_loc='lower right', **kwargs):
     # tune aesthetics
-    plt.rcParams['axes.labelsize'] = 14
-    plt.rcParams['axes.titlesize'] = 16
-    plt.rcParams['font.size'] = 10
+    plt.rcParams['axes.labelsize'] = 16
+    plt.rcParams['axes.titlesize'] = 20
+    plt.rcParams['font.size'] = 14
 
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(7.5, 6))
 
