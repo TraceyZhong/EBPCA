@@ -35,7 +35,8 @@ def plot_rank2_dePC(star, mar, joint, prior, s_star, plot_error=True):
     mar_align = get_marginal_alignment(mar_est, star)
     joint_align = get_marginal_alignment(joint_est, star)
 
-    plot_est = [star, pca_est, mar_est, joint_est]
+    # plot_est = [star, pca_est, mar_est, joint_est]
+    plot_est = [star, mar[:, :, 0], mar[:, :, -1], joint[:, :, -1]]
     plot_aligns = [[1, 1], pca_align, mar_align, joint_align]
     plot_method = ['Ground truth', 'PCA', 'EB-PCA marginal estimation', 'EB-PCA joint estimation']
 
