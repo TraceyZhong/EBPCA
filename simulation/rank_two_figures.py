@@ -25,7 +25,7 @@ def load_dePC(prior, method, s_star, n_copy=0):
     X = np.load('%s_n_copy_%i.npy' % (dePC_prefix, n_copy), allow_pickle=False)
     return X
 
-def plot_rank2_dePC(star, mar, joint, prior, s_star, plot_error=True):
+def plot_rank2_dePC(star, mar, joint, prior, s_star, enlarge_star=False):
     # tune aesthetics
     plt.rcParams['font.size'] = 14
 
@@ -40,8 +40,7 @@ def plot_rank2_dePC(star, mar, joint, prior, s_star, plot_error=True):
     mar_align = get_marginal_alignment(mar_est, star)
     joint_align = get_marginal_alignment(joint_est, star)
 
-    # plot_est = [star, pca_est, mar_est, joint_est]
-    plot_est = [star, mar[:, :, 0], mar[:, :, -1], joint[:, :, -1]]
+    plot_est = [star, pca_est, mar_est, joint_est]
     plot_aligns = [[1, 1], pca_align, mar_align, joint_align]
     plot_method = ['Ground truth', 'PCA', 'Marginal EB-PCA', 'Joint EB-PCA']
 
@@ -54,7 +53,10 @@ def plot_rank2_dePC(star, mar, joint, prior, s_star, plot_error=True):
 
         # generate plot
         fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6,5), constrained_layout = True)
-        ax.scatter(plot_est[i][:, 0], plot_est[i][:, 1], s = 3, alpha = 0.8)
+        if i == 0 and enlarge_star:
+            ax.scatter(plot_est[i][:, 0], plot_est[i][:, 1], s=15, alpha = 0.8)
+        else:
+            ax.scatter(plot_est[i][:, 0], plot_est[i][:, 1], s=3, alpha=0.8)
         if i > 0:
             ax.set_title('%s \n bivariate error=%.2f' % \
                          (plot_method[i], metric[0]))
@@ -107,14 +109,6 @@ def eval_align_stats(prior, method, s_star, ind=-1):
     print('\t std:', np.nanstd(joint_errors))
 
 if __name__ == '__main__':
-    s_star = [4.0, 2.0]
-    for prior in ['Uniform_circle', 'Three_points']:
-        print('\n\n\n %s \n\n\n' % prior)
-        print('\n ########## sample PCA ########## \n')
-        eval_align_stats(prior, 'joint', s_star, ind=0)
-        for method in ['marginal', 'joint']:
-            print('\n ########## %s EB-PCA ########## \n' % method)
-            eval_align_stats(prior, method, s_star)
 
     # --------------------------
     # rank-2 simulation settings
@@ -144,11 +138,26 @@ if __name__ == '__main__':
         mar = load_dePC(prior, "marginal", s_star, i)
         joint = load_dePC(prior, "joint", s_star, i)
         # plot denoised PC
-        plot_rank2_dePC(star, mar, joint, prior, s_star)
+        if prior == 'Three_points':
+            enlarge_star = True
+        else:
+            enlarge_star = False
+        plot_rank2_dePC(star, mar, joint, prior, s_star, enlarge_star=enlarge_star)
 
-        # print table statistics
-        # for method in ['marginal', 'joint']:
-        #     eval_align_stats(prior, method)
+    exit()
+
+    # --------------------------
+    # Quantitative evaluation
+    # --------------------------
+
+    s_star = [4.0, 2.0]
+    for prior in ['Uniform_circle', 'Three_points']:
+        print('\n\n\n %s \n\n\n' % prior)
+        print('\n ########## sample PCA ########## \n')
+        eval_align_stats(prior, 'joint', s_star, ind=0)
+        for method in ['marginal', 'joint']:
+            print('\n ########## %s EB-PCA ########## \n' % method)
+            eval_align_stats(prior, method, s_star)
 
 
 
