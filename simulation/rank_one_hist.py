@@ -80,6 +80,20 @@ def get_marginal_plots(prior, prefix, s_star = 1.3, i = 0, to_save = True, iters
     return fill_alignment(U_ebpca, u_star, iters), fill_alignment(V_ebpca, v_star, iters),\
            fill_alignment(U_ebmf, u_star, iters), fill_alignment(V_ebmf, v_star, iters)
 
+def plot_legend(labels = ['theoretical density', '']):
+    import matplotlib.pyplot as plt
+    plt.rcParams['axes.labelsize'] = 14
+    plt.rcParams['font.size'] = 26
+    # 5 methods
+    fig = plt.figure()
+    fig_legend = plt.figure(figsize=(5, 4))
+    ax = fig.add_subplot(111)
+    ax.plot(range(2), range(2), linestyle = '--')
+    ax.plot(range(2), range(2), color = "tab-red")
+    lines = ax.plot(range(2), range(2), range(2), range(2), linestyle = ['--', '-'])
+    fig_legend.legend(lines, labels, loc='center', frameon=True)
+    plt.savefig('figures/univariate/legend_5_methods.png')
+
 if __name__ == '__main__':
     # take argument: number of iterations
     import argparse

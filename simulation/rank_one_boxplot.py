@@ -36,6 +36,7 @@ def alignment_boxplots(res, ticks):
         plt.setp(bp['medians'], color=color)
 
     # https://matplotlib.org/3.2.1/gallery/statistics/boxplot.html
+    # https://pymorton.wordpress.com/2016/04/05/creating-separate-legend-figure-with-matplotlib/
     boxprops = dict(linewidth=2)
     bp1 = ax.boxplot(pca, positions=np.array(range(len(pca))) * float(n) + plot_seps[0], sym='', widths=bp_width,
                      boxprops=boxprops, medianprops=boxprops, whiskerprops=boxprops)
