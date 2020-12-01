@@ -2,7 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sys
 sys.path.extend(['../../generalAMP'])
-from simulation.helpers import get_joint_alignment, get_marginal_alignment, align_pc, get_error
+from tutorial import redirect_pc
+from simulation.helpers import get_joint_alignment, get_marginal_alignment,  get_error
 
 # ----------------------------------------------
 # Figure 4:
@@ -30,9 +31,9 @@ def plot_rank2_dePC(star, mar, joint, prior, s_star, plot_error=True):
 
     # align estimated PC with true PC
     # in both direction and magnitude
-    pca_est = align_pc(mar[:, :, 0], star)
-    mar_est = align_pc(mar[:, :, -1], star)
-    joint_est = align_pc(joint[:, :, -1], star)
+    pca_est = redirect_pc(mar[:, :, 0], star)
+    mar_est = redirect_pc(mar[:, :, -1], star)
+    joint_est = redirect_pc(joint[:, :, -1], star)
 
     # get marginal alignment
     pca_align = get_marginal_alignment(pca_est, star)
@@ -46,12 +47,8 @@ def plot_rank2_dePC(star, mar, joint, prior, s_star, plot_error=True):
 
     # start plotting
     for i in range(4):
-        # metrics to plot
-        metric = [get_joint_alignment(plot_aligns[i], iterates=False), plot_aligns[i][0], plot_aligns[i][1]]
-        metric_name = 'alignment'
-        # if plot_error:
-        #     metric = [get_error(align) for align in metric]
-        #     metric_name = 'error'
+        # plot error
+
 
         # generate plot
         fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6,5), constrained_layout = True)

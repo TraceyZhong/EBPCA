@@ -19,10 +19,9 @@ import sys
 sys.path.extend(['../../generalAMP'])
 from ebpca.preprocessing import normalize_obs, plot_pc
 from ebpca.pca import get_pca, check_residual_spectrum
-from simulation.helpers import align_pc, get_error
+from simulation.helpers import get_error
 from simulation.rank_two import run_rankK_EBPCA
-import matplotlib.pyplot as plt
-from tutorial import get_alignment
+from tutorial import get_alignment, redirect_pc
 import time
 from visualization import vis_2dim_subspace
 
@@ -109,7 +108,7 @@ if __name__ == '__main__':
     # Rank equals the number of PCs in the EB-PCA model
     # For each dataset, we manually inspect the singular value distribution
     # and identify the number of signal components
-    real_data_rank = {'1000G': 4, 'UKBB': 2, 'PBMC': 4, 'GTEx': 2}
+    real_data_rank = {'1000G': 4, 'UKBB': 2, 'PBMC': 3, 'GTEx': 2}
 
     # ---Subset size---
     # The size of the random subsets
@@ -119,30 +118,39 @@ if __name__ == '__main__':
     iters_list = {'1000G': 5, 'UKBB': 5, 'PBMC': 5, 'GTEx': 5}
 
     # ---plot: x range---
-    xRange_list = {'1000G': [[-0.045, 0.03], [-0.055, 0.07]], 'UKBB': [[-0.025, 0.12], []],
+    xRange_list = {'1000G': [[-0.045, 0.03], [-0.055, 0.07]], 'UKBB': [[-0.03, 0.13], []],
                    'PBMC': [[-0.06, 0.025], [-0.04, 0.10]], 'GTEx': [-0.13, 0.08]}
 
     # ---plot: y range---
-    yRange_list = {'1000G': [[-0.045, 0.045], [-0.045, 0.11]], 'UKBB': [[-0.025, 0.12], []],
+    yRange_list = {'1000G': [[-0.045, 0.045], [-0.045, 0.11]], 'UKBB': [[-0.15, 0.055], []],
                    'PBMC': [[-0.045, 0.105], [-0.05, 0.12]], 'GTEx': [-0.1, 0.05]}
 
     # ---legend position---
-    legend_pos = {'1000G': ['lower left', 'lower left'], 'UKBB': ['lower right', []],
+    legend_pos = {'1000G': ['upper left', 'upper left'], 'UKBB': ['lower right', []],
                   'PBMC': ['upper left', 'upper left'], 'GTEx': 'upper left'}
 
     # ---optmizer-----
     optimizer = {'1000G': 'Mosek', 'UKBB': 'Mosek', 'PBMC': 'EM', 'GTEx': 'Mosek'}
+
+    # ---full data PC name----
+    fullPC = {'1000G': 'Ground truth PC', 'UKBB': 'Ground truth PC', 'PBMC': 'Sample PC'}
+
+    # ---singular value dist lim----
+    sv_lim = {'1000G': [0,2], 'UKBB': [0, 2.5], 'PBMC': [0,2]}
+
+    # ---pcs----
+    pcs = {'1000G': [[0,1], [2,3]], 'UKBB': [[0,1],[]], 'PBMC': [[0,1],[1,2]]}
 
     # take arguments from command line
     # run single example for visualization or multiple replications to demonstrate quantitative performance
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_name", type=str, help="which dataset to show",
-                        default='1000G', const='1000G', nargs='?')
+                        default='PBMC', const='PBMC', nargs='?')
     parser.add_argument("--n_copy", type=int, help="which replication to run",
                         default=1, const=1, nargs='?')
     parser.add_argument("--to_plot", type=str, help="whether or not to plot",
-                        default='no', const='no', nargs='?')
+                        default='yes', const='yes', nargs='?')
     args = parser.parse_args()
     data_name = args.data_name
     n_copy = args.n_copy
@@ -193,30 +201,38 @@ if __name__ == '__main__':
         np.save('results/%s/ground_truth_PC.npy' % data_name, full_pcapack.V)
     else:
         V_star = np.load('results/%s/ground_truth_PC.npy' % data_name)
+        n, _ = V_star.shape
 
     if to_plot:
-        print('Load normalized data.')
+        # print('Load normalized data.')
         norm_data = np.load('results/%s/norm_data.npy' % data_name)
+        full_pcapack = get_pca(norm_data, real_data_rank[data_name])
         # visualize spectrum of the residual matrix (noise)
-        if not os.path.exists('figures/%s/residual_check_%s.png' % (data_name, data_name)):
-            full_pcapack = get_pca(norm_data, real_data_rank[data_name])
-            check_residual_spectrum(full_pcapack, to_save=True,
-                                    fig_prefix=data_name, label=data_name)
+        if not os.path.exists('figures/%s/singvals_dist_%s.png' % (data_name, data_name)):
+            check_residual_spectrum(full_pcapack, xmin = sv_lim[data_name][0], xmax = sv_lim[data_name][1],
+                                    to_save=True, fig_prefix=data_name, label=data_name)
 
         # visualize distributions of singular values and PCs
         if not os.path.exists('figures/%s/PC_0_%s.png' % (data_name, data_name)):
             # explore eigenvalue and eigenvector distributions
-            plot_pc(norm_data, label=data_name, nPCs=real_data_rank[data_name],
+            plot_pc(full_pcapack.X, label=data_name, nPCs=real_data_rank[data_name],
                     to_show=False, to_save=True, fig_prefix='%s/' % data_name)
 
         # visualize the joint structure of PCs
-        for i in range(int(real_data_rank[data_name] / 2)):
-            xRange = xRange_list[data_name][i]
-            yRange = yRange_list[data_name][i]
-            vis_2dim_subspace(V_star[:, (2 * i):(2 * i + 2)], [1,1], data_name, 'ground_truth_PCA',
+        for i in range(2):
+            xRange = [l * np.sqrt(n) for l in xRange_list[data_name][i]]
+            yRange = [l * np.sqrt(n) for l in yRange_list[data_name][i]]
+            pc1 = pcs[data_name][i][0]
+            pc2 = pcs[data_name][i][1]
+            if i == 0:
+                add_legend = True
+            else:
+                add_legend = False
+            vis_2dim_subspace(V_star[:, pc1 : (pc2+1)] * np.sqrt(n), [1,1], data_name, fullPC[data_name],
                               xRange=xRange, yRange=yRange,
-                              data_dir='data/', to_save=True, PC1=2 * i + 1, PC2=2 * i + 2,
-                              legend_loc=legend_pos[data_name][i])
+                              data_dir='data/', to_save=True,
+                              PC1=pc1 + 1, PC2=pc2 + 1,
+                              legend_loc=legend_pos[data_name][i], plot_legend=add_legend)
 
     # -------------------------------------------
     # step 3: Get random subset(s) from full data
@@ -225,52 +241,59 @@ if __name__ == '__main__':
     # and show EB-PCA successfully recovers the ground truth,
     # both quantitatively (alignments) and qualitatively (visualization of PC)
 
-    # set seed
-    np.random.seed(1)
-    seeds = np.random.randint(0, 10000, 50)  # set seed for each dataset
+    if data_name == 'PBMC':
+        # use the full PBMC data as an example of applying EB-PCA
+        X = norm_data
+    else:
+        # set seed
+        np.random.seed(1)
+        seeds = np.random.randint(0, 10000, 50)  # set seed for each dataset
 
-    # make subsets
-    if not os.path.exists('results/%s/subset_n_copy_%i.npy' % (data_name, 50)):
-        print('Load normalized data.')
-        norm_data = np.load('results/%s/norm_data.npy' % data_name)
-        print('Making 50 random subsets')
-        prep_subsets(norm_data, subset_size[data_name], data_name, seeds, n_rep=50)
-        # remove normalized data
-        del norm_data
+        # make subsets
+        if not os.path.exists('results/%s/subset_n_copy_%i.npy' % (data_name, 50)):
+            print('Load normalized data.')
+            norm_data = np.load('results/%s/norm_data.npy' % data_name)
+            # print('Making 50 random subsets')
+            # prep_subsets(norm_data, subset_size[data_name], data_name, seeds, n_rep=50)
+            # remove normalized data
+            del norm_data
 
-    # load generated subsets
-    X = np.load('results/%s/subset_n_copy_%i.npy' % (data_name, n_copy))
+        # load generated subsets
+        X = np.load('results/%s/subset_n_copy_%i.npy' % (data_name, n_copy))
 
-    # get pca estimates
-    sub_pcapack = get_pca(X, real_data_rank[data_name])
+        # get pca estimates
+        sub_pcapack = get_pca(X, real_data_rank[data_name])
 
-    # visualize naive PCA
-    if to_plot:
-        # evaluate alignment
-        PCA_align = [get_alignment(sub_pcapack.V[:, [j]], V_star[:, [j]]) \
-                     for j in range(real_data_rank[data_name])]
-        # align the direction and scale of sample PCs with the true PC
-        sub_PCs = sub_pcapack.V
-        sub_PCs = align_pc(sub_PCs, V_star)
+        # visualize naive PCA
+        if to_plot:
+            # evaluate alignment
+            PCA_align = [get_alignment(sub_pcapack.V[:, [j]], V_star[:, [j]]) \
+                         for j in range(real_data_rank[data_name])]
+            # align the direction and scale of sample PCs with the true PC
+            sub_PCs = sub_pcapack.V
+            sub_PCs = redirect_pc(sub_PCs, V_star)
 
-        # loop over pairs of PCs
-        for i in range(int(real_data_rank[data_name] / 2)):
-            xRange = xRange_list[data_name][i]
-            yRange = yRange_list[data_name][i]
-            ax = vis_2dim_subspace(sub_PCs[:, (2 * i):(2 * i + 2)], PCA_align[(2 * i):(2 * i + 2)],
-                                   data_name, 'naive_PCA', xRange=xRange, yRange=yRange,
-                                   data_dir='data/', to_save=True, legend_loc=legend_pos[data_name][i],
-                                   PC1=2 * i + 1, PC2=2 * i + 2)
+            # loop over pairs of PCs
+            for i in range(2):
+                xRange = [l * np.sqrt(n) for l in xRange_list[data_name][i]]
+                yRange = [l * np.sqrt(n) for l in yRange_list[data_name][i]]
+                pc1 = pcs[data_name][i][0]
+                pc2 = pcs[data_name][i][1]
+                print(pcs[data_name][i])
+                ax = vis_2dim_subspace(sub_PCs[:, pc1:(pc2+1)] * np.sqrt(n), PCA_align[pc1:(pc2+1)],
+                                       data_name, 'Sample PC (%i subsample)' % subset_size[data_name], xRange=xRange, yRange=yRange,
+                                       data_dir='data/', to_save=True, legend_loc=legend_pos[data_name][i],
+                                       PC1=pc1+1, PC2=pc2[1]+1)
 
     # ----------------------------------------
     # step 4: Run EB-PCA
     # ----------------------------------------
-
     est_dir = 'results/%s/PC_estimates_iters_%i_n_copy_%i' % (data_name, iters_list[data_name], n_copy)
 
     if not os.path.exists(est_dir + '.npy'):
         # run EB-PCA with joint estimation (by default)
-        _, V_joint, _ = run_rankK_EBPCA('joint', X, real_data_rank[data_name], iters_list[data_name])
+        _, V_joint, _ = run_rankK_EBPCA('joint', X, real_data_rank[data_name], iters_list[data_name],
+                                        optimizer = optimizer[data_name])
         np.save(est_dir + '.npy', V_joint, allow_pickle=False)
 
         # evaluate alignments
@@ -286,46 +309,50 @@ if __name__ == '__main__':
         joint_align = np.load('results/%s/joint_alignment_n_copy_%i.npy' % (data_name, n_copy),
                               allow_pickle=False)
 
-        if not os.path.exists(est_dir + '_marginal.npy'):
-            _, V_mar, _ = run_rankK_EBPCA('marginal', X, real_data_rank[data_name], iters_list[data_name])
-            np.save(est_dir + '_marginal.npy', V_mar, allow_pickle=False)
-        else:
-            V_mar = np.load(est_dir + '_marginal.npy')
+        # if not os.path.exists(est_dir + '_marginal.npy'):
+        #     _, V_mar, _ = run_rankK_EBPCA('marginal', X, real_data_rank[data_name], iters_list[data_name])
+        #     np.save(est_dir + '_marginal.npy', V_mar, allow_pickle=False)
+        # else:
+        #     V_mar = np.load(est_dir + '_marginal.npy')
 
     # ----------------------------------------
     # step 5: Visualize estimated PC
     # ----------------------------------------
     if to_plot:
         # evaluate alignments
-        mar_align = [get_alignment(V_mar[:, [j], -1], V_star[:, [j]]) \
-                     for j in range(real_data_rank[data_name])]
+        # mar_align = [get_alignment(V_mar[:, [j], -1], V_star[:, [j]]) \
+        #              for j in range(real_data_rank[data_name])]
         joint_align = [get_alignment(V_joint[:, [j], -1], V_star[:, [j]]) \
                        for j in range(real_data_rank[data_name])]
 
         # test sqrt(1-align^2)
-        print('marginal sqrt(1-alignments): ', np.sqrt(1 - np.power(mar_align, 2)))
-        print('marginal sqrt(1-alignments): ', np.sqrt(1 - np.power(joint_align, 2)))
+        # print('marginal sqrt(1-alignments): ', np.sqrt(1 - np.power(mar_align, 2)))
+        print('marginal sqrt(1-alignments): ', [get_error(a) for a in joint_align])
 
         # align the direction and scale of sample PCs with the true PC
-        V_mar_est = align_pc(V_mar[:, :, -1], V_star)
-        V_joint_est = align_pc(V_joint[:, :, -1], V_star)
+        # V_mar_est = align_pc(V_mar[:, :, -1], V_star)
+        V_joint_est = redirect_pc(V_joint[:, :, -1], V_star)
 
         # loop over plots
-        V_est = [V_mar_est, V_joint_est]
-        method_name = ['EB-PCA_marginal', 'EB-PCA_joint']
-        aligns = [mar_align, joint_align]
+        # V_est = [V_mar_est, V_joint_est]
+        # method_name = ['EB-PCA_marginal', 'EB-PCA_joint']
+        # aligns = [mar_align, joint_align]
 
         # loop over methods
+        # for i in range(2):
+
+        # loop over sets of PCs
         for i in range(2):
-            # loop over sets of PCs
-            for j in range(int(real_data_rank[data_name] / 2)):
-                xRange = xRange_list[data_name][i]
-                yRange = yRange_list[data_name][i]
-                ax = vis_2dim_subspace(V_est[i][:, (2 * j):(2 * j + 2)], aligns[i][(2 * j):(2 * j + 2)],
-                                       data_name, method_name[i] + '_estimation',
-                                       xRange=xRange, yRange=yRange,
-                                       data_dir='data', to_save=True,
-                                       PC1=2 * j + 1, PC2=2 * j + 2, legend_loc=legend_pos[data_name][i])
+            xRange = [l * np.sqrt(n) for l in xRange_list[data_name][i]]
+            yRange = [l * np.sqrt(n) for l in yRange_list[data_name][i]]
+            pc1 = pcs[data_name][i][0]
+            pc2 = pcs[data_name][i][1]
+            print(pcs[data_name][i])
+            ax = vis_2dim_subspace(V_joint_est[:, pc1:(pc2+1)], joint_align[pc1:(pc2+1)],
+                                   data_name, 'Joint EB-PCA',
+                                   xRange=xRange, yRange=yRange,
+                                   data_dir='data', to_save=True,
+                                   PC1=pc1+1, PC2=pc2+1, legend_loc=legend_pos[data_name][i])
 
     end_time = time.time()
     print('Simulation takes %.2f s' % (end_time - start_time))
