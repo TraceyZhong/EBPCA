@@ -61,7 +61,11 @@ class _BaseEmpiricalBayes(ABC):
         return 'normal'
 
     def check_margin(self, fs, mu, cov, figname):
-        plt.rcParams.update({'font.size': 16})
+        plt.rcParams['font.size'] = 15
+        plt.rcParams['axes.titlesize'] = 16
+        plt.rcParams['axes.labelsize'] = 16
+        plt.rcParams['xtick.labelsize'] = 10
+        plt.rcParams['ytick.labelsize'] = 10
         if self.rank == 1:
             fig, ax = plt.subplots(nrows=self.rank, ncols=1, figsize=(7, 3))
             axes = [ax]
@@ -81,11 +85,17 @@ class _BaseEmpiricalBayes(ABC):
             if self.iter > 1:
                 axes[dim].get_legend().remove()
             if self.rank > 1:
-                axes[dim].set_title("Iteration %i, %s%i, mu=%.2f, cov=%.2f" % \
-                                    (self.iter, self.PCname, dim + 1, mu[dim, dim], cov[dim, dim]))
+                if self.print_SNR:
+                    axes[dim].set_title("Iteration %i, %s%i, mu=%.2f, cov=%.2f" % \
+                                        (self.iter, self.PCname.title(), dim + 1, mu[dim, dim], cov[dim, dim]))
+                else:
+                    axes[dim].set_title("Iteration %i, %s%i" % (self.iter, self.PCname.title(), dim + 1))
             else:
-                axes[dim].set_title("Iteration %i, %s, SNR=%.2f" % \
-                                    (self.iter, self.PCname, (mu[dim, dim])**2/ (cov[dim, dim])))
+                if self.print_SNR:
+                    axes[dim].set_title("Iteration %i, %s, SNR=%.2f" % \
+                                        (self.iter, self.PCname.title(), (mu[dim, dim])**2/ (cov[dim, dim])))
+                else:
+                    axes[dim].set_title("Iteration %i, %s" % (self.iter, self.PCname.title()))
         if self.to_show:
             plt.show()
         if self.to_save:
@@ -192,8 +202,9 @@ class NonparEB(_BaseEmpiricalBayes):
 
 class NonparEBChecker(NonparEB):
     def __init__(self, truePriorLoc, truePriorWeight, optimizer = "EM",
-                 PCname = 'U', histcol = 'skyblue', xRange = None, yRange=None,
-                 ftol = 1e-6, nsupp_ratio = 1, em_iter = 10, maxiter = 100, to_save = False, to_show = False, fig_prefix = "nonparebck", **kwargs):
+                 PCname = 'U', histcol = 'skyblue', xRange = None, yRange=None, print_SNR=False,
+                 ftol = 1e-6, nsupp_ratio = 1, em_iter = 10, maxiter = 100,
+                 to_save = False, to_show = False, fig_prefix = "nonparebck", **kwargs):
         NonparEB.__init__(self, optimizer, PCname, ftol, nsupp_ratio, em_iter, maxiter, to_save, to_show, fig_prefix, **kwargs)
         self.trueZ = truePriorLoc
         self.truePi = truePriorWeight
@@ -201,6 +212,7 @@ class NonparEBChecker(NonparEB):
         self.redirectd = False
         self.xRange = xRange
         self.yRange = yRange
+        self.print_SNR = print_SNR
 
     def get_margin_pdf_from_true_prior(self, x, mu, cov, dim):
         if self.plot_scaled:
@@ -226,13 +238,13 @@ class NonparEBChecker(NonparEB):
         if self.plot_scaled:
             f = f / (mu[dim, dim])
             xgrid = xgrid / (mu[dim, dim])
-        ax.hist(f, bins=40, alpha=0.4, density=True, color=self.histcol, label="Empirical obs")
+        ax.hist(f, bins=40, alpha=0.4, density=True, color=self.histcol, label="Empirical obs.")
         # ax.plot(xgrid, pdf, color="grey", linestyle="dashed", linewidth=2, label="fitted model")
         ax.plot(xgrid, truePdf, color="grey", linestyle="solid", linewidth=1, label="Theoretical density")
         if self.xRange is not None:
             ax.set_xlim(self.xRange[0], self.xRange[1])
             ax.set_ylim(self.yRange[0], self.yRange[1])
-        ax.legend()
+        ax.legend(loc = 'upper left', fancybox=True, framealpha=0.5)
             
 class NonparBayes(NonparEB):
     def __init__(self, truePriorLoc, truePriorWeight, optimizer = "EM", PCname = 'U', ftol = 1e-6, nsupp_ratio = 1, em_iter = 10, maxiter = 100, to_save = False, to_show = False, fig_prefix = "nonparebck", **kwargs):
