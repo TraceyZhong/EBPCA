@@ -119,6 +119,17 @@ def get_marginal_alignment(est, star):
         # Evaluate alignments for one dePC
         return [get_alignment(est[:, [j]], star[:, [j]]) for j in range(rank)]
 
+def get_space_distance(U,V):
+    assert U.shape == V.shape
+    Qu, _ = np.linalg.qr(U, mode = "reduced")
+    Qv, _ = np.linalg.qr(V, mode = "reduced")
+    _, s, _ = np.linalg.svd(Qu.T.dot(Qv))
+    print(s)
+    return np.sqrt(1 - np.min(s)**2)
+
+def get_joint_error(U_est, Ustar, iterates=True):
+    pass
+
 def get_joint_alignment(mar, iterates=True):
     """
     Evaluate the joint alignment
