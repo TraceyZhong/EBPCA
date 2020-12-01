@@ -177,7 +177,7 @@ def get_bayes_pca(X, s, K=0):
 #         plt.show()
 
 
-def check_residual_spectrum(pca_pack, xmin, xmax, to_show = False, to_save = False):
+def check_residual_spectrum(pca_pack, xmin=None, xmax=None, to_show = False, to_save = False, **kwargs):
     '''we require the noise variance to be 1/n_samples
     mu must be sorted in descending order
     '''
@@ -190,8 +190,8 @@ def check_residual_spectrum(pca_pack, xmin, xmax, to_show = False, to_save = Fal
     # I don't think I need to pad
     
     fig, ax = plt.subplots()
-    ax.hist(mu[:shorter_side], density = True, bins = 50, label = "sample singular values")
-    x = np.linspace(0.01, mu.max(), num = 50)
+    ax.hist(mu[:shorter_side], density = True, bins = 200, label = "sample singular values")
+    x = np.linspace(0.01, mu.max(), num = 500)
     aspect_ratio = n_features / n_samples
     if aspect_ratio > 1:
         scaler = aspect_ratio
@@ -199,12 +199,13 @@ def check_residual_spectrum(pca_pack, xmin, xmax, to_show = False, to_save = Fal
         scaler = 1
     ax.plot(x, scaler*np.array(sqrtMPlaw(x, n_samples, n_features)), label = "MP law prediction of spectral distribution")
     # ax.legend()
-    ax.set_xlim(left=xmin, right=xmax)
+    if xmin is not None:
+        ax.set_xlim(left=xmin, right=xmax)
     # ax.set_title("Singular values")
     if to_save:
         fig_prefix = kwargs.get('fig_prefix', '')
         label = kwargs.get('label', '')
-        fig.savefig("./figures/%s/residual_check_%s.png" % (fig_prefix, label))
+        fig.savefig("./figures/%s/singvals_dist_%s.png" % (fig_prefix, label))
     if to_show:
         plt.show()
 
