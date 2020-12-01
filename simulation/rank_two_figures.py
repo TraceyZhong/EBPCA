@@ -10,6 +10,10 @@ from simulation.helpers import get_joint_alignment, get_marginal_alignment, alig
 # dot plot
 # ----------------------------------------------
 
+plt.rcParams['axes.titlesize'] = 20
+plt.rcParams['axes.labelsize'] = 18
+plt.rcParams['font.size'] = 18
+
 def load_PC_star(prior, s_star, n_copy=0):
     data_prefix = 'output/bivariate/%s/data/s_%.1f_%.1f' % (prior, s_star[0], s_star[1])
     u_star = np.load('%s_copy_%i_u_star.npy' % (data_prefix, n_copy), allow_pickle=False)
@@ -38,7 +42,7 @@ def plot_rank2_dePC(star, mar, joint, prior, s_star, plot_error=True):
     # plot_est = [star, pca_est, mar_est, joint_est]
     plot_est = [star, mar[:, :, 0], mar[:, :, -1], joint[:, :, -1]]
     plot_aligns = [[1, 1], pca_align, mar_align, joint_align]
-    plot_method = ['Ground truth', 'PCA', 'EB-PCA marginal estimation', 'EB-PCA joint estimation']
+    plot_method = ['Ground truth', 'PCA', 'Marginal EB-PCA', 'Joint EB-PCA']
 
     # start plotting
     for i in range(4):
@@ -50,15 +54,15 @@ def plot_rank2_dePC(star, mar, joint, prior, s_star, plot_error=True):
         #     metric_name = 'error'
 
         # generate plot
-        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(7, 6))
-        ax.scatter(plot_est[i][:, 0], plot_est[i][:, 1], s = 2, alpha = 0.8)
+        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6,5), constrained_layout = True)
+        ax.scatter(plot_est[i][:, 0], plot_est[i][:, 1], s = 3, alpha = 0.8)
         if i > 0:
-            ax.set_title('%s \n bivariate %s=%.2f (error=%.2f)' % \
-                         (plot_method[i], metric_name, metric[0], get_error(metric[0])))
-            ax.set_xlabel('PC 1, %s=%.2f (error=%.2f)' % (metric_name, metric[1], get_error(metric[1])))
-            ax.set_ylabel('PC 2, %s=%.2f (error=%.2f)' % (metric_name, metric[2], get_error(metric[2])))
+            ax.set_title('%s \n bivariate error=%.2f' % \
+                         (plot_method[i], get_error(metric[0])))
+            ax.set_xlabel('PC 1, error=%.2f' % get_error(metric[1]))
+            ax.set_ylabel('PC 2, error=%.2f' % get_error(metric[2]))
         if i == 0:
-            ax.set_title('%s' % (plot_method[i]))
+            ax.set_title('%s \n' % (plot_method[i]))
             ax.set_xlabel('PC 1')
             ax.set_ylabel('PC 2')
         ax.set_xlim(-2, 2)
@@ -112,7 +116,6 @@ if __name__ == '__main__':
         for method in ['marginal', 'joint']:
             print('\n ########## %s EB-PCA ########## \n' % method)
             eval_align_stats(prior, method, s_star)
-    exit()
 
     # --------------------------
     # rank-2 simulation settings
