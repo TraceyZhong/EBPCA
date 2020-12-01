@@ -76,21 +76,43 @@ def plot_rank2_dePC(star, mar, joint, prior, s_star, plot_error=True):
 # load alignments from 50 replications
 def eval_align_stats(prior, method, s_star, ind=-1):
     align_dir = 'output/bivariate/%s/alignments' % prior
-    aligns = np.load('%s/%s_u_s_%.1f_%.1f_n_rep_50.npy' %
-                     (align_dir, method, s_star[0], s_star[1]))
+    for i in range(50):
+        if i == 0:
+            aligns = np.load('%s/%s_u_s_%.1f_%.1f_n_copy_%i.npy' % (align_dir, method, s_star[0], s_star[1], i+1))
+        else:
+            sec = np.load('%s/%s_u_s_%.1f_%.1f_n_copy_%i.npy' % (align_dir, method, s_star[0], s_star[1], i+1))
+            aligns = np.vstack([aligns, sec])
+    # aligns = np.load('%s/%s_u_s_%.1f_%.1f_n_rep_50.npy' %
+    #                  (align_dir, method, s_star[0], s_star[1]))
 
-    print('Print alignment statistics for %s: ' % method)
+    # print('Print alignment statistics for EB-PCA with %s prior estimation: ' % method)
     print('#simulations that returns NA: ', np.sum(np.isnan(aligns[:, :, ind])))
     print('marginal alignments: \n \t mean:', np.nanmean(aligns[:, :, ind], axis=0))
     print('\t std:', np.nanstd(aligns[:, :, ind], axis=0))
+    print('marginal errors: \n \t mean:', np.nanmean(get_error(aligns[:, :, ind]), axis=0))
+    print('\t std:', np.nanstd(get_error(aligns[:, :, ind]), axis=0))
 
-    joint_aligns = [get_joint_alignment(aligns[i, :, ind]) for i in range(aligns.shape[0])]
+    joint_aligns = [get_joint_alignment(aligns[i, :, ind], iterates=False) for i in range(aligns.shape[0])]
 
     print('joint alignments: \n \t mean: ',
           np.nanmean(joint_aligns))
     print('\t std:', np.nanstd(joint_aligns))
+    joint_errors = [get_error(a) for a in joint_aligns]
+    print('joint errors: \n \t mean: ',
+          np.nanmean(joint_errors))
+    print('\t std:', np.nanstd(joint_errors))
 
 if __name__ == '__main__':
+    s_star = [4.0, 2.0]
+    for prior in ['Uniform_circle', 'Three_points']:
+        print('\n\n\n %s \n\n\n' % prior)
+        print('\n ########## sample PCA ########## \n')
+        eval_align_stats(prior, 'joint', s_star, ind=0)
+        for method in ['marginal', 'joint']:
+            print('\n ########## %s EB-PCA ########## \n' % method)
+            eval_align_stats(prior, method, s_star)
+    exit()
+
     # --------------------------
     # rank-2 simulation settings
     # --------------------------
