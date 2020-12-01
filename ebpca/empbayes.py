@@ -61,6 +61,7 @@ class _BaseEmpiricalBayes(ABC):
         return 'normal'
 
     def check_margin(self, fs, mu, cov, figname):
+        plt.rcParams.update({'font.size': 16})
         if self.rank == 1:
             fig, ax = plt.subplots(nrows=self.rank, ncols=1, figsize=(7, 3))
             axes = [ax]
@@ -77,6 +78,8 @@ class _BaseEmpiricalBayes(ABC):
         
         for dim in range(self.rank):
             self.plot_each_margin(axes[dim], fs[:, dim], dim, mu, cov)
+            if self.iter > 1:
+                axes[dim].get_legend().remove()
             if self.rank > 1:
                 axes[dim].set_title("Iteration %i, %s%i, mu=%.2f, cov=%.2f" % \
                                     (self.iter, self.PCname, dim + 1, mu[dim, dim], cov[dim, dim]))
@@ -223,9 +226,9 @@ class NonparEBChecker(NonparEB):
         if self.plot_scaled:
             f = f / (mu[dim, dim])
             xgrid = xgrid / (mu[dim, dim])
-        ax.hist(f, bins=40, alpha=0.4, density=True, color=self.histcol, label="empirical obs")
-        ax.plot(xgrid, pdf, color="grey", linestyle="dashed", linewidth=2, label="fitted model")
-        ax.plot(xgrid, truePdf, color="grey", linestyle="solid", linewidth=1, label="denoise model")
+        ax.hist(f, bins=40, alpha=0.4, density=True, color=self.histcol, label="Empirical obs")
+        # ax.plot(xgrid, pdf, color="grey", linestyle="dashed", linewidth=2, label="fitted model")
+        ax.plot(xgrid, truePdf, color="grey", linestyle="solid", linewidth=1, label="Theoretical density")
         if self.xRange is not None:
             ax.set_xlim(self.xRange[0], self.xRange[1])
             ax.set_ylim(self.yRange[0], self.yRange[1])
