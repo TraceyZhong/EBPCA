@@ -188,9 +188,9 @@ def check_residual_spectrum(pca_pack, xmin=None, xmax=None, to_show = False, to_
     shorter_side = min(n_samples, n_features)
     # mu = np.pad(mu, (0,n_samples - len(mu)))[:n_samples]
     # I don't think I need to pad
-    
-    fig, ax = plt.subplots()
-    ax.hist(mu[:shorter_side], density = True, bins = 200, label = "sample singular values")
+    bins = np.linspace(xmin, xmax, 200) 
+    fig, ax = plt.subplots(figsize = (5,4))
+    ax.hist(mu[:shorter_side], density = True, bins = bins, label = "Residual Singular values")
     x = np.linspace(0.01, mu.max(), num = 500)
     aspect_ratio = n_features / n_samples
     if aspect_ratio > 1:
