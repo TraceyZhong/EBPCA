@@ -50,8 +50,12 @@ def ebmf(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
     # initialize parameter tau
     if tau_by_row:
         tau = n
+        pc1 = 'u'
+        pc2 = 'v'
     else:
         tau = d
+        pc1 = 'v'
+        pc2 = 'u'
 
     if ebpca_scaling:
         print('Apply rescaling to match the scale with EB-PCA in marginal plots')
@@ -93,7 +97,7 @@ def ebmf(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
         old_flag = new_flag
         print("at ebmf iter {}".format(t))
         # Denoise l_hat to get l
-        ldenoiser.fit(l_hat, mu, sigma_sq, figname='_u_iter%02d.png' % (t))
+        ldenoiser.fit(l_hat, mu, sigma_sq, figname='_%s_iter%02d.png' % (pc1, t))
         El = ldenoiser.denoise(l_hat, mu, sigma_sq)
         Varl = ldenoiser.ddenoise(l_hat, mu, sigma_sq) * (sigma_sq / mu)
         El2 = El**2 + Varl.reshape(-1,1) #[:,:,0]
@@ -113,7 +117,7 @@ def ebmf(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
             mu_bar = mu_bar * np.sum(El2)
             sigma_bar_sq = sigma_bar_sq * np.sum(El2)**2
         print('mu_bar/sigma2_bar %.2f' % (mu_bar / sigma_bar_sq))
-        fdenoiser.fit(f_hat, mu_bar, sigma_bar_sq, figname='_v_iter%02d.png' % (t))
+        fdenoiser.fit(f_hat, mu_bar, sigma_bar_sq, figname='_%s_iter%02d.png' % (pc2, t))
         Ef = fdenoiser.denoise(f_hat, mu_bar, sigma_bar_sq)
         Varf = fdenoiser.ddenoise(f_hat, mu_bar, sigma_bar_sq) * (sigma_bar_sq / mu_bar)
         Ef2 = Ef**2 + Varf.reshape(-1,1) # [:,:,0]
