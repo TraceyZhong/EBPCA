@@ -124,7 +124,6 @@ def get_space_distance(U,V):
     Qu, _ = np.linalg.qr(U, mode = "reduced")
     Qv, _ = np.linalg.qr(V, mode = "reduced")
     _, s, _ = np.linalg.svd(Qu.T.dot(Qv))
-    print(s)
     return np.sqrt(1 - np.min(s)**2)
 
 def get_joint_error(U_est, Ustar, iterates=True):
