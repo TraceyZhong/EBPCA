@@ -71,23 +71,24 @@ class _BaseEmpiricalBayes(ABC):
             axes = [ax]
 
         if self.rank > 1:
-            fig, axes = plt.subplots(ncols=1, nrows=self.rank+1, figsize = (7, 3*self.rank+2), \
-                gridspec_kw={'height_ratios': [3]*self.rank +[2] }, constrained_layout=True)
+            fig, axes = plt.subplots(ncols=1, nrows=self.rank, figsize = (5, 2*self.rank), constrained_layout=True)
+            # \
+            #                 gridspec_kw={'height_ratios': [3]*self.rank +[2] },
             # last row shows M and Sigma
-            ax = axes[-1]
-            ax.axis("off")
-            writeMat(ax, mu, "M", vCenter = 0.25)
-            writeMat(ax, cov, r"$\Sigma$", vCenter = 0.75)
+            # ax = axes[-1]
+            # ax.axis("off")
+            # writeMat(ax, mu, "M", vCenter = 0.25)
+            # writeMat(ax, cov, r"$\Sigma$", vCenter = 0.75)
 
         
         for dim in range(self.rank):
             self.plot_each_margin(axes[dim], fs[:, dim], dim, mu, cov)
-            if self.iter > 1:
+            if self.iter > 1 or dim > 0:
                 axes[dim].get_legend().remove()
             if self.rank > 1:
                 if self.print_SNR:
-                    axes[dim].set_title("Iteration %i, %s%i, mu=%.2f, cov=%.2f" % \
-                                        (self.iter, self.PCname.title(), dim + 1, mu[dim, dim], cov[dim, dim]))
+                    axes[dim].set_title("Iteration %i, %s%i, SNR=%.2f" % \
+                                        (self.iter, self.PCname.title(), dim + 1, (mu[dim, dim])**2/ (cov[dim, dim])))
                 else:
                     axes[dim].set_title("Iteration %i, %s%i" % (self.iter, self.PCname.title(), dim + 1))
             else:
@@ -244,7 +245,7 @@ class NonparEBChecker(NonparEB):
         if self.xRange is not None:
             ax.set_xlim(self.xRange[0], self.xRange[1])
             ax.set_ylim(self.yRange[0], self.yRange[1])
-        ax.legend(loc = 'upper left', fancybox=True, framealpha=0.5)
+        ax.legend(loc='upper left', fancybox=True, framealpha=0.5)
             
 class NonparBayes(NonparEB):
     def __init__(self, truePriorLoc, truePriorWeight, optimizer = "EM", PCname = 'U', ftol = 1e-6, nsupp_ratio = 1, em_iter = 10, maxiter = 100, to_save = False, to_show = False, fig_prefix = "nonparebck", **kwargs):

@@ -9,7 +9,10 @@ from tutorial import get_alignment, redirect_pc, normalize_pc
 # --------------------
 
 def approx_prior(Ustar, pca_U):
-    Ustar = redirect_pc(Ustar[:, np.newaxis], pca_U)
+    if len(Ustar.shape) < 2:
+        Ustar = redirect_pc(Ustar[:, np.newaxis], pca_U)
+    else:
+        Ustar = redirect_pc(Ustar, pca_U)
     truePriorLoc = Ustar
     truePriorWeight = np.full((len(truePriorLoc),), 1 / len(truePriorLoc))
     return truePriorLoc, truePriorWeight
