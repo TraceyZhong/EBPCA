@@ -2,8 +2,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 import sys
-from simulation.helpers import get_space_distance
 sys.path.extend(['../../generalAMP'])
+from simulation.helpers import get_space_distance
 
 def plot_legend(labels):
     plt.rcParams['axes.labelsize'] = 14
