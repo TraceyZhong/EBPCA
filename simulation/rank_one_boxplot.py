@@ -11,8 +11,8 @@ from ebpca.state_evolution import get_state_evolution, uniform, point_normal, tw
 # boxplot
 # ----------------------------------------------
 
-plt.rcParams['axes.titlesize'] = 25
-plt.rcParams['axes.labelsize'] = 20
+plt.rcParams['axes.titlesize'] = 20
+plt.rcParams['axes.labelsize'] = 18
 plt.rcParams['font.size'] = 18
 
 def alignment_boxplots(res, ticks):
@@ -20,15 +20,15 @@ def alignment_boxplots(res, ticks):
     if n == 5:
         pca, bayesamp, ebpca, ebmf, spca = res
         plot_seps = [-1.2, -0.6, 0.0, 0.6, 1.2]
-        bp_width = 0.45
+        bp_width = 0.5
     else:
         pca, bayesamp, ebpca, ebmf = res
         n = 4
         plot_seps = [-1.2, -0.4, 0.4, 1.2]
-        bp_width = 0.45
+        bp_width = 0.5
     bp_colors = ['tab:grey', 'tab:orange', 'tab:red', 'tab:blue', 'tab:green']
     # reference: https://stackoverflow.com/questions/16592222/matplotlib-group-boxplots 2nd answer
-    f, ax = plt.subplots(figsize=(9, 6.5))
+    f, ax = plt.subplots(figsize=(7, 3.5), constrained_layout = True)
     def set_box_color(bp, color):
         plt.setp(bp['boxes'], color=color)
         plt.setp(bp['whiskers'], color=color)
@@ -36,8 +36,7 @@ def alignment_boxplots(res, ticks):
         plt.setp(bp['medians'], color=color)
 
     # https://matplotlib.org/3.2.1/gallery/statistics/boxplot.html
-    # https://pymorton.wordpress.com/2016/04/05/creating-separate-legend-figure-with-matplotlib/
-    boxprops = dict(linewidth=2)
+    boxprops = dict(linewidth=1.5)
     bp1 = ax.boxplot(pca, positions=np.array(range(len(pca))) * float(n) + plot_seps[0], sym='', widths=bp_width,
                      boxprops=boxprops, medianprops=boxprops, whiskerprops=boxprops)
     bp2 = ax.boxplot(bayesamp, positions=np.array(range(len(bayesamp))) * float(n) + plot_seps[1], sym='', widths=bp_width,
@@ -68,8 +67,6 @@ def alignment_boxplots(res, ticks):
 
     # ax.legend(loc='lower right')
     plt.xticks(range(0, len(ticks) * n, n), ticks)
-    ax.set_xlabel("Signal strength s")
-    ax.set_ylabel('Alignment with ground truth')
     ax.set_xlim(-2, len(ticks) * n-2)
     ax.set_ylim(np.min([np.min(res[i]) for i in range(len(res))]) - 0.05, 1 + 0.05)
     return ax
@@ -121,11 +118,17 @@ def eval_se(prior, s_list, gamma, iters):
 
 # prior = 'Point_normal' # 'Two_points' # 'Uniform'
 def make_comp_plot(res, prior, prior_name, PC, s_list, to_save=True, prefix = '', suffix=''):
-    alignment_boxplots(res, s_list)
+    ax = alignment_boxplots(res, s_list)
+    # conditions for labels 
+    if prior == "Two_points":
+        ax.set_xlabel("Signal strength s")
+    if PC == "U":
+        # ax.set_ylabel('Alignment with ground truth')
+        ax.set_ylabel('Accuracy')
     plt.title('%s, %s' % (prior_name, PC))
     if to_save:
         print('figures/univariate/Figure1/%s/%s_%s_%s.png' % (prefix, suffix, prior, PC))
-        plt.savefig('figures/univariate/Figure1/%s/%s/%s_%s.png' % (prefix, suffix, prior, PC))
+        plt.savefig('figures/univariate/Figure1/%s/%s/%s_%s.png' % (prefix, suffix, prior, PC), dpi = 200)
     else:
         plt.show()
     plt.close()
