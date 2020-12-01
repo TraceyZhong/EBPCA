@@ -3,7 +3,7 @@ import numpy as np
 import sys
 sys.path.extend(['../../generalAMP'])
 from tutorial import redirect_pc
-from simulation.helpers import get_joint_alignment, get_marginal_alignment,  get_error
+from simulation.helpers import get_joint_alignment, get_marginal_alignment,  get_error, get_space_distance
 
 # ----------------------------------------------
 # Figure 4:
@@ -48,16 +48,18 @@ def plot_rank2_dePC(star, mar, joint, prior, s_star, plot_error=True):
     # start plotting
     for i in range(4):
         # plot error
-
+        metric = []
+        metric.append(get_space_distance(plot_est[i], star))
+        [metric.append(get_space_distance(plot_est[i][:, [j]], star[:, [j]])) for j in range(2)]
 
         # generate plot
         fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6,5), constrained_layout = True)
         ax.scatter(plot_est[i][:, 0], plot_est[i][:, 1], s = 3, alpha = 0.8)
         if i > 0:
             ax.set_title('%s \n bivariate error=%.2f' % \
-                         (plot_method[i], get_error(metric[0])))
-            ax.set_xlabel('PC 1, error=%.2f' % get_error(metric[1]))
-            ax.set_ylabel('PC 2, error=%.2f' % get_error(metric[2]))
+                         (plot_method[i], metric[0]))
+            ax.set_xlabel('PC 1, error=%.2f' % metric[1])
+            ax.set_ylabel('PC 2, error=%.2f' % metric[2])
         if i == 0:
             ax.set_title('%s \n' % (plot_method[i]))
             ax.set_xlabel('PC 1')
