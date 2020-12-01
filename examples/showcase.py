@@ -284,7 +284,7 @@ if __name__ == '__main__':
                 pc2 = pcs[data_name][i][1]
                 print(pcs[data_name][i])
                 ax = vis_2dim_subspace(sub_PCs[:, pc1:(pc2+1)] * np.sqrt(n), PCA_error[pc1:(pc2+1)],
-                                       data_name, 'Sample PC (%i subsamples:)' % subset_size[data_name], xRange=xRange, yRange=yRange,
+                                       data_name, 'Sample PC (%i subsamples)' % subset_size[data_name], xRange=xRange, yRange=yRange,
                                        data_dir='data/', to_save=True, legend_loc=legend_pos[data_name][i],
                                        PC1=pc1+1, PC2=pc2+1)
 
