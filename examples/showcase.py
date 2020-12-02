@@ -118,11 +118,11 @@ if __name__ == '__main__':
     iters_list = {'1000G': 5, 'UKBB': 5, 'PBMC': 5, 'GTEx': 5}
 
     # ---plot: x range---
-    xRange_list = {'1000G': [[-0.045, 0.03], [-0.055, 0.07]], 'UKBB': [[-0.03, 0.13], []],
+    xRange_list = {'1000G': [[-0.045, 0.025], [-0.055, 0.065]], 'UKBB': [[-0.03, 0.13], []],
                    'PBMC': [[-0.06, 0.025], [-0.04, 0.10]], 'GTEx': [-0.13, 0.08]}
 
     # ---plot: y range---
-    yRange_list = {'1000G': [[-0.045, 0.045], [-0.045, 0.11]], 'UKBB': [[-0.15, 0.055], []],
+    yRange_list = {'1000G': [[-0.045, 0.04], [-0.045, 0.11]], 'UKBB': [[-0.15, 0.055], []],
                    'PBMC': [[-0.045, 0.105], [-0.05, 0.12]], 'GTEx': [-0.1, 0.05]}
 
     # ---legend position---
@@ -133,7 +133,7 @@ if __name__ == '__main__':
     optimizer = {'1000G': 'Mosek', 'UKBB': 'Mosek', 'PBMC': 'EM', 'GTEx': 'Mosek'}
 
     # ---full data PC name----
-    fullPC = {'1000G': 'Ground truth PC', 'UKBB': 'Ground truth PC', 'PBMC': 'Sample PC'}
+    fullPC = {'1000G': 'Ground truth PCs', 'UKBB': 'Ground truth PCs', 'PBMC': 'Sample PCs'}
 
     # ---singular value dist lim----
     sv_lim = {'1000G': [0,2], 'UKBB': [0, 2.5], 'PBMC': [0,2]}
@@ -143,6 +143,9 @@ if __name__ == '__main__':
 
     # ---npc---
     npc = {'1000G': 2, 'UKBB': 1, 'PBMC': 2}
+
+    # ---sample name---
+    sample_name = {'1000G': 'SNPs', 'UKBB': 'SNPs', 'PBMC': 'genes'}
 
     # take arguments from command line
     # run single example for visualization or multiple replications to demonstrate quantitative performance
@@ -209,7 +212,7 @@ if __name__ == '__main__':
     if to_plot:
         # print('Load normalized data.')
         norm_data = np.load('results/%s/norm_data.npy' % data_name)
-        # full_pcapack = get_pca(norm_data, real_data_rank[data_name])
+        full_pcapack = get_pca(norm_data, real_data_rank[data_name])
         # visualize spectrum of the residual matrix (noise)
         if not os.path.exists('figures/%s/singvals_dist_%s.png' % (data_name, data_name)):
             check_residual_spectrum(full_pcapack, xmin = sv_lim[data_name][0], xmax = sv_lim[data_name][1],
@@ -218,24 +221,21 @@ if __name__ == '__main__':
         # visualize distributions of singular values and PCs
         if not os.path.exists('figures/%s/PC_0_%s.png' % (data_name, data_name)):
             # explore eigenvalue and eigenvector distributions
+            print('Plot eigenvalue dist:')
             plot_pc(full_pcapack.X, label=data_name, nPCs=real_data_rank[data_name],
                     to_show=False, to_save=True, fig_prefix='%s/' % data_name)
-
         # visualize the joint structure of PCs
         for i in range(npc[data_name]):
+            print(npc[data_name])
             xRange = [l * np.sqrt(n) for l in xRange_list[data_name][i]]
             yRange = [l * np.sqrt(n) for l in yRange_list[data_name][i]]
             pc1 = pcs[data_name][i][0]
             pc2 = pcs[data_name][i][1]
-            if i == 0:
-                add_legend = True
-            else:
-                add_legend = False
-            vis_2dim_subspace(V_star[:, pc1 : (pc2+1)] * np.sqrt(n), [1,1], data_name, fullPC[data_name],
-                              xRange=xRange, yRange=yRange,
-                              data_dir='data/', to_save=True,
-                              PC1=pc1 + 1, PC2=pc2 + 1,
-                              legend_loc=legend_pos[data_name][i], plot_legend=add_legend)
+            ax = vis_2dim_subspace(V_star[:, pc1 : (pc2+1)] * np.sqrt(n), [1,1], data_name, fullPC[data_name],
+                                   xRange=xRange, yRange=yRange,
+                                    data_dir='data/', to_save=True,
+                                   wPC1=pc1 + 1, PC2=pc2 + 1,
+                                    legend_loc=legend_pos[data_name][i])
 
     # -------------------------------------------
     # step 3: Get random subset(s) from full data
@@ -282,9 +282,8 @@ if __name__ == '__main__':
                 yRange = [l * np.sqrt(n) for l in yRange_list[data_name][i]]
                 pc1 = pcs[data_name][i][0]
                 pc2 = pcs[data_name][i][1]
-                print(pcs[data_name][i])
                 ax = vis_2dim_subspace(sub_PCs[:, pc1:(pc2+1)] * np.sqrt(n), PCA_error[pc1:(pc2+1)],
-                                       data_name, 'Sample PC (%i subsamples)' % subset_size[data_name], xRange=xRange, yRange=yRange,
+                                       data_name, 'Sample PCs (%i %s)' % (subset_size[data_name], sample_name[data_name]), xRange=xRange, yRange=yRange,
                                        data_dir='data/', to_save=True, legend_loc=legend_pos[data_name][i],
                                        PC1=pc1+1, PC2=pc2+1)
 
@@ -355,7 +354,7 @@ if __name__ == '__main__':
             pc2 = pcs[data_name][i][1]
             print(pcs[data_name][i])
             ax = vis_2dim_subspace(V_joint_est[:, pc1:(pc2+1)], joint_error[pc1:(pc2+1)],
-                                   data_name, 'Joint EB-PCA',
+                                   data_name, 'EB-PCA',
                                    xRange=xRange, yRange=yRange,
                                    data_dir='data', to_save=True,
                                    PC1=pc1+1, PC2=pc2+1, legend_loc=legend_pos[data_name][i])
