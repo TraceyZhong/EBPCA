@@ -61,13 +61,12 @@ class _BaseEmpiricalBayes(ABC):
         return 'normal'
 
     def check_margin(self, fs, mu, cov, figname):
-        plt.rcParams['font.size'] = 15
-        plt.rcParams['axes.titlesize'] = 16
-        plt.rcParams['axes.labelsize'] = 16
-        plt.rcParams['xtick.labelsize'] = 10
-        plt.rcParams['ytick.labelsize'] = 10
+        plt.rcParams['axes.titlesize'] = 22
+        plt.rcParams['axes.labelsize'] = 20
+        plt.rcParams['xtick.labelsize'] = 15
+        plt.rcParams['ytick.labelsize'] = 15
         if self.rank == 1:
-            fig, ax = plt.subplots(nrows=self.rank, ncols=1, figsize=(7, 3))
+            fig, ax = plt.subplots(nrows=self.rank, ncols=1, figsize=(6, 3/7*6))
             axes = [ax]
 
         if self.rank > 1:
@@ -84,11 +83,12 @@ class _BaseEmpiricalBayes(ABC):
         for dim in range(self.rank):
             self.plot_each_margin(axes[dim], fs[:, dim], dim, mu, cov)
             if self.iter > 1 or dim > 0:
-                axes[dim].get_legend().remove()
+                pass
+                # axes[dim].get_legend().remove()
             if self.rank > 1:
                 if self.print_SNR:
                     axes[dim].set_title("Iteration %i, %s%i, SNR=%.2f" % \
-                                        (self.iter, self.PCnam, dim + 1, (mu[dim, dim])**2/ (cov[dim, dim])))
+                                        (self.iter, self.PCname, dim + 1, (mu[dim, dim])**2/ (cov[dim, dim])))
                 else:
                     axes[dim].set_title("Iteration %i, %s%i" % (self.iter, self.PCname, dim + 1))
             else:
@@ -241,11 +241,11 @@ class NonparEBChecker(NonparEB):
             xgrid = xgrid / (mu[dim, dim])
         ax.hist(f, bins=40, alpha=0.4, density=True, color=self.histcol, label="Empirical obs.")
         # ax.plot(xgrid, pdf, color="grey", linestyle="dashed", linewidth=2, label="fitted model")
-        ax.plot(xgrid, truePdf, color="grey", linestyle="solid", linewidth=1, label="Theoretical density")
+        ax.plot(xgrid, truePdf, color="grey", linestyle="solid", linewidth=2, label="Theoretical density")
         if self.xRange is not None:
             ax.set_xlim(self.xRange[0], self.xRange[1])
             ax.set_ylim(self.yRange[0], self.yRange[1])
-        ax.legend(loc='upper left', fancybox=True, framealpha=0.5)
+        # ax.legend(loc='upper left', fancybox=True, framealpha=0.5, fontsize=16)
             
 class NonparBayes(NonparEB):
     def __init__(self, truePriorLoc, truePriorWeight, optimizer = "EM", PCname = 'U', ftol = 1e-6, nsupp_ratio = 1, em_iter = 10, maxiter = 100, to_save = False, to_show = False, fig_prefix = "nonparebck", **kwargs):
