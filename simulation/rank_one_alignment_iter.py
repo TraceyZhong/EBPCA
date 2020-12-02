@@ -12,11 +12,11 @@ from ebpca.state_evolution import get_state_evolution, get_alignment_evolution, 
 # boxplot
 # ----------------------------------------------
 
-plt.rcParams['axes.titlesize'] = 20
-plt.rcParams['axes.labelsize'] = 18
-plt.rcParams['font.size'] = 18
-plt.rcParams['xtick.labelsize'] = 12
-plt.rcParams['ytick.labelsize'] = 12
+plt.rcParams['axes.titlesize'] = 22
+plt.rcParams['axes.labelsize'] = 20
+plt.rcParams['font.size'] = 20
+plt.rcParams['xtick.labelsize'] = 18
+plt.rcParams['ytick.labelsize'] = 18
 
 def load_alignments(prior, method, PC = 'u', rm_na=False, prefix = '', suffix = ''):
     prefix = prefix + '/'
@@ -54,7 +54,7 @@ def alignment_boxplots(res, ticks, plot_seps = [-0.5, 0.5], bp_colors = ['#de2d2
 
     # draw temporary red and blue lines and use them to create a legend
     ax.plot([], c=bp_colors[0], label='EB-PCA')
-    ax.plot([], c=bp_colors[1], label='EBMF')
+    ax.plot([], c=bp_colors[1], label='Mean-field VB')
 
     ax.legend(loc='lower right', scatterpoints=3, fontsize=20)
     plt.xticks(range(0, len(ticks) * n, n), ticks)
@@ -68,7 +68,7 @@ def add_line_to_boxplots(ax, res, plot_seps = [-0.5, 0.5], bp_colors = ['#fc9272
     y = np.nanmedian(res, axis=2)
     x = [ax.get_xticks() + plot_seps[i] for i in range(2)]
     # make labels
-    labels = ['EB-PCA', 'EBMF']
+    labels = ['EB-PCA', 'Mean-field VB']
     # Plot a line between the means of each dataset
     [plt.plot(x[i], y[i], 'b-', c=bp_colors[i]) for i in range(2)]
 

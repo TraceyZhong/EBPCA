@@ -11,9 +11,10 @@ from simulation.helpers import get_joint_alignment, get_marginal_alignment,  get
 # dot plot
 # ----------------------------------------------
 
-plt.rcParams['axes.titlesize'] = 20
-plt.rcParams['axes.labelsize'] = 18
-plt.rcParams['font.size'] = 18
+plt.rcParams['axes.titlesize'] = 30
+plt.rcParams['axes.labelsize'] = 28
+plt.rcParams['xtick.labelsize'] = 18
+plt.rcParams['ytick.labelsize'] = 18
 
 def load_PC_star(prior, s_star, n_copy=0):
     data_prefix = 'output/bivariate/%s/data/s_%.1f_%.1f' % (prior, s_star[0], s_star[1])
