@@ -116,7 +116,7 @@ class _BaseEmpiricalBayes(ABC):
 
 class NonparEB(_BaseEmpiricalBayes):
     
-    def __init__(self, optimizer = "EM", PCname = 'U', ftol = 1e-8, nsupp_ratio = 1, em_iter = 100, maxiter = 100, to_save = False, to_show = False, fig_prefix = "nonpareb", **kwargs):
+    def __init__(self, optimizer = "EM", PCname = 'U', ftol = 1e-8, nsupp_ratio = 1, em_iter = 500, maxiter = 100, to_save = False, to_show = False, fig_prefix = "nonpareb", **kwargs):
         _BaseEmpiricalBayes.__init__(self, to_save, to_show, fig_prefix)
         # check if parameters are valid
         if optimizer in ["EM", "Mosek"]:
