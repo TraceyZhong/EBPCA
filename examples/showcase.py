@@ -79,12 +79,12 @@ def generate_subset(X_full_norm, n_sub, seed = 32423):
     X_sub = X_full_norm[np.random.choice([i for i in range(m)], n_sub, replace=False), :]
     return X_sub
 
-def prep_subsets(X_norm, n_sub, data_name, seeds, n_rep=50):
+def prep_subsets(X_norm, n_sub, data_name, subset_size, seeds, n_rep=50):
     for i in range(n_rep):
         X = generate_subset(X_norm, n_sub, seed=seeds[i])
         # normalize data to satisfy the EB-PCA assumption
         X = normalize_obs(X, real_data_rank[data_name])
-        np.save('results/%s/subset_n_copy_%i.npy' % (data_name, i + 1), X)
+        np.save('results/%s/subset_size_%i_n_copy_%i.npy' % (data_name, subset_size, i + 1), X)
 
 def eval_align_stats(data_name, method, s_star, ind=-1):
     align_dir = 'results/%s' % data_name
@@ -112,7 +112,7 @@ if __name__ == '__main__':
 
     # ---Subset size---
     # The size of the random subsets
-    subset_size = {'1000G': 1000, 'UKBB': 2000, 'PBMC': 13711, 'GTEx': 2000}
+    # subset_size = {'1000G': 1000, 'UKBB': 2000, 'PBMC': 13711, 'GTEx': 2000}
 
     # ---iterations---
     iters_list = {'1000G': 5, 'UKBB': 5, 'PBMC': 5, 'GTEx': 5}
@@ -130,7 +130,7 @@ if __name__ == '__main__':
                   'PBMC': ['upper left', 'upper left'], 'GTEx': 'upper left'}
 
     # ---optmizer-----
-    optimizer = {'1000G': 'Mosek', 'UKBB': 'Mosek', 'PBMC': 'EM', 'GTEx': 'Mosek'}
+    # optimizer = {'1000G': 'Mosek', 'UKBB': 'Mosek', 'PBMC': 'EM', 'GTEx': 'Mosek'}
 
     # ---full data PC name----
     fullPC = {'1000G': 'Ground truth PCs', 'UKBB': 'Ground truth PCs', 'PBMC': 'Sample PCs'}
@@ -156,7 +156,11 @@ if __name__ == '__main__':
     parser.add_argument("--n_copy", type=int, help="which replication to run",
                         default=1, const=1, nargs='?')
     parser.add_argument("--to_plot", type=str, help="whether or not to plot",
-                        default='yes', const='yes', nargs='?')
+                        default='no', const='no', nargs='?')
+    parser.add_argument("--subset_size", type=int, help="subset size",
+                        default=1000, const=1000, nargs='?')
+    parser.add_argument("--optimizer", type=str, help="EM optimizer",
+                        default='Mosek', const='Mosek', nargs='?')
     args = parser.parse_args()
     data_name = args.data_name
     n_copy = args.n_copy
@@ -164,8 +168,12 @@ if __name__ == '__main__':
     to_plot = False
     if args.to_plot == 'yes':
         to_plot = (n_copy == 1)
+    subset_size = args.subset_size
+    optimizer = args.optimizer
 
     print('Analyzing dataset: %s, #replications = %i' % (data_name, n_copy))
+    print('Parameters: subset size=%i, optimizer=%s' % (subset_size, optimizer))
+
     start_time = time.time()
 
     # ---------------------------------------------------
@@ -253,16 +261,16 @@ if __name__ == '__main__':
         seeds = np.random.randint(0, 10000, 50)  # set seed for each dataset
 
         # make subsets
-        if not os.path.exists('results/%s/subset_n_copy_%i.npy' % (data_name, 50)):
+        if not os.path.exists('results/%s/subset_size_%i_n_copy_%i.npy' % (data_name, subset_size, 50)):
             print('Load normalized data.')
             norm_data = np.load('results/%s/norm_data.npy' % data_name)
-            # print('Making 50 random subsets')
-            # prep_subsets(norm_data, subset_size[data_name], data_name, seeds, n_rep=50)
+            print('Making 50 random subsets')
+            prep_subsets(norm_data, subset_size, data_name, subset_size, seeds, n_rep=50)
             # remove normalized data
             del norm_data
 
         # load generated subsets
-        X = np.load('results/%s/subset_n_copy_%i.npy' % (data_name, n_copy))
+        X = np.load('results/%s/subset_size_%i_n_copy_%i.npy' % (data_name, subset_size, n_copy))
 
         # get pca estimates
         sub_pcapack = get_pca(X, real_data_rank[data_name])
@@ -283,33 +291,34 @@ if __name__ == '__main__':
                 pc1 = pcs[data_name][i][0]
                 pc2 = pcs[data_name][i][1]
                 ax = vis_2dim_subspace(sub_PCs[:, pc1:(pc2+1)] * np.sqrt(n), PCA_error[pc1:(pc2+1)],
-                                       data_name, 'Sample PCs (%i %s)' % (subset_size[data_name], sample_name[data_name]), xRange=xRange, yRange=yRange,
+                                       data_name, 'Sample PCs (%i %s)' % (subset_size, sample_name[data_name]),
+                                       xRange=xRange, yRange=yRange,
                                        data_dir='data/', to_save=True, legend_loc=legend_pos[data_name][i],
                                        PC1=pc1+1, PC2=pc2+1)
 
     # ----------------------------------------
     # step 4: Run EB-PCA
     # ----------------------------------------
-    est_dir = 'results/%s/PC_estimates_iters_%i_n_copy_%i' % (data_name, iters_list[data_name], n_copy)
+    est_dir = 'results/%s/PC_estimates_iters_%i_size_%i_n_copy_%i' % (data_name, iters_list[data_name], subset_size, n_copy)
 
     if not os.path.exists(est_dir + '.npy'):
         # run EB-PCA with joint estimation (by default)
         _, V_joint, _ = run_rankK_EBPCA('joint', X, real_data_rank[data_name], iters_list[data_name],
-                                        optimizer = optimizer[data_name])
+                                        optimizer = optimizer)
         np.save(est_dir + '.npy', V_joint, allow_pickle=False)
 
-        # evaluate alignments
-        joint_align = [get_alignment(V_joint[:, [j], -1], V_star[:, [j]]) \
+        # evaluate error
+        joint_error = [get_space_distance(V_joint[:, [j], -1], V_star[:, [j]])
                        for j in range(real_data_rank[data_name])]
-        np.save('results/%s/joint_alignment_n_copy_%i.npy' % (data_name, n_copy),
-                joint_align, allow_pickle=False)
+        print('errors: ')
+        print(joint_error)
 
     # also run EB-PCA with marginal estimation for visualization purpose
     if to_plot:
         # load joint alignment
         V_joint = np.load(est_dir + '.npy')
-        joint_align = np.load('results/%s/joint_alignment_n_copy_%i.npy' % (data_name, n_copy),
-                              allow_pickle=False)
+        # joint_align = np.load('results/%s/joint_alignment_n_copy_%i.npy' % (data_name, n_copy),
+        #                       allow_pickle=False)
 
         # if not os.path.exists(est_dir + '_marginal.npy'):
         #     _, V_mar, _ = run_rankK_EBPCA('marginal', X, real_data_rank[data_name], iters_list[data_name])
@@ -326,9 +335,6 @@ if __name__ == '__main__':
         #              for j in range(real_data_rank[data_name])]
         # joint_align = [get_alignment(V_joint[:, [j], -1], V_star[:, [j]]) \
         #                for j in range(real_data_rank[data_name])]
-        # evaluate error
-        joint_error = [get_space_distance(V_joint[:, [j], -1], V_star[:, [j]])
-                       for j in range(real_data_rank[data_name])]
 
         # test sqrt(1-align^2)
         # print('marginal sqrt(1-alignments): ', np.sqrt(1 - np.power(mar_align, 2)))
