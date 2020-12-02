@@ -33,7 +33,7 @@ vTruePriorLoc, vTruePriorWeight = approx_prior(V_star, pcapack.V)
 # initiate denoiser
 udenoiser = NonparEB(optimizer=optimizer, to_save=False)
 vdenoiser = NonparEBChecker(vTruePriorLoc, vTruePriorWeight, optimizer="Mosek",
-                            to_save=True, fig_prefix=fig_prefix, PCname='V', print_SNR=True)
+                            to_save=True, fig_prefix=fig_prefix, PCname='PC', print_SNR=True)
 # run AMP
 U_est, V_est, conv = ebamp_gaussian(pcapack, iters=iters,
                                     udenoiser=udenoiser, vdenoiser=vdenoiser,

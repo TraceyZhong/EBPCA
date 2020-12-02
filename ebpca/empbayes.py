@@ -88,9 +88,9 @@ class _BaseEmpiricalBayes(ABC):
             if self.rank > 1:
                 if self.print_SNR:
                     axes[dim].set_title("Iteration %i, %s%i, SNR=%.2f" % \
-                                        (self.iter, self.PCname.title(), dim + 1, (mu[dim, dim])**2/ (cov[dim, dim])))
+                                        (self.iter, self.PCnam, dim + 1, (mu[dim, dim])**2/ (cov[dim, dim])))
                 else:
-                    axes[dim].set_title("Iteration %i, %s%i" % (self.iter, self.PCname.title(), dim + 1))
+                    axes[dim].set_title("Iteration %i, %s%i" % (self.iter, self.PCname, dim + 1))
             else:
                 if self.print_SNR:
                     axes[dim].set_title("Iteration %i, %s, SNR=%.2f" % \
