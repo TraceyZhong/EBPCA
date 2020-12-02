@@ -188,8 +188,8 @@ def check_residual_spectrum(pca_pack, xmin=None, xmax=None, to_show = False, to_
     shorter_side = min(n_samples, n_features)
     # mu = np.pad(mu, (0,n_samples - len(mu)))[:n_samples]
     # I don't think I need to pad
-    bins = np.linspace(xmin, xmax, 200) 
-    fig, ax = plt.subplots(figsize = (5,4))
+    bins = np.linspace(xmin, xmax, 50)
+    fig, ax = plt.subplots(figsize = (4,3))
     ax.hist(mu[:shorter_side], density = True, bins = bins, label = "Residual Singular values")
     x = np.linspace(0.01, mu.max(), num = 500)
     aspect_ratio = n_features / n_samples
@@ -343,9 +343,10 @@ def signal_solver(singval, mu, n_samples, n_features, rank = 0, supp_max = None,
 
 def plot_pc(samples,label,nPCs=10,u_ref=None):
     u,s,vh = np.linalg.svd(samples,full_matrices=False)
-    plt.hist(s[1:],bins=50)
-    plt.ylim([0,100])
-    plt.title('Singular values, leading removed')
+    fig, ax = plt.subplots(figsize=(5, 4))
+    ax.hist(s[1:],bins=50)
+    ax.set_ylim([0,100])
+    ax.set_title('Singular values, leading removed')
     plt.savefig('figures/singvals_%s.png' % label)
     plt.close()
     for i in range(nPCs):
