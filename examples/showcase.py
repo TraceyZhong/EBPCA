@@ -19,18 +19,42 @@ import sys
 sys.path.extend(['../../generalAMP'])
 from ebpca.preprocessing import normalize_obs, plot_pc
 from ebpca.pca import get_pca, check_residual_spectrum
-from simulation.helpers import get_error, get_space_distance
+from simulation.helpers import get_space_distance
 from simulation.rank_two import run_rankK_EBPCA
-from tutorial import get_alignment, redirect_pc
+from tutorial import redirect_pc
 import time
 from visualization import vis_2dim_subspace
+import pandas as pd
+from pandas_plink import read_plink1_bin
+
+def read_plink_genotype(dir):
+    G = read_plink1_bin(dir+'.bed', dir+'.bim', dir+'.fam', verbose=True)
+    genotype = G.values
+    return genotype
 
 # load cleaned full data
 def load_data(data_name):
     data_dir = 'data/' + data_name
-    if data_name in ['1000G', 'UKBB', 'PBMC', 'GTEx']:
-        if data_name == '1000G':
-            full_data = np.load(data_dir + '/normalized_1000G_1e5.npy')
+    if data_name in ['1000G', 'UKBB', 'PBMC', 'GTEx', 'Hapmap3',
+                     '1000G_African', '1000G_Caucasian',
+                     '1000G_East-Asian', '1000G_Hispanic',
+                     '1000G_South-Asian']:
+        print(data_name)
+        if '1000G' in data_name:
+            if data_name == '1000G':
+                full_data = np.load('data/1000G' + '/normalized_1000G_1e5.npy')
+            else:
+                full_data = read_plink_genotype('data/1000G/Merge')
+            popu_label_df = pd.read_csv('data/1000G/Popu_labels.txt', sep=' ')
+            for sub_popu in ['African', 'Caucasian', 'East-Asian', 'South-Asian', 'Hispanic']:
+                if sub_popu in data_name:
+                    full_data = full_data[(popu_label_df['Population_broad'] == sub_popu).values, :]
+            if data_name == '1000G_African':
+                # remove outliers in African population
+                Af_outlier = np.load('data/1000G/subset_index.npy')
+                full_data = full_data[Af_outlier, :]
+        elif data_name == 'Hapmap3':
+            full_data = np.load(data_dir + '/hapmap3_1e+05.npy')
         elif data_name == 'UKBB':
             full_data = np.load(data_dir + '/normalized_UKBB_1e5.npy')
         elif data_name == 'PBMC':
@@ -79,11 +103,11 @@ def generate_subset(X_full_norm, n_sub, seed = 32423):
     X_sub = X_full_norm[np.random.choice([i for i in range(m)], n_sub, replace=False), :]
     return X_sub
 
-def prep_subsets(X_norm, n_sub, data_name, subset_size, seeds, n_rep=50):
+def prep_subsets(X_norm, n_sub, data_name, subset_size, seeds, rank, n_rep=50):
     for i in range(n_rep):
         X = generate_subset(X_norm, n_sub, seed=seeds[i])
         # normalize data to satisfy the EB-PCA assumption
-        X = normalize_obs(X, real_data_rank[data_name])
+        X = normalize_obs(X, rank)
         np.save('results/%s/subset_size_%i_n_copy_%i.npy' % (data_name, subset_size, i + 1), X)
 
 def eval_align_stats(data_name, method, s_star, ind=-1):
@@ -108,44 +132,86 @@ if __name__ == '__main__':
     # Rank equals the number of PCs in the EB-PCA model
     # For each dataset, we manually inspect the singular value distribution
     # and identify the number of signal components
-    real_data_rank = {'1000G': 4, 'UKBB': 2, 'PBMC': 3, 'GTEx': 2}
+    real_data_rank = {'1000G': 4, 'UKBB': 2, 'PBMC': 3, 'GTEx': 2, 'Hapmap3': 4,
+                      '1000G_African': 2, '1000G_Caucasian': 2,
+                      '1000G_East-Asian': 2, '1000G_Hispanic': 2,
+                      '1000G_South-Asian': 2 }
 
     # ---Subset size---
     # The size of the random subsets
-    # subset_size = {'1000G': 1000, 'UKBB': 2000, 'PBMC': 13711, 'GTEx': 2000}
+    subset_size = {'1000G': 1000, 'UKBB': 2000, 'PBMC': 13711, 'GTEx': 2000, 'Hapmap3': 1000,
+                   '1000G_African': 10000, '1000G_Caucasian': 5000,
+                   '1000G_East-Asian': 5000, '1000G_Hispanic': 5000,
+                   '1000G_South-Asian': 10000
+                   }
 
     # ---iterations---
-    iters_list = {'1000G': 5, 'UKBB': 5, 'PBMC': 5, 'GTEx': 5}
+    iters_list = {'1000G': 5, 'UKBB': 5, 'PBMC': 5, 'GTEx': 5, 'Hapmap3': 5,
+                  '1000G_African': 5, '1000G_Caucasian': 5,
+                  '1000G_East-Asian': 5, '1000G_Hispanic': 5,
+                  '1000G_South-Asian': 5}
 
     # ---plot: x range---
     xRange_list = {'1000G': [[-0.045, 0.025], [-0.055, 0.065]], 'UKBB': [[-0.03, 0.13], []],
-                   'PBMC': [[-0.06, 0.025], [-0.04, 0.10]], 'GTEx': [-0.13, 0.08]}
+                   'PBMC': [[-0.06, 0.025], [-0.04, 0.10]], 'GTEx': [-0.13, 0.08],
+                   'Hapmap3': [[-0.05, 0.04], [-0.09, 0.05]],
+                   '1000G_African': [[-0.12, 0.04], []], '1000G_Caucasian': [[-0.075, 0.126], []],
+                   '1000G_East-Asian': [[-0.08, 0.10], []], '1000G_Hispanic': [[-0.135, 0.105], []],
+                   '1000G_South-Asian': [[-0.08, 0.13], []]
+                   }
 
     # ---plot: y range---
     yRange_list = {'1000G': [[-0.045, 0.04], [-0.045, 0.11]], 'UKBB': [[-0.15, 0.055], []],
-                   'PBMC': [[-0.045, 0.105], [-0.05, 0.12]], 'GTEx': [-0.1, 0.05]}
+                   'PBMC': [[-0.045, 0.105], [-0.05, 0.12]], 'GTEx': [-0.1, 0.05],
+                   'Hapmap3': [[-0.045, 0.055], [-0.12, 0.05]],
+                   '1000G_African': [[-0.09, 0.08], []], '1000G_Caucasian': [[-0.115, 0.12], []],
+                   '1000G_East-Asian': [[-0.12, 0.12], []], '1000G_Hispanic': [[-0.38, 0.13], []],
+                   '1000G_South-Asian': [[-0.11, 0.16], []]
+                   }
 
     # ---legend position---
     legend_pos = {'1000G': ['upper left', 'upper left'], 'UKBB': ['lower right', []],
-                  'PBMC': ['upper left', 'upper left'], 'GTEx': 'upper left'}
+                  'PBMC': ['upper left', 'upper left'], 'GTEx': 'upper left',
+                  'Hapmap3': ['upper left', 'upper left'],
+                  '1000G_African': 'upper left', '1000G_Caucasian': 'upper left',
+                  '1000G_East-Asian': 'upper left', '1000G_Hispanic': ['upper left'],
+                  '1000G_South-Asian': 'upper left'}
 
     # ---optmizer-----
     # optimizer = {'1000G': 'Mosek', 'UKBB': 'Mosek', 'PBMC': 'EM', 'GTEx': 'Mosek'}
 
     # ---full data PC name----
-    fullPC = {'1000G': 'Ground truth PCs', 'UKBB': 'Ground truth PCs', 'PBMC': 'Sample PCs'}
+    fullPC = {'1000G': 'Ground truth PCs', 'UKBB': 'Ground truth PCs', 'PBMC': 'Sample PCs',
+              'Hapmap3': 'Ground truth PCs',
+              '1000G_African': 'Ground truth PCs', '1000G_Caucasian': 'Ground truth PCs',
+              '1000G_East-Asian': 'Ground truth PCs', '1000G_Hispanic': 'Ground truth PCs',
+              '1000G_South-Asian': 'Ground truth PCs'}
 
     # ---singular value dist lim----
-    sv_lim = {'1000G': [0,2], 'UKBB': [0, 2.5], 'PBMC': [0,2]}
+    sv_lim = {'1000G': [0.5,1.5], 'UKBB': [0.5,1.5], 'PBMC': [0.25,2],
+              'Hapmap3': [0,2],
+              '1000G_African': [0.5,1.5], '1000G_Caucasian': [0.5, 1.5],
+              '1000G_East-Asian': [0.5, 1.5], '1000G_Hispanic': [0.5, 1.5],
+              '1000G_South-Asian': [0.5, 1.5]}
 
     # ---pcs----
-    pcs = {'1000G': [[0,1], [2,3]], 'UKBB': [[0,1],[]], 'PBMC': [[0,1],[1,2]]}
+    pcs = {'1000G': [[0,1], [2,3]], 'UKBB': [[0,1],[]], 'PBMC': [[0,1],[1,2]],
+           'Hapmap3': [[0,1], [2,3]],
+           '1000G_African': [[0,1], []], '1000G_Caucasian': [[0,1], []],
+           '1000G_East-Asian': [[0,1], []], '1000G_Hispanic': [[0,1], []],
+           '1000G_South-Asian': [[0,1], []]}
 
     # ---npc---
-    npc = {'1000G': 2, 'UKBB': 1, 'PBMC': 2}
+    npc = {'1000G': 2, 'UKBB': 1, 'PBMC': 2, 'Hapmap3': 2,
+           '1000G_African': 1, '1000G_Caucasian': 1,
+           '1000G_East-Asian': 1, '1000G_Hispanic': 1,
+           '1000G_South-Asian': 1}
 
     # ---sample name---
-    sample_name = {'1000G': 'SNPs', 'UKBB': 'SNPs', 'PBMC': 'genes'}
+    sample_name = {'1000G': 'SNPs', 'UKBB': 'SNPs', 'PBMC': 'genes', 'Hapmap3': 'SNPs',
+                   '1000G_African': 'SNPs', '1000G_Caucasian': 'SNPs',
+                   '1000G_East-Asian': 'SNPs', '1000G_Hispanic': 'SNPs',
+                   '1000G_South-Asian': 'SNPs'}
 
     # take arguments from command line
     # run single example for visualization or multiple replications to demonstrate quantitative performance
@@ -158,7 +224,7 @@ if __name__ == '__main__':
     parser.add_argument("--to_plot", type=str, help="whether or not to plot",
                         default='no', const='no', nargs='?')
     parser.add_argument("--subset_size", type=int, help="subset size",
-                        default=1000, const=1000, nargs='?')
+                        default=5000, const=5000, nargs='?')
     parser.add_argument("--optimizer", type=str, help="EM optimizer",
                         default='Mosek', const='Mosek', nargs='?')
     args = parser.parse_args()
@@ -168,8 +234,8 @@ if __name__ == '__main__':
     to_plot = False
     if args.to_plot == 'yes':
         to_plot = (n_copy == 1)
-    subset_size = args.subset_size
     optimizer = args.optimizer
+    subset_size = args.subset_size
 
     print('Analyzing dataset: %s, #replications = %i' % (data_name, n_copy))
     print('Parameters: subset size=%i, optimizer=%s' % (subset_size, optimizer))
@@ -196,7 +262,7 @@ if __name__ == '__main__':
 
         # normalize all samples to have the same variance
         # e.g. genetic variants / gene expressions to have the same variance
-        # in practice we observe that this step can help with the interpretation of PCs
+        # in practice we observe that this step can help with the interpr etation of PCs
         # and avoids single sample dominating the PCs
         norm_data = normalize_samples(full_data, rows_as_samples=True)
 
@@ -215,34 +281,33 @@ if __name__ == '__main__':
         np.save('results/%s/ground_truth_PC.npy' % data_name, full_pcapack.V)
     else:
         V_star = np.load('results/%s/ground_truth_PC.npy' % data_name)
-        n, _ = V_star.shape
+    n, _ = V_star.shape
 
     if to_plot:
-        # print('Load normalized data.')
+        print('Load normalized data.')
         norm_data = np.load('results/%s/norm_data.npy' % data_name)
         full_pcapack = get_pca(norm_data, real_data_rank[data_name])
         # visualize spectrum of the residual matrix (noise)
-        if not os.path.exists('figures/%s/singvals_dist_%s.png' % (data_name, data_name)):
+        if not os.path.exists('figures/%s/singvals_dist_%s_full.png' % (data_name, data_name)):
             check_residual_spectrum(full_pcapack, xmin = sv_lim[data_name][0], xmax = sv_lim[data_name][1],
-                                    to_save=True, fig_prefix=data_name, label=data_name)
+                                    to_save=True, fig_prefix=data_name, label=data_name + '_full')
 
         # visualize distributions of singular values and PCs
-        if not os.path.exists('figures/%s/PC_0_%s.png' % (data_name, data_name)):
+        if not os.path.exists('figures/%s/PC_0_%s_full.png' % (data_name, data_name)):
             # explore eigenvalue and eigenvector distributions
             print('Plot eigenvalue dist:')
-            plot_pc(full_pcapack.X, label=data_name, nPCs=real_data_rank[data_name],
+            plot_pc(full_pcapack.X, label=data_name + '_full', nPCs=real_data_rank[data_name],
                     to_show=False, to_save=True, fig_prefix='%s/' % data_name)
         # visualize the joint structure of PCs
         for i in range(npc[data_name]):
-            print(npc[data_name])
             xRange = [l * np.sqrt(n) for l in xRange_list[data_name][i]]
             yRange = [l * np.sqrt(n) for l in yRange_list[data_name][i]]
             pc1 = pcs[data_name][i][0]
             pc2 = pcs[data_name][i][1]
             ax = vis_2dim_subspace(V_star[:, pc1 : (pc2+1)] * np.sqrt(n), [1,1], data_name, fullPC[data_name],
                                    xRange=xRange, yRange=yRange,
-                                    data_dir='data/', to_save=True,
-                                   wPC1=pc1 + 1, PC2=pc2 + 1,
+                                   data_dir='data/', to_save=True,
+                                    PC1=pc1 + 1, PC2=pc2 + 1,
                                     legend_loc=legend_pos[data_name][i])
 
     # -------------------------------------------
@@ -264,10 +329,11 @@ if __name__ == '__main__':
         if not os.path.exists('results/%s/subset_size_%i_n_copy_%i.npy' % (data_name, subset_size, 50)):
             print('Load normalized data.')
             norm_data = np.load('results/%s/norm_data.npy' % data_name)
-            print('Making 50 random subsets')
-            prep_subsets(norm_data, subset_size, data_name, subset_size, seeds, n_rep=50)
+            # print('Making 50 random subsets')
+            prep_subsets(norm_data, subset_size, data_name, subset_size,
+                         seeds, real_data_rank[data_name], n_rep=50)
             # remove normalized data
-            del norm_data
+            # del norm_data
 
         # load generated subsets
         X = np.load('results/%s/subset_size_%i_n_copy_%i.npy' % (data_name, subset_size, n_copy))
@@ -295,6 +361,17 @@ if __name__ == '__main__':
                                        xRange=xRange, yRange=yRange,
                                        data_dir='data/', to_save=True, legend_loc=legend_pos[data_name][i],
                                        PC1=pc1+1, PC2=pc2+1)
+            # visualize spectrum of the residual matrix (noise)
+            if not os.path.exists('figures/%s/singvals_dist_%s.png' % (data_name, data_name)):
+                check_residual_spectrum(sub_pcapack, xmin=sv_lim[data_name][0], xmax=sv_lim[data_name][1],
+                                            to_save=True, fig_prefix=data_name, label=data_name)
+
+            # visualize distributions of singular values and PCs
+            if not os.path.exists('figures/%s/PC_0_%s.png' % (data_name, data_name)):
+                # explore eigenvalue and eigenvector distributions
+                print('Plot eigenvalue dist:')
+                plot_pc(sub_pcapack.X, label=data_name, nPCs=real_data_rank[data_name],
+                        to_show=False, to_save=True, fig_prefix='%s/' % data_name)
 
     # ----------------------------------------
     # step 4: Run EB-PCA
@@ -335,6 +412,10 @@ if __name__ == '__main__':
         #              for j in range(real_data_rank[data_name])]
         # joint_align = [get_alignment(V_joint[:, [j], -1], V_star[:, [j]]) \
         #                for j in range(real_data_rank[data_name])]
+
+        # evaluate joint error
+        joint_error = [get_space_distance(V_joint[:, [j], -1], V_star[:, [j]])
+                       for j in range(real_data_rank[data_name])]
 
         # test sqrt(1-align^2)
         # print('marginal sqrt(1-alignments): ', np.sqrt(1 - np.power(mar_align, 2)))

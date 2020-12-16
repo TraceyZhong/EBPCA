@@ -21,10 +21,25 @@ def plot_legend(labels):
 from simulation.helpers import get_joint_alignment, get_error
 
 def load_sample_labels(data_name, data_dir = 'data'):
-    if data_name in ['1000G', 'UKBB', 'PBMC', 'GTEx']:
-        if data_name == '1000G':
-            popu_label_df = pd.read_csv('%s/%s/Popu_labels.txt' % (data_dir, data_name), sep=' ')
-            popu_label = popu_label_df[['Population_broad']].values.flatten()
+    if data_name in ['1000G', 'UKBB', 'PBMC', 'GTEx', 'Hapmap3',
+                     '1000G_African', '1000G_Caucasian',
+                      '1000G_East-Asian', '1000G_Hispanic',
+                      '1000G_South-Asian']:
+        if '1000G' in data_name:
+            popu_label_df = pd.read_csv('data/1000G/Popu_labels.txt', sep=' ')
+            popu_label_broad = popu_label_df['Population_broad'].values
+            popu_label_refined = popu_label_df['Population'].values
+            popu_label = popu_label_broad
+            for sub_popu in ['African', 'Caucasian', 'East-Asian', 'South-Asian', 'Hispanic']:
+                if sub_popu in data_name:
+                    popu_label = popu_label_refined[(popu_label_df['Population_broad'] == sub_popu).values]
+            if data_name == '1000G_African':
+                # remove outliers in African population
+                Af_outlier = np.load('data/1000G/subset_index.npy')
+                popu_label = popu_label[Af_outlier]
+        elif data_name == 'Hapmap3':
+            popu_label_df = np.load('%s/%s/hapmap3_popu.npy' % (data_dir, data_name), allow_pickle=True)
+            popu_label = popu_label_df[:, -1]
         elif data_name == 'UKBB':
             popu_label_df = pd.read_csv('%s/%s/sample_5k_lookup.csv' % (data_dir, data_name), sep=',')
             popu_label_df.set_index('f_eid', inplace=True)
@@ -42,19 +57,22 @@ def load_sample_labels(data_name, data_dir = 'data'):
 
 def vis_2dim_subspace(u, errors, data_name, method_name, xRange, yRange,
                       data_dir = 'data', to_save=True, plot_error=True, legend_loc='lower right',
-                      plot_legend=False, **kwargs):
-    # tune aesthetics
-    plt.rcParams['axes.labelsize'] = 18
-    plt.rcParams['axes.titlesize'] = 22
-    plt.rcParams['xtick.labelsize'] = 12
-    plt.rcParams['ytick.labelsize'] = 12
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8, 6), constrained_layout = True)
+                      plot_legend=True, **kwargs):
+    plt.rcParams['axes.labelsize'] = 28
+    plt.rcParams['axes.titlesize'] = 30
+    plt.rcParams['xtick.labelsize'] = 23
+    plt.rcParams['ytick.labelsize'] = 23
+    plt.rcParams['axes.linewidth'] = 2
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8, 6), constrained_layout=True)
+
     # get PC name
     PC1 = kwargs.get("PC1", 1)
     PC2 = kwargs.get("PC2", 2)
     print('Plot PC %i and PC %i ' % (PC1, PC2))
     # load sample label for coloring
     popu_label = load_sample_labels(data_name, data_dir)
+    print(popu_label.shape)
+    print(u.shape)
     df = pd.DataFrame(dict(x=list(u[:, 0]), y=list(u[:, 1]), label=popu_label))
     # make scatter plot
     groups = df.groupby('label')
@@ -63,16 +81,17 @@ def vis_2dim_subspace(u, errors, data_name, method_name, xRange, yRange,
     # add title
     ax.set_title('%s' % method_name)
     # add quantitative evaluation
-    if method_name == 'Ground truth PC' or data_name == 'PBMC':
+    if method_name == 'Ground truth PCs' or data_name == 'PBMC':
         ax.set_xlabel('PC %s' % PC1)
         ax.set_ylabel('PC %s' % PC2)
     else:
         ax.set_xlabel('PC %i, error=%.2f' % (PC1, errors[0]))
         ax.set_ylabel('PC %i, error=%.2f' % (PC2, errors[1]))
     # set aesthetics
-    if plot_legend:
+    # if (method_name == 'Ground truth PCs' and PC1 == 1) or (data_name == 'PBMC' and PC1 == 1):
         # https://stackoverflow.com/questions/24706125/setting-a-fixed-size-for-points-in-legend
-        plt.legend(loc=legend_loc, scatterpoints=1, fontsize=16, markerscale=4)
+    #     plt.legend(loc=legend_loc, fancybox=True, fontsize=18, markerscale=4, framealpha=0.5) # scatterpoints=1,
+
     ax.set_xlim(xRange)
     ax.set_ylim(yRange)
     if to_save:
