@@ -26,7 +26,7 @@ class _BaseEmpiricalBayes(ABC):
         self.to_show = to_show
         self.fig_prefix = "figures/"+fig_prefix
         self.rank = 0
-        self.iter = 1
+        self.iter = 0
         self.plot_scaled = True
 
     @abstractmethod
@@ -85,18 +85,19 @@ class _BaseEmpiricalBayes(ABC):
             if self.iter > 1 or dim > 0:
                 pass
                 # axes[dim].get_legend().remove()
+            mar_iter = self.iter
             if self.rank > 1:
                 if self.print_SNR:
                     axes[dim].set_title("Iteration %i, %s%i, SNR=%.2f" % \
-                                        (self.iter, self.PCname, dim + 1, (mu[dim, dim])**2/ (cov[dim, dim])))
+                                        (mar_iter, self.PCname, dim + 1, (mu[dim, dim])**2/ (cov[dim, dim])))
                 else:
-                    axes[dim].set_title("Iteration %i, %s%i" % (self.iter, self.PCname, dim + 1))
+                    axes[dim].set_title("Iteration %i, %s%i" % (mar_iter, self.PCname, dim + 1))
             else:
                 if self.print_SNR:
                     axes[dim].set_title("Iteration %i, %s, SNR=%.2f" % \
-                                        (self.iter, self.PCname.title(), (mu[dim, dim])**2/ (cov[dim, dim])))
+                                        (mar_iter, self.PCname.title(), (mu[dim, dim])**2/ (cov[dim, dim])))
                 else:
-                    axes[dim].set_title("Iteration %i, %s" % (self.iter, self.PCname.title()))
+                    axes[dim].set_title("Iteration %i, %s" % (mar_iter, self.PCname.title()))
         if self.to_show:
             plt.show()
         if self.to_save:
@@ -137,7 +138,17 @@ class NonparEB(_BaseEmpiricalBayes):
     def _check_init(self, f, mu, cov):
         self.rank = len(mu)
         self.nsample = len(f)
-        self.nsupp = int(self.nsupp_ratio * self.nsample)
+        # set upper limit of #support points to be 2000
+        if self.nsupp_ratio * self.nsample >= 2000:
+            print('The number of support points is greater than 2000. \n'
+                  'For computational efficiency, set it to 2000 instead.')
+            self.nsupp = 2000
+            self.nsupp_ratio = 2000 / self.nsample
+        else:
+            self.nsupp = int(self.nsupp_ratio * self.nsample)
+        if self.nsupp_ratio < 1:
+            print('nsupp_ratio is %.1f' % self.nsupp_ratio)
+            print(self.nsupp)
         self.pi = np.full((self.nsupp,),1/self.nsupp)
         if self.nsupp_ratio == 1:
             self.Z = f.dot(np.linalg.pinv(mu).T)
@@ -543,7 +554,7 @@ def mosek_npmle(f, Z, mu, covInv, tol=1e-8):
         # M.setLogHandler(sys.stdout)
 
         # default value if MOSEK gives an error
-        pi = np.repeat(0, m)
+        pi = np.repeat(0, m) # 0
 
         M.objective(fusion.ObjectiveSense.Maximize, fusion.Expr.dot(ones, logg))
 
