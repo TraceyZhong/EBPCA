@@ -23,6 +23,7 @@ from collections import namedtuple
 import numpy as np
 import scipy.stats
 from scipy.optimize import fsolve
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 PcaPack = namedtuple("PCAPack", ["X", "U", "V", "mu", "K", \
@@ -178,6 +179,7 @@ def get_bayes_pca(X, s, K=0):
 
 
 def check_residual_spectrum(pca_pack, xmin=None, xmax=None, to_show = False, to_save = False, **kwargs):
+    mpl.rcParams.update(mpl.rcParamsDefault)
     '''we require the noise variance to be 1/n_samples
     mu must be sorted in descending order
     '''
@@ -188,6 +190,9 @@ def check_residual_spectrum(pca_pack, xmin=None, xmax=None, to_show = False, to_
     shorter_side = min(n_samples, n_features)
     # mu = np.pad(mu, (0,n_samples - len(mu)))[:n_samples]
     # I don't think I need to pad
+    if xmin is None:
+        xmin = 0
+        xmax = np.max(pca_pack.mu)
     bins = np.linspace(xmin, xmax, 50)
     fig, ax = plt.subplots(figsize = (4,3))
     ax.hist(mu[:shorter_side], density = True, bins = bins, label = "Residual Singular values")
@@ -342,6 +347,7 @@ def signal_solver(singval, mu, n_samples, n_features, rank = 0, supp_max = None,
 ## --- plot PC --- ##
 
 def plot_pc(samples,label,nPCs=10,u_ref=None):
+    mpl.rcParams.update(mpl.rcParamsDefault)
     u,s,vh = np.linalg.svd(samples,full_matrices=False)
     fig, ax = plt.subplots(figsize=(5, 4))
     ax.hist(s[1:],bins=50)
