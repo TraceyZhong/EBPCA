@@ -23,7 +23,7 @@ from simulation.helpers import get_space_distance
 from simulation.rank_two import run_rankK_EBPCA
 from tutorial import redirect_pc
 import time
-from visualization import vis_2dim_subspace
+from visualization import vis_2dim_subspace, load_sample_labels
 import pandas as pd
 from pandas_plink import read_plink1_bin
 
@@ -212,7 +212,8 @@ if __name__ == '__main__':
                    '1000G_African': 'SNPs', '1000G_Caucasian': 'SNPs',
                    '1000G_East-Asian': 'SNPs', '1000G_Hispanic': 'SNPs',
                    '1000G_South-Asian': 'SNPs'}
-
+    # ---subpopu----
+    sub_popu = {'1000G_African': 'LWK', '1000G': 'Caucasian', 'Hapmap3': 'Caucasian'}
     # take arguments from command line
     # run single example for visualization or multiple replications to demonstrate quantitative performance
     import argparse
@@ -326,12 +327,12 @@ if __name__ == '__main__':
         seeds = np.random.randint(0, 10000, 50)  # set seed for each dataset
 
         # make subsets
-        if not os.path.exists('results/%s/subset_size_%i_n_copy_%i.npy' % (data_name, subset_size, 50)):
+        if not os.path.exists('results/%s/subset_size_%i_n_copy_%i.npy' % (data_name, subset_size, n_copy + 1)): # 50
             print('Load normalized data.')
             norm_data = np.load('results/%s/norm_data.npy' % data_name)
             # print('Making 50 random subsets')
             prep_subsets(norm_data, subset_size, data_name, subset_size,
-                         seeds, real_data_rank[data_name], n_rep=50)
+                         seeds, real_data_rank[data_name], n_rep=n_copy + 1)
             # remove normalized data
             # del norm_data
 
@@ -340,6 +341,22 @@ if __name__ == '__main__':
 
         # get pca estimates
         sub_pcapack = get_pca(X, real_data_rank[data_name])
+
+        popu_label = load_sample_labels(data_name)
+        purple_cluster = popu_label == sub_popu[data_name]
+        print('========================')
+        print('\t full\t')
+        print('theo var ', (1 - full_pcapack.feature_aligns ** 2) * V_star.shape[0])
+        print('emp var ', [np.var(full_pcapack.V[purple_cluster, i]) * V_star.shape[0] \
+                           for i in range(real_data_rank[data_name])])
+        print('========================\n')
+
+        print('========================')
+        print('\t subset\t')
+        print('theo var ', (1 - sub_pcapack.feature_aligns**2) * V_star.shape[0])
+        print('emp var ', [np.var(sub_pcapack.V[purple_cluster, i]) * V_star.shape[0] \
+                           for i in range(real_data_rank[data_name])])
+        print('========================')
 
         # visualize naive PCA
         if to_plot:
