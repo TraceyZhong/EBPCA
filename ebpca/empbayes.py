@@ -28,6 +28,7 @@ class _BaseEmpiricalBayes(ABC):
         self.rank = 0
         self.iter = 0
         self.plot_scaled = True
+        self.print_SNR = False
 
     @abstractmethod
     def estimate_prior(self,f, mu, cov):
