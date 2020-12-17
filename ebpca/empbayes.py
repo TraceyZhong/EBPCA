@@ -176,7 +176,8 @@ class NonparEB(_BaseEmpiricalBayes):
         if self.optimizer == "Mosek":
             self.pi, W = mosek_npmle(f, self.Z, mu, covInv, self.ftol)
             # use EM as fallback if encountered error in MOSEK
-            if np.all(self.pi == 0):
+            if np.all(self.pi == 1 / self.nsupp):
+                print('Fallback to EM')
                 self.pi, W = npmle_em_hd2(f, self.Z, mu, covInv, self.em_iter)
         self.P = get_P_from_W(W, self.pi)
         del W
@@ -554,7 +555,7 @@ def mosek_npmle(f, Z, mu, covInv, tol=1e-8):
         # M.setLogHandler(sys.stdout)
 
         # default value if MOSEK gives an error
-        pi = np.repeat(0, m) # 0
+        pi = np.repeat(1/m, m)
 
         M.objective(fusion.ObjectiveSense.Maximize, fusion.Expr.dot(ones, logg))
 
@@ -563,9 +564,10 @@ def mosek_npmle(f, Z, mu, covInv, tol=1e-8):
         try:
             M.solve()
             # https://docs.mosek.com/9.2/pythonfusion/enum_index.html#accsolutionstatus
-            M.acceptedSolutionStatus(fusion.AccSolutionStatus.Optimal) # Anything
-           # print(" Accepted solution setting:", M.getAcceptedSolutionStatus())
+            M.acceptedSolutionStatus(fusion.AccSolutionStatus.Feasible) # Anything Optimal
+            print(" Accepted solution setting:", M.getAcceptedSolutionStatus())
             pi = f.level()
+            # print(pi[:5])
             if not np.all(pi==0):
                 # address negative values due to numerical instability
                 pi[pi < 0] = 0
@@ -606,13 +608,13 @@ def mosek_npmle(f, Z, mu, covInv, tol=1e-8):
         except Exception as e:
             print("  Unexpected error: {0}".format(e))
 
-        # try:
-        #     pi = f.level()
-        # except Exception as e:
-            # print("XZ: f level doesn't have a solution.")
+        try:
+            pi = f.level()
+        except Exception as e:
+            print("XZ: f level doesn't have a solution.")
             # use EM as fallback
-            
-        #     print(pi)
+
+        print('MOSEK estimated pi [0:5]', pi[:5])
         
         return pi, A
 
