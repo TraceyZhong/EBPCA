@@ -44,7 +44,7 @@ sub_pcapack = get_pca(X, 2)
 # - full data
 print('============ \n full data \n============')
 # theoretical
-full_theo_var = (1 - full_pcapack.feature_aligns**2) * V_star.shape[0]
+full_theo_var = (1 - full_pcapack.feature_aligns**2)
 print('\t estimated noise var:', full_theo_var)
 
 # empirical
@@ -56,7 +56,7 @@ print('\t emp var of the purple cluster: ', full_emp_var)
 # - 5000 SNPs
 print('============ \n 5000SNPs \n============')
 # theoretical
-subset_theo_var = (1 - sub_pcapack.feature_aligns**2) * V_star.shape[0]
+subset_theo_var = (1 - sub_pcapack.feature_aligns**2)
 print('\t estimated noise var:', subset_theo_var)
 
 # empirical
@@ -77,12 +77,12 @@ for i in range(2):
     for name, group in groups:
         axes[i].scatter(group.x, group.y, marker='o', s=3, label=name)
     axes[i].set_title(names[i])
-    axes[i].set_xlabel('theo var est:%.4f, emp var:%.4f' %
+    axes[i].set_xlabel('theo var:%.4f, emp var:%.4f' %
                        (theo_vars[i][0], emp_vars[i][0]))
-    axes[i].set_ylabel('theo var est:%.4f, emp var:%.4f' %
+    axes[i].set_ylabel('theo var:%.4f, emp var:%.4f' %
                        (theo_vars[i][1], emp_vars[i][1]))
 
-plt.savefig('figures/shrinkage_full_and_5000SNPs.png')
+plt.savefig('figures/noise_var_full_and_5000SNPs.png')
 plt.close()
 
 # -

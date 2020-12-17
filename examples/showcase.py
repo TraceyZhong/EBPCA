@@ -327,12 +327,12 @@ if __name__ == '__main__':
         seeds = np.random.randint(0, 10000, 50)  # set seed for each dataset
 
         # make subsets
-        if not os.path.exists('results/%s/subset_size_%i_n_copy_%i.npy' % (data_name, subset_size, n_copy + 1)): # 50
+        if not os.path.exists('results/%s/subset_size_%i_n_copy_%i.npy' % (data_name, subset_size, 50)):
             print('Load normalized data.')
             norm_data = np.load('results/%s/norm_data.npy' % data_name)
             # print('Making 50 random subsets')
             prep_subsets(norm_data, subset_size, data_name, subset_size,
-                         seeds, real_data_rank[data_name], n_rep=n_copy + 1)
+                         seeds, real_data_rank[data_name], n_rep=50)
             # remove normalized data
             # del norm_data
 
@@ -346,14 +346,14 @@ if __name__ == '__main__':
         purple_cluster = popu_label == sub_popu[data_name]
         print('========================')
         print('\t full\t')
-        print('theo var ', (1 - full_pcapack.feature_aligns ** 2) * V_star.shape[0])
+        print('theo var ', (1 - full_pcapack.feature_aligns ** 2))
         print('emp var ', [np.var(full_pcapack.V[purple_cluster, i]) * V_star.shape[0] \
                            for i in range(real_data_rank[data_name])])
         print('========================\n')
 
         print('========================')
         print('\t subset\t')
-        print('theo var ', (1 - sub_pcapack.feature_aligns**2) * V_star.shape[0])
+        print('theo var ', (1 - sub_pcapack.feature_aligns**2))
         print('emp var ', [np.var(sub_pcapack.V[purple_cluster, i]) * V_star.shape[0] \
                            for i in range(real_data_rank[data_name])])
         print('========================')
