@@ -342,21 +342,21 @@ if __name__ == '__main__':
         # get pca estimates
         sub_pcapack = get_pca(X, real_data_rank[data_name])
 
-        popu_label = load_sample_labels(data_name)
-        purple_cluster = popu_label == sub_popu[data_name]
-        print('========================')
-        print('\t full\t')
-        print('theo var ', (1 - full_pcapack.feature_aligns ** 2))
-        print('emp var ', [np.var(full_pcapack.V[purple_cluster, i]) * V_star.shape[0] \
-                           for i in range(real_data_rank[data_name])])
-        print('========================\n')
+        # popu_label = load_sample_labels(data_name)
+        # purple_cluster = popu_label == sub_popu[data_name]
+        # print('========================')
+        # print('\t full\t')
+        # print('theo var ', (1 - full_pcapack.feature_aligns ** 2))
+        # print('emp var ', [np.var(full_pcapack.V[purple_cluster, i]) * V_star.shape[0] \
+        #                    for i in range(real_data_rank[data_name])])
+        # print('========================\n')
 
-        print('========================')
-        print('\t subset\t')
-        print('theo var ', (1 - sub_pcapack.feature_aligns**2))
-        print('emp var ', [np.var(sub_pcapack.V[purple_cluster, i]) * V_star.shape[0] \
-                           for i in range(real_data_rank[data_name])])
-        print('========================')
+        # print('========================')
+        # print('\t subset\t')
+        # print('theo var ', (1 - sub_pcapack.feature_aligns**2))
+        # print('emp var ', [np.var(sub_pcapack.V[purple_cluster, i]) * V_star.shape[0] \
+        #                    for i in range(real_data_rank[data_name])])
+        # print('========================')
 
         # visualize naive PCA
         if to_plot:
