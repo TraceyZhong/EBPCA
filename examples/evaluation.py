@@ -15,10 +15,10 @@ for data_name in ['1000G', 'Hapmap3']:
     EBPCA_error = np.empty((50, 1+d))
     for subset_size in subset_sizes[data_name]:
         for n_copy in range(1, 51, 1):
-            if subset_size > 500 and subset_size < 2500:
-                PC_est = np.load('results/%s/PC_estimates_iters_5_n_copy_%s.npy' % (data_name, n_copy))
-            else:
-                PC_est = np.load('results/%s/PC_estimates_iters_5_size_%i_n_copy_%s.npy' % \
+            # if subset_size > 500 and subset_size < 2500:
+            #     PC_est = np.load('results/%s/PC_estimates_iters_5_n_copy_%s.npy' % (data_name, n_copy))
+            # else:
+            PC_est = np.load('results/%s/PC_estimates_iters_5_size_%i_n_copy_%s.npy' % \
                                  (data_name, subset_size, n_copy))
             PCA = PC_est[:, :, 0]
             EBPCA = PC_est[:, :, 5]
@@ -33,7 +33,7 @@ for data_name in ['1000G', 'Hapmap3']:
         np.save('results/%s/PCA_error_summary_size_%i_n_rep_50.npy' % (data_name, subset_size), PCA_error)
         np.save('results/%s/EBPCA_error_summary_size_%i_n_rep_50.npy' % (data_name, subset_size), EBPCA_error)
 
-float_formatter = "{:.2e}".format
+float_formatter = "{:.8f}".format # "{:.2e}".format
 def formatters(error):
     return [float_formatter(e) for e in error]
 
