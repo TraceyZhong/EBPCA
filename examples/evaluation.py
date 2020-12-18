@@ -5,9 +5,10 @@ sys.path.extend(['../../generalAMP'])
 from simulation.helpers import get_space_distance
 import numpy as np
 
-subset_sizes = {'UKBB': [500, 2000, 10000], '1000G': [100, 1000, 10000]}
+subset_sizes = {'1000G': [100, 1000, 10000],
+                'Hapmap3': [1000, 5000, 10000]}
 
-for data_name in ['UKBB', '1000G']:
+for data_name in ['1000G', 'Hapmap3']:
     V_star = np.load('results/%s/ground_truth_PC.npy' % data_name)
     d = V_star.shape[1]
     PCA_error = np.empty((50, 1+d))
@@ -33,7 +34,7 @@ for data_name in ['UKBB', '1000G']:
         np.save('results/%s/EBPCA_error_summary_size_%i_n_rep_50.npy' % (data_name, subset_size), EBPCA_error)
 
 # summarize mean and std
-for data_name in ['UKBB', '1000G']:
+for data_name in ['1000G', 'Hapmap3']:
     print('\n############')
     print('%s' % data_name)
     print('############\n')
@@ -44,8 +45,8 @@ for data_name in ['UKBB', '1000G']:
         print('\n ############ %s ############ \n' % subset_size)
         print('from left to right: PC 1-%i, Joint' % (PCA_error.shape[1] - 1))
         print('PCA errors: ')
-        print('\t mean ', np.mean(PCA_error, axis=0))
-        print('\t sd ', np.std(PCA_error, axis=0))
+        print('\t mean ', np.round(np.mean(PCA_error, axis=0), 2))
+        print('\t sd ', np.round(np.std(PCA_error, axis=0), 2))
         print('EBPCA errors:')
-        print('\t mean ', np.mean(EBPCA_error, axis=0))
-        print('\t sd ', np.std(EBPCA_error, axis=0))
+        print('\t mean ', np.round(np.mean(EBPCA_error, axis=0), 2))
+        print('\t sd ', np.round(np.std(EBPCA_error, axis=0), 2))
