@@ -33,6 +33,10 @@ for data_name in ['1000G', 'Hapmap3']:
         np.save('results/%s/PCA_error_summary_size_%i_n_rep_50.npy' % (data_name, subset_size), PCA_error)
         np.save('results/%s/EBPCA_error_summary_size_%i_n_rep_50.npy' % (data_name, subset_size), EBPCA_error)
 
+float_formatter = "{:.2e}".format
+def formatters(error):
+    return [float_formatter(e) for e in error]
+
 # summarize mean and std
 for data_name in ['1000G', 'Hapmap3']:
     print('\n############')
@@ -45,8 +49,8 @@ for data_name in ['1000G', 'Hapmap3']:
         print('\n ############ %s ############ \n' % subset_size)
         print('from left to right: PC 1-%i, Joint' % (PCA_error.shape[1] - 1))
         print('PCA errors: ')
-        print('\t mean ', np.round(np.mean(PCA_error, axis=0), 2))
-        print('\t sd ', np.round(np.std(PCA_error, axis=0), 2))
+        print('\t mean ', formatters(np.mean(PCA_error, axis=0)))
+        print('\t sd ', formatters(np.std(PCA_error, axis=0)))
         print('EBPCA errors:')
-        print('\t mean ', np.round(np.mean(EBPCA_error, axis=0), 2))
-        print('\t sd ', np.round(np.std(EBPCA_error, axis=0), 2))
+        print('\t mean ', formatters(np.mean(EBPCA_error, axis=0)))
+        print('\t sd ', formatters(np.std(EBPCA_error, axis=0)))
