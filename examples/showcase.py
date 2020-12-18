@@ -54,7 +54,7 @@ def load_data(data_name):
                 Af_outlier = np.load('data/1000G/subset_index.npy')
                 full_data = full_data[Af_outlier, :]
         elif data_name == 'Hapmap3':
-            full_data = np.load(data_dir + '/hapmap3_1e+05.npy')
+            full_data = np.load(data_dir + '/hapmap3.npy')
         elif data_name == 'UKBB':
             full_data = np.load(data_dir + '/normalized_UKBB_1e5.npy')
         elif data_name == 'PBMC':
