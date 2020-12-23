@@ -2,8 +2,13 @@
 
 This library is a Python implementation of the algorithms described in ``Empirical Bayes PCA for high-dimensional data``. You can cite this work by
 ```
-@article{
-    something,
+@misc{zhong2020empirical,
+      title={Empirical Bayes PCA in high dimensions}, 
+      author={Xinyi Zhong and Chang Su and Zhou Fan},
+      year={2020},
+      eprint={2012.11676},
+      archivePrefix={arXiv},
+      primaryClass={stat.ME}
 }
 ```
 
