@@ -20,7 +20,7 @@ setuptools.setup(
     #     where = "src"
     #     ),
     packages = [ "ebpca"],
-    package_dir={"ebpca": "scr"},
+    package_dir={"ebpca": "src"},
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
@@ -30,6 +30,6 @@ setuptools.setup(
     install_requires=['numpy', 'matplotlib', 'scipy'],
     project_urls = {
         "Source": "https://github.com/TraceyZhong/generalAMP",
-        "Paper": "NONWHERE",
+        "Paper": "https://arxiv.org/abs/2012.11676",
     },
 )
