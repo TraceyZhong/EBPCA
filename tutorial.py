@@ -8,7 +8,8 @@ from ebpca.empbayes import NonparEBChecker
 from ebpca.amp import ebamp_gaussian
 from ebpca.pca import get_pca
 
-# from ebpca.pca import signal_solver_gaussian
+from ebpca import ebpca_gaussian
+
 
 def normalize_pc(U):
     return U/np.sqrt((U**2).sum(axis = 0)) * np.sqrt(len(U))
@@ -27,15 +28,26 @@ def redirect_pc(pc, reference):
             s[i] = -1
     return U * s
 
-def get_dist_of_subspaces(U,V,rank):
+def get_dist_of_subspaces(U,V,rank = None):
     '''some random distance measurement
     U,V: ndarray (n,rank)
     '''
-    Qu, _ = np.linalg.qr(U, mode = 'reduced')
-    Qv, _ = np.linalg.qr(V, mode = 'reduced')
-    C = Qu.T @ Qv  
-    _, cos_thetas, _ = np.linalg.svd(C)
-    return np.sqrt(np.mean(cos_thetas[:rank]**2))
+    if len(U.shape) == 1:
+        U = U.reshape((-1,1))
+    if len(V.shape) == 1:
+        V = V.reshape((-1,1))
+    
+    if rank is None:
+        assert U.shape == V.shape, "When rank is not specified, two subspaces \
+            should have the same dimension"
+    else:
+        U = U[:, :rank]
+        V = V[:, :rank]
+
+    Qu, _ = np.linalg.qr(U, mode = "reduced")
+    Qv, _ = np.linalg.qr(V, mode = "reduced")
+    _, s, _ = np.linalg.svd(Qu.T.dot(Qv))
+    return np.sqrt(1 - np.min(s)**2)
 
 def get_alignment(U,V):
     # normalize U and V
@@ -50,9 +62,43 @@ def get_MSE(U,V):
     COR = np.abs(np.transpose(U) @ V)
     return COR    
 
+def compare_ebpca_with_svd(Ustar, Usvd, Uebpca, to_show = False, to_save = False):
+    rank = Uebpca.shape[1]
+    Ustar = redirect_pc(Ustar[:,:rank], Uebpca)
+    if to_show or to_save:
+        Usvd = normalize_pc(Usvd)
+        Uebpca = normalize_pc(Uebpca)
+        fig, axes = plt.subplots(nrows = 1, ncols = 3, figsize=(7,3), sharex=True, sharey=True)
+        # ground truth
+        ax = axes[0]
+        ax.scatter(Ustar[:,0], Ustar[:,1], s = 5)
+        ax.set_title("Ground Truth")
+        # svd
+        ax = axes[1]
+        ax.scatter(Usvd[:,0], Usvd[:,1], s = 5)
+        error = get_dist_of_subspaces(Ustar, Usvd, rank)
+        ax.set_title("SVD\nError = {:.4f}".format(error))
+        PC0_error = get_dist_of_subspaces(Ustar[:,0], Usvd[:,0])
+        ax.set_xlabel("PC1 Error={:.4f}".format(PC0_error))
+        PC1_error = get_dist_of_subspaces(Ustar[:,1], Usvd[:,1])
+        ax.set_ylabel("PC2 Error={:.4f}".format(PC1_error))
+        # ebpca
+        ax = axes[2]
+        ax.scatter(Uebpca[:,0], Uebpca[:,1], s = 5)
+        error = get_dist_of_subspaces(Ustar, Uebpca, rank)
+        ax.set_title("EBPCA\nError = {:.4f}".format(error))
+        PC0_error = get_dist_of_subspaces(Ustar[:,0], Uebpca[:,0])
+        ax.set_xlabel("PC1 Error={:.4f}".format(PC0_error))
+        PC1_error = get_dist_of_subspaces(Ustar[:,1], Uebpca[:,1])
+        ax.set_ylabel("PC2 Error={:.4f}".format(PC1_error))
+    if to_show:
+        plt.show()
+    if to_save:
+        plt.savefig('figures/ebpca_with_svd.png')
+
 
 def compare_with_truth(Ustar, U, to_show = False, to_save = False):
-    if to_show:
+    if to_show or to_save:
         fig, axes = plt.subplots(nrows = 1, ncols = 4, figsize=(10,3), sharex=True, sharey=True)
         # ground truth
         ax = axes[0]
@@ -61,18 +107,18 @@ def compare_with_truth(Ustar, U, to_show = False, to_save = False):
         # svd
         ax = axes[1]
         ax.scatter(U[:,0,0], U[:,1,0], s=  5)
-        alignment = get_alignment(Ustar, U[:,:,0])
-        ax.set_title("SVD,\nalignment = {:.4f}".format(alignment))
+        alignment = get_dist_of_subspaces(Ustar, U[:,:,0])
+        ax.set_title("SVD\nError = {:.4f}".format(alignment))
         # first denoising 
         ax = axes[2]
         ax.scatter(U[:,0,1], U[:,1,1], s = 5)
-        alignment = get_alignment(Ustar, U[:,:,1])
-        ax.set_title("First iteration,\nalignment = {:.4f}".format(alignment))
+        alignment = get_dist_of_subspaces(Ustar, U[:,:,1])
+        ax.set_title("First iteration\nError = {:.4f}".format(alignment))
         # last result
         ax = axes[3]
         ax.scatter(U[:,0,-1] , U[:,1,-1], s = 5)
-        alignment = get_alignment(Ustar, U[:,:,-1])
-        ax.set_title("Last iteration,\nalignment = {:.4f}".format(alignment))
+        alignment = get_dist_of_subspaces(Ustar, U[:,:,-1])
+        ax.set_title("Last iteration\nError = {:.4f}".format(alignment))
     if to_show:
         plt.show()
     if to_save:
@@ -99,62 +145,59 @@ def test():
 
     # pca part
     pcapack = get_pca(X, rank)
-    print(pcapack.signals)
-    print(pcapack.sample_aligns)
-
-    print("init align")
-
-    a = get_MSE(ustar, pcapack.U)
-    print(a)
-
-    truePriorLoc = normalize_pc(np.array([[1,-1],[1,1],[-1,0],[-1,0]]))
     
-    udenoiser = NonparEBChecker(truePriorLoc, np.array([1/4,1/4,1/4,1/4]) , optimizer = "Mosek", ftol = 1e-3, nsupp_ratio = 1, to_save=False)
-    vdenoiser = NonparEBChecker(truePriorLoc, np.array([1/4,1/4,1/4,1/4]), optimizer = "Mosek", ftol = 1e-3, nsupp_ratio = 1, to_save =False)
+    udenoiser = NonparEBChecker(ustar, optimizer = "EM", nsupp_ratio = 1, to_save=False)
+    vdenoiser = NonparEBChecker(vstar, optimizer = "Mosek", nsupp_ratio = 1, to_save = False)
 
-    U, _ = ebamp_gaussian(pcapack, iters=3, udenoiser=udenoiser, vdenoiser= vdenoiser, figprefix="tutorial", mutev = False)
+    U, _ = ebamp_gaussian(pcapack, amp_iters=3, udenoiser=udenoiser, vdenoiser= vdenoiser, figprefix="tutorial", muteu = False)
 
     iters = U.shape[-1]
 
     res = []
     for i in range(iters):
-        ans = get_alignment(U[:,:,i], ustar)
+        ans = get_dist_of_subspaces(U[:,:,i], ustar)
         res.append(ans)
+    print("Sample result of error across iterations. \nUsers are expected to observe a decreasing sequence of error")
     print(res)
     
-def test1d():
-    rank = 1
-    ustar = np.repeat(np.array([1,-1]), int(n/2))
-    ustar = ustar/np.sqrt((ustar**2).sum(axis = 0)) * np.sqrt(n)
-    vstar = np.repeat(np.array([1,-1]), int(p/2))
-    vstar = vstar/np.sqrt((vstar**2).sum(axis = 0)) * np.sqrt(p)
+def simulate_structured_PC(n, k=3):
+    assert k == 3
+    U = np.array([[1,3,2],[1,-2,0],[-1,2,1],[-1,-1,-1]])
+    Qu, _ = np.linalg.qr(U)
+    Ustar = np.repeat(Qu, int(n/4), axis = 0)
+    return normalize_pc(Ustar)
 
-    signals = np.array([1.5]) 
+def simulate_unstructured_PC(n, k =3):
+    assert k==3
+    p = n
+    Vstar = np.random.multivariate_normal(mean = np.array([0,0,0]), cov = np.array([[1,0,0],[0,1,0],[0,0,1]]), size = int(p))
+    return normalize_pc(Vstar)
 
-    W = np.random.normal(size = n * p).reshape((n,p))/ np.sqrt(p)
 
-    X = signals * np.outer(ustar, vstar)/p + W
+def simulate_signal_plus_noise_model():
+    n = 800
+    p = 1000
 
-    # pca part
-    pcapack = get_pca(X, rank)
-    print(pcapack.signals)
-    print(pcapack.sample_aligns)
+    # signal part
+    U = np.array([[1,3,2],[1,-2,0],[-1,2,1],[-1,-1,-1]])
+    Qu, _ = np.linalg.qr(U)
+    Ustar = np.repeat(Qu, int(n/4), axis = 0)
+    Vstar = np.random.multivariate_normal(mean = np.array([0,0,0]), cov = np.array([[1,0,0],[0,1,0],[0,0,1]]), size = int(p))
+    Ustar = normalize_pc(Ustar); Vstar = normalize_pc(Vstar)
+    signals = [2, 1.5, 0.2]
 
-    a = get_MSE(ustar, pcapack.U)
-    print(a)
+    # noise part
+    tau = 0.9
+    W = np.random.normal(size = n * p).reshape((n,p)) / np.sqrt(n) * tau
 
-    udenoiser = NonparEB(optimizer = "Mosek", ftol = 1e-3, nsupp_ratio = 1, to_save=True)
-    vdenoiser = NonparEB(optimizer = "Mosek", ftol = 1e-3, nsupp_ratio = 1)
+    # observational matrix
+    Y = Ustar * signals @ Vstar.T/n + W
 
-    U, _ = ebamp_gaussian(pcapack, iters=3, udenoiser=udenoiser, vdenoiser= vdenoiser, figprefix="tutorial", mutev = True)
+    return Y 
 
-    iters = U.shape[-1]
+    
+if __name__=="__main__":
+    test()
+    print("Finish test.")
 
-    res = []
-    for i in range(iters):
-        ans = get_alignment(U[:,:,i], ustar)
-        res.append(ans)
-    print(res)
-
-# test()
 
