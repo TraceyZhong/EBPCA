@@ -212,17 +212,18 @@ def ebmf_multivar(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
     Omega_mat = f_hat.T @ f_hat
     Sigma_mat = np.linalg.pinv(Omega_mat)
     l_hat = X @ f_hat @ Sigma_mat  # X.dot(f_hat) / np.sum(f_hat ** 2)
-    mu = mu_constant
     sigma_sq = Sigma_mat / tau # np.diag([1 / (np.sum(f_hat ** 2) * tau)])
 
     if ebpca_scaling:
         l_hat = X @ f_hat # l_hat * np.sum(f_hat ** 2)
         mu = (1 / tau) * np.diag(signals) @ Omega_mat
         sigma_sq = (1 / tau) * Omega_mat # sigma_sq * np.sum(f_hat ** 2)**2
+    else:
+        mu = mu_constant
 
     print('mu={}'.format(mu))
     print('sigma_sq={}'.format(sigma_sq))
-    print('initial SNR: {}'.format(sigma_sq / mu**2))
+    #print('initial SNR: {}'.format(sigma_sq / mu**2))
 
     obj_funcs = []
     t = 0
@@ -231,68 +232,71 @@ def ebmf_multivar(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
         old_flag = new_flag
         print("at ebmf iter {}".format(t))
         # Denoise l_hat to get l
-        ldenoiser.fit(l_hat, mu, sigma_sq, figname='_%s_iter%02d.png' % (pc1, t))
+        ldenoiser.fit(l_hat, mu, sigma_sq)
         El = ldenoiser.denoise(l_hat, mu, sigma_sq)
         Varl = ldenoiser.ddenoise(l_hat, mu, sigma_sq) @ sigma_sq @ np.linalg.pinv(mu).T # * (sigma_sq / mu)
-        El2 = El.T @ El + Varl # El**2 + Varl.reshape(-1,1) #[:,:,0]
-        L = np.dstack((L, np.reshape(El,(-1,1,1))))
+        El2 = El.T @ El + np.sum(Varl, axis=0) # El**2 + Varl.reshape(-1,1) #[:,:,0]
+        L = np.dstack((L, np.reshape(El,(-1,k,1))))
         # Evaluate log likelihood
         [par1, par2] = ldenoiser.get_estimate()
-        KL_l = marginal_lik_F_func([par1, par2.reshape(-1)],
-                                   l_hat, np.sqrt(sigma_sq), mu, update_family) - \
-               NM_posterior_e_loglik(l_hat, mu, sigma_sq, El, El2)
+        #KL_l = marginal_lik_F_func([par1, par2.reshape(-1)],
+        #                           l_hat, np.sqrt(sigma_sq), mu, update_family) - \
+        #       NM_posterior_e_loglik(l_hat, mu, sigma_sq, El, El2)
         # Update the estimate of the factor
         Omega_bar_mat = El2
         Sigma_bar_mat = np.linalg.pinv(Omega_bar_mat)
         f_hat = X.T @ El @ Sigma_bar_mat # / np.sum(El2)
-        mu_bar = mu_constant
         sigma_bar_sq = Sigma_bar_mat / tau # np.diag([1 / (np.sum(El2) * tau)])
         # print('El2: %.2f' % np.sum(El2))
         if ebpca_scaling:
             f_hat = X.T @ El # f_hat * np.sum(El2)
             mu_bar = (1 / tau) * np.diag(signals) @ Omega_bar_mat # mu_bar * np.sum(El2)
             sigma_bar_sq = (1 / tau) * Omega_bar_mat # sigma_bar_sq * np.sum(El2)**2
+        else:
+            mu_bar = mu_constant
         # print('mu_bar=%.4f' % mu_bar)
         # print('sigma_bar_sq=%.4f' % sigma_bar_sq)
-        print('sigma2_bar/mu_bar**2 %.2f' % (sigma_bar_sq / np.power(mu_bar, 2)))
+        # print('sigma2_bar/mu_bar**2 %.2f' % (sigma_bar_sq / np.power(mu_bar, 2)))
         # print('SNR: %.4f' % (np.power(mu_bar,2) / sigma_bar_sq))
         fdenoiser.fit(f_hat, mu_bar, sigma_bar_sq, figname='_%s_iter%02d.png' % (pc2, t))
         Ef = fdenoiser.denoise(f_hat, mu_bar, sigma_bar_sq)
         Varf = fdenoiser.ddenoise(f_hat, mu_bar, sigma_bar_sq)  @ sigma_bar_sq @ np.linalg.pinv(mu_bar).T # * (sigma_bar_sq / mu_bar)
-        Ef2 = Ef.T @ Ef + Varf # Ef**2 + Varf.reshape(-1,1) # [:,:,0]
-        F = np.dstack((F, np.reshape(Ef, (-1,1,1))))
+        Ef2 = Ef.T @ Ef + np.sum(Varf, axis = 0) # Ef**2 + Varf.reshape(-1,1) # [:,:,0]
+        F = np.dstack((F, np.reshape(Ef, (-1,k,1))))
         # Evaluate log likelihood
-        [par1, par2] = fdenoiser.get_estimate()
-        KL_f = marginal_lik_F_func([par1, par2.reshape(-1)],
-                                   f_hat, np.sqrt(sigma_bar_sq), mu_bar, update_family) - \
-               NM_posterior_e_loglik(f_hat, mu_bar, sigma_bar_sq, Ef, Ef2)
+        # [par1, par2] = fdenoiser.get_estimate()
+        #KL_f = marginal_lik_F_func([par1, par2.reshape(-1)],
+        #                           f_hat, np.sqrt(sigma_bar_sq), mu_bar, update_family) - \
+        #       NM_posterior_e_loglik(f_hat, mu_bar, sigma_bar_sq, Ef, Ef2)
         # Update the estimate of the loading
         Omega_mat = Ef2
         Sigma_mat = np.linalg.pinv(Omega_mat)
         l_hat = X @ Ef @ Sigma_mat # X.dot(Ef) / np.sum(Ef2)
-        mu = mu_constant
         sigma_sq = Sigma_mat / tau # np.diag([1 / (np.sum(Ef2) * tau)])
         # print('Ef2: %.2f' % np.sum(Ef2))
         if ebpca_scaling:
             l_hat = X @ Ef # * np.sum(Ef2)
             mu = (1 / tau) * np.diag(signals) @ Omega_mat
             sigma_sq = (1 / tau) * Omega_mat
+        else:
+            mu = mu_constant
         # print('mu=%.4f' % mu)
         # print('sigma_sq=%.4f' % sigma_sq)
-        print('sigma2/mu**2 %.2f' % (sigma_sq / np.power(mu, 2)))
+        # print('sigma2/mu**2 %.2f' % (sigma_sq / np.power(mu, 2)))
         # print('SNR: %.4f' % (np.power(mu, 2) / sigma_sq))
         # Evaluate objective function
-        obj_func = get_cond_logl(El, El2, Ef, Ef2, X, tau) + KL_l + KL_f
-        obj_funcs.append(obj_func)
-        print('Objective F function: {:.5f}'.format(obj_func))
+        # obj_func = get_cond_logl(El, El2, Ef, Ef2, X, tau) + KL_l + KL_f
+        # obj_funcs.append(obj_func)
+        # print('Objective F function: {:.5f}'.format(obj_func))
         t += 1
         if t == 1:
             new_flag = False
         else:
             # Use change in objective function as convergence threshold
-            new_flag = abs(obj_funcs[-1] - obj_funcs[-2]) < tol
-            if new_flag == True and old_flag == False:
-                print('EBMF converged in {} iterations, tol={:.1e}.'.format(t, tol))
+            new_flag = False
+            # new_flag = abs(obj_funcs[-1] - obj_funcs[-2]) < tol
+            # if new_flag == True and old_flag == False:
+            #     print('EBMF converged in {} iterations, tol={:.1e}.'.format(t, tol))
 
     if not new_flag:
         print('EBMF failed to converge in {} iterations.'.format(iters))
