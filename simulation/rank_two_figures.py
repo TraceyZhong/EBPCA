@@ -26,7 +26,8 @@ def load_dePC(prior, method, s_star, n_copy=0):
     X = np.load('%s_n_copy_%i.npy' % (dePC_prefix, n_copy), allow_pickle=False)
     return X
 
-def plot_rank2_dePC(star, mar, joint, prior, s_star, enlarge_star=False):
+def plot_rank2_dePC(star, mar, joint, prior, s_star, enlarge_star=False,
+                    fig_prefix='figures/bivariate', pca_method='EB-PCA'):
     # tune aesthetics
     plt.rcParams['font.size'] = 14
 
@@ -43,7 +44,8 @@ def plot_rank2_dePC(star, mar, joint, prior, s_star, enlarge_star=False):
 
     plot_est = [star, pca_est, mar_est, joint_est]
     plot_aligns = [[1, 1], pca_align, mar_align, joint_align]
-    plot_method = ['Ground truth', 'PCA', 'Marginal EB-PCA', 'Joint EB-PCA']
+    plot_method = ['Ground truth', 'PCA',
+                   'Marginal %s' % pca_method, 'Joint %s' % pca_method]
 
     # start plotting
     for i in range(4):
@@ -69,8 +71,8 @@ def plot_rank2_dePC(star, mar, joint, prior, s_star, enlarge_star=False):
             ax.set_ylabel('PC 2')
         ax.set_xlim(-2, 2)
         ax.set_ylim(-2, 2)
-        plt.savefig('figures/bivariate/%s_%s_s_%.1f_%.1f.png' % \
-                    (prior, plot_method[i].replace(' ', '_'), s_star[0], s_star[1]))
+        plt.savefig('%s/%s_%s_s_%.1f_%.1f.png' % \
+                    (fig_prefix, prior, plot_method[i].replace(' ', '_'), s_star[0], s_star[1]))
         plt.close()
     # plt.suptitle('{}'.format(prior.replace('_', ' ')))
 
