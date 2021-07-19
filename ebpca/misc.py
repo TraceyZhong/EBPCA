@@ -166,7 +166,7 @@ def ebmf(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
     return L, F, obj_funcs
 
 def MeanFieldVB(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
-                iters = 50, tol=1e-1, ebpca_scaling=True, tau_by_row=True,
+                iters = 50, tol=1e-1, ebpca_scaling=True, start_from_v=False,
                 ebpca_ini = False):
 
     X = pcapack.X
@@ -175,16 +175,6 @@ def MeanFieldVB(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
     (n, d) = X.shape
     k = pcapack.K
 
-    # initialize parameter tau
-    if tau_by_row:
-        tau = n
-        pc1 = 'u'
-        pc2 = 'v'
-    else:
-        tau = d
-        pc1 = 'v'
-        pc2 = 'u'
-
     if ebpca_scaling:
         print('Apply rescaling to match the scale with EB-PCA in marginal plots')
         # get signal
@@ -192,13 +182,25 @@ def MeanFieldVB(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
         # apply the same scaling in EB-PCA
         u = u / np.sqrt((u ** 2).sum(axis=0)) * np.sqrt(n)
         v = v / np.sqrt((v ** 2).sum(axis=0)) * np.sqrt(d)
+        print('rescaling to match EB-PCA scaling')
     else:
         mu_constant = np.diag(np.repeat(1, k))
 
-    # re-label u, v with l, f, to be consistent with EBMF notations
-    l_hat = u
-    f_hat = v
-
+    # initialize parameter tau
+    if start_from_v:
+        # re-label u, v with l, f, to be consistent with EBMF notations
+        l_hat = v
+        f_hat = u
+        tau = d
+        init_aligns = pcapack.feature_aligns
+        X = X.T
+        pc2 = 'u'
+    else:
+        l_hat = u
+        f_hat = v
+        tau = n
+        init_aligns = pcapack.sample_aligns
+        pc2 = 'v'
     # initialize placeholder for l, f update results
     L = l_hat[:,:, np.newaxis]
     F = f_hat[:,:, np.newaxis]
@@ -214,11 +216,15 @@ def MeanFieldVB(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
     if ebpca_scaling:
         l_hat = X @ f_hat
         if ebpca_ini:
-            u_init_aligns = pcapack.sample_aligns
-            mu = np.diag(u_init_aligns)
-            sigma_sq = np.diag(1 - u_init_aligns ** 2)
-            print(mu)
-            print((1 / tau) * np.diag(signals) @ Omega_mat)
+            mu = np.diag(init_aligns)
+            sigma_sq = np.diag(1 - init_aligns ** 2)
+            #print('!!!!! mu comp:')
+            #print(mu)
+            #print((1 / tau) * np.diag(signals) @ Omega_mat)
+            #print('!!!!! sigma_sq comp:')
+            #print(sigma_sq)
+            #print((1 / tau) * Omega_mat)
+            #print('Initiate with EB-PCA ini')
         else:
             mu = (1 / tau) * np.diag(signals) @ Omega_mat
             sigma_sq = (1 / tau) * Omega_mat
@@ -234,8 +240,12 @@ def MeanFieldVB(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
         # Denoise l_hat to get l
         ldenoiser.fit(l_hat, mu, sigma_sq)
         El = ldenoiser.denoise(l_hat, mu, sigma_sq)
-        Varl = ldenoiser.ddenoise(l_hat, mu, sigma_sq) @ sigma_sq @ np.linalg.pinv(mu).T # * (sigma_sq / mu)
-        El2 = El.T @ El + np.sum(Varl, axis=0) # El**2 + Varl.reshape(-1,1) #[:,:,0]
+        # Two equivalent way of evaluating posterior 2nd moment: var+sq first moment
+        # or directly
+        # b  = ldenoiser.ddenoise(l_hat, mu, sigma_sq)
+        # Varl = b @ sigma_sq @ np.linalg.pinv(mu).T
+        # El2 = El.T @ El + np.sum(Varl, axis=0) # El**2 + Varl.reshape(-1,1) #[:,:,0]
+        El2 = np.sum(ldenoiser.pos2m(l_hat, mu, sigma_sq), axis=0)
         L = np.dstack((L, np.reshape(El,(-1,k,1))))
         # Evaluate log likelihood
         # [par1, par2] = ldenoiser.get_estimate()
@@ -256,8 +266,7 @@ def MeanFieldVB(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
             mu_bar = mu_constant
         fdenoiser.fit(f_hat, mu_bar, sigma_bar_sq, figname='_%s_iter%02d.png' % (pc2, t))
         Ef = fdenoiser.denoise(f_hat, mu_bar, sigma_bar_sq)
-        Varf = fdenoiser.ddenoise(f_hat, mu_bar, sigma_bar_sq)  @ sigma_bar_sq @ np.linalg.pinv(mu_bar).T
-        Ef2 = Ef.T @ Ef + np.sum(Varf, axis = 0)
+        Ef2 = np.sum(fdenoiser.pos2m(f_hat, mu_bar, sigma_bar_sq), axis=0)
         F = np.dstack((F, np.reshape(Ef, (-1,k,1))))
         # Evaluate log likelihood
         # [par1, par2] = fdenoiser.get_estimate()
