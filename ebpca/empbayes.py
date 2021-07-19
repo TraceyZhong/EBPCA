@@ -141,12 +141,14 @@ class NonparEB(_BaseEmpiricalBayes):
         self.nsample = len(f)
         # set upper limit of #support points to be 2000
         if self.nsupp_ratio * self.nsample >= 2000:
-            print('The number of support points is greater than 2000. \n'
-                  'For computational efficiency, set it to 2000 instead.')
-            self.nsupp = 2000
-            self.nsupp_ratio = 2000 / self.nsample
+            pass
+            #  print('The number of support points is greater than 2000. \n'
+            #       'For computational efficiency, set it to 2000 instead.')
+            # self.nsupp = 2000
+            # self.nsupp_ratio = 2000 / self.nsample
         else:
-            self.nsupp = int(self.nsupp_ratio * self.nsample)
+            pass
+        self.nsupp = int(self.nsupp_ratio * self.nsample)
         if self.nsupp_ratio < 1:
             print('nsupp_ratio is %.1f' % self.nsupp_ratio)
             print(self.nsupp)
@@ -210,6 +212,16 @@ class NonparEB(_BaseEmpiricalBayes):
         del self.P
         self.P = None
         return E1 - E2
+
+    def pos2m(self, f, mu, cov):
+        covInv = np.linalg.inv(cov)
+        if self.P is None:
+            self.P = get_P(f, self.Z, mu, covInv, self.pi)
+        ZouterMZ = matrix_outer(self.Z, self.Z)
+        E1 = np.einsum("ij, jkl -> ikl", self.P, ZouterMZ)
+        del self.P
+        self.P = None
+        return E1
 
     def get_estimate(self):
         return self.pi, self.Z
