@@ -125,6 +125,12 @@ def eval_align_stats(data_name, method, s_star, ind=-1):
     print('\t mean:', np.mean(aligns, axis=0))
     print('\t mean:', np.std(aligns, axis=0))
 
+def match_scale(U):
+    tmp = U[:, :, -1]
+    for i in range(4):
+        U[:, i, -1] = tmp[:, i] / np.sqrt(np.sum(tmp[:, i] ** 2)) * np.sqrt(np.sum(U[:, i, 0] ** 2))
+    return U
+
 if __name__ == '__main__':
     # set parameters for different datasets
 
@@ -228,6 +234,8 @@ if __name__ == '__main__':
                         default=5000, const=5000, nargs='?')
     parser.add_argument("--optimizer", type=str, help="EM optimizer",
                         default='Mosek', const='Mosek', nargs='?')
+    parser.add_argument("--pca_method", type=str, help="which pca method to use: EB-PCA or MF-VB",
+                        default='EB-PCA', const='EB-PCA', nargs='?')
     args = parser.parse_args()
     data_name = args.data_name
     n_copy = args.n_copy
@@ -238,7 +246,9 @@ if __name__ == '__main__':
     optimizer = args.optimizer
     subset_size = args.subset_size
 
-    print('Analyzing dataset: %s, #replications = %i' % (data_name, n_copy))
+    pca_method = args.pca_method
+    print('Run %s method' % pca_method)
+    print('on dataset: %s, #replications = %i' % (data_name, n_copy))
     print('Parameters: subset size=%i, optimizer=%s' % (subset_size, optimizer))
 
     start_time = time.time()
@@ -327,12 +337,17 @@ if __name__ == '__main__':
         seeds = np.random.randint(0, 10000, 50)  # set seed for each dataset
 
         # make subsets
-        if not os.path.exists('results/%s/subset_size_%i_n_copy_%i.npy' % (data_name, subset_size, 50)):
+        if not os.path.exists('results/%s/subset_size_%i_n_copy_%i.npy' % (data_name, subset_size, n_copy)):#50
             print('Load normalized data.')
             norm_data = np.load('results/%s/norm_data.npy' % data_name)
-            # print('Making 50 random subsets')
-            prep_subsets(norm_data, subset_size, data_name, subset_size,
-                         seeds, real_data_rank[data_name], n_rep=50)
+            if not to_plot:
+                print('Making 50 random subsets')
+                prep_subsets(norm_data, subset_size, data_name, subset_size,
+                             seeds, real_data_rank[data_name], n_rep=50)
+            else:
+                print('Making 1 random subset')
+                prep_subsets(norm_data, subset_size, data_name, subset_size,
+                             [seeds[0]], real_data_rank[data_name], n_rep=1)
             # remove normalized data
             # del norm_data
 
@@ -395,12 +410,12 @@ if __name__ == '__main__':
     # ----------------------------------------
     est_dir = 'results/%s/PC_estimates_iters_%i_size_%i_n_copy_%i' % (data_name, iters_list[data_name], subset_size, n_copy)
 
-    if not os.path.exists(est_dir + '.npy'):
+    if not os.path.exists(est_dir + '_%s.npy' % pca_method):
         # run EB-PCA with joint estimation (by default)
         _, V_joint, _ = run_rankK_EBPCA('joint', X, real_data_rank[data_name], iters_list[data_name],
-                                        optimizer = optimizer)
+                                        optimizer = optimizer, pca_method = pca_method,
+                                        ebpca_ini=True)
         np.save(est_dir + '.npy', V_joint, allow_pickle=False)
-
         # evaluate error
         joint_error = [get_space_distance(V_joint[:, [j], -1], V_star[:, [j]])
                        for j in range(real_data_rank[data_name])]
@@ -419,7 +434,6 @@ if __name__ == '__main__':
         #     np.save(est_dir + '_marginal.npy', V_mar, allow_pickle=False)
         # else:
         #     V_mar = np.load(est_dir + '_marginal.npy')
-
     # ----------------------------------------
     # step 5: Visualize estimated PC
     # ----------------------------------------
@@ -457,8 +471,11 @@ if __name__ == '__main__':
             pc1 = pcs[data_name][i][0]
             pc2 = pcs[data_name][i][1]
             print(pcs[data_name][i])
+            if pca_method == 'MF-VB':
+                V_joint_est = match_scale(V_joint_est)
+                print('Rescale the MF-VB estimates to match with PC scaling')
             ax = vis_2dim_subspace(V_joint_est[:, pc1:(pc2+1)], joint_error[pc1:(pc2+1)],
-                                   data_name, 'EB-PCA',
+                                   data_name, pca_method,
                                    xRange=xRange, yRange=yRange,
                                    data_dir='data', to_save=True,
                                    PC1=pc1+1, PC2=pc2+1, legend_loc=legend_pos[data_name][i])
