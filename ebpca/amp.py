@@ -12,90 +12,95 @@ from ebpca.pca import PcaPack
 from ebpca.preprocessing import get_convegence
 
 def ebamp_gaussian(pcapack, iters = 5, udenoiser = NonparEB(), \
-    vdenoiser = NonparEB(), figprefix = '', muteu = False, tol = 1e-5, return_conv = False):
-    '''HD ebamp gaussian
-    if u has shape (n, k), set iters
-    return U has shape (n, k, iters+1) # with the additional init u.
-    '''
-    X = pcapack.X
-    (n,d) = X.shape
-    gamma = d/n 
-    k = pcapack.K
-    # swap u and v
-    u,v = pcapack.U, pcapack.V
-    v_init_aligns = pcapack.feature_aligns
-    signals = pcapack.signals
-    # udenoiser, vdenoiser = vdenoiser, udenoiser
+    vdenoiser = NonparEB(), figprefix = '', muteu = False, tol = 1e-5, return_conv = False,
+                   mute_prior_updates=False):
+        '''HD ebamp gaussian
+        if u has shape (n, k), set iters
+        return U has shape (n, k, iters+1) # with the additional init u.
+        '''
+        X = pcapack.X
+        (n,d) = X.shape
+        gamma = d/n
+        k = pcapack.K
+        # swap u and v
+        u,v = pcapack.U, pcapack.V
+        v_init_aligns = pcapack.feature_aligns
+        signals = pcapack.signals
+        # udenoiser, vdenoiser = vdenoiser, udenoiser
 
-    # normalize u and v
-    f = u/np.sqrt((u**2).sum(axis = 0)) * np.sqrt(n)
-    g = v/np.sqrt((v**2).sum(axis = 0)) * np.sqrt(d)
+        # normalize u and v
+        f = u/np.sqrt((u**2).sum(axis = 0)) * np.sqrt(n)
+        g = v/np.sqrt((v**2).sum(axis = 0)) * np.sqrt(d)
+        print(sum(f**2)/n)
+        # initialize U,V
+        U = f[:,:, np.newaxis]
+        V = g[:,:,np.newaxis]
 
-    # initialize U,V 
-    U = f[:,:, np.newaxis]
-    V = g[:,:,np.newaxis]
+        # initial states
+        mu = np.diag(v_init_aligns)
+        sigma_sq = np.diag(1 - v_init_aligns**2)
+        print('EB-PCA statistics')
+        print(mu)
+        print(sigma_sq)
+        # initial corrections
+        u = f @ np.sqrt(sigma_sq)
 
-    # initial states
-    mu = np.diag(v_init_aligns)
-    sigma_sq = np.diag(1 - v_init_aligns**2)
+        for t in range(iters):
 
-    # initial corrections
-    u = f @ np.sqrt(sigma_sq)
+            # print('iteration %i' % t)
+            # denoise right singular vector gt to get vt
+            if (t == 0 and mute_prior_updates) or (not mute_prior_updates):
+                npmle_status = vdenoiser.fit(g, mu, sigma_sq, figname='_v_iter%02d.png' % (t))
+                if npmle_status == 'error':
+                    print('EB-PCA terminated.')
+                    break
+            v = vdenoiser.denoise(g, mu, sigma_sq)
+            V = np.dstack((V, np.reshape(v,(-1,k,1)) ))
+            b = gamma * np.mean(vdenoiser.ddenoise(g,mu,sigma_sq) , axis = 0)
 
-    for t in range(iters):
+            # update left singular vector ft using vt
+            f = X.dot(v) - u.dot(b.T)
+            sigma_bar_sq = v.T @ v / n # non_rotation version
+            mu_bar = sigma_bar_sq * signals # non_rotation version
 
-        # print('iteration %i' % t)
-        # denoise right singular vector gt to get vt
-        npmle_status = vdenoiser.fit(g, mu, sigma_sq, figname='_v_iter%02d.png' % (t))
-        if npmle_status == 'error':
-            print('EB-PCA terminated.')
-            break
-        v = vdenoiser.denoise(g, mu, sigma_sq)
-        V = np.dstack((V, np.reshape(v,(-1,k,1)) ))
-        b = gamma * np.mean(vdenoiser.ddenoise(g,mu,sigma_sq) , axis = 0)
-        
-        # update left singular vector ft using vt
-        f = X.dot(v) - u.dot(b.T)
-        sigma_bar_sq = v.T @ v / n # non_rotation version
-        mu_bar = sigma_bar_sq * signals # non_rotation version    
-        
-        # denoise left singular vector ft to get ut
-        if not muteu:
-            npmle_status = udenoiser.fit(f, mu_bar, sigma_bar_sq, figname='_u_iter%02d.png' % (t))
-            if npmle_status == 'error':
-                print('EB-PCA terminated.')
-                break
-            u = udenoiser.denoise(f, mu_bar, sigma_bar_sq)
-            U = np.dstack((U, np.reshape(u,(-1,k,1))))
-            b_bar = np.mean(udenoiser.ddenoise(f, mu_bar, sigma_bar_sq), axis = 0)
-            sigma_sq = u.T @ u / n
-            mu = sigma_sq * signals
-        
-        if muteu:
-            # the dernoiser is the identity map
-            mu_bar_inv = np.linalg.pinv(mu_bar)
-            u = f.dot(mu_bar_inv.T)
-            U = np.dstack((U, np.reshape(u,(-1,k,1))))
-            b_bar = mu_bar_inv
-            mu = np.diag(signals)
-            sigma_sq = np.identity(k) + mu_bar_inv @ sigma_bar_sq @ mu_bar_inv.T
-        
-        # update left singular vector gt using ut
-        g = np.transpose(X).dot(u) - v.dot(b_bar.T)
+            # denoise left singular vector ft to get ut
+            if not muteu:
+                if (t == 0 and mute_prior_updates) or (not mute_prior_updates):
+                    npmle_status = udenoiser.fit(f, mu_bar, sigma_bar_sq, figname='_u_iter%02d.png' % (t))
+                    if npmle_status == 'error':
+                        print('EB-PCA terminated.')
+                        break
+                u = udenoiser.denoise(f, mu_bar, sigma_bar_sq)
+                U = np.dstack((U, np.reshape(u,(-1,k,1))))
+                b_bar = np.mean(udenoiser.ddenoise(f, mu_bar, sigma_bar_sq), axis = 0)
+                sigma_sq = u.T @ u / n
+                mu = sigma_sq * signals
 
-    conv_U = get_convegence(U)
-    conv_V = get_convegence(V)
-    flags = np.where(np.maximum(conv_U, conv_V) <= tol)[0]
-    if flags.size == 0:
-        print('EB-PCA failed to converge in %i iterations. (tol=%.1e)' % (iters , tol))
-    else:
-        print('EB-PCA converged in %i iterations. (tol=%.1e)' % (np.min(flags) + 1, tol))
+            if muteu:
+                # the dernoiser is the identity map
+                mu_bar_inv = np.linalg.pinv(mu_bar)
+                u = f.dot(mu_bar_inv.T)
+                U = np.dstack((U, np.reshape(u,(-1,k,1))))
+                b_bar = mu_bar_inv
+                mu = np.diag(signals)
+                sigma_sq = np.identity(k) + mu_bar_inv @ sigma_bar_sq @ mu_bar_inv.T
 
-    if not return_conv:
-        # don't swap u,v
-        return U,V
-    else:
-        return U,V,np.maximum(conv_U, conv_V)
+            # update left singular vector gt using ut
+            g = np.transpose(X).dot(u) - v.dot(b_bar.T)
+
+        conv_U = get_convegence(U)
+        conv_V = get_convegence(V)
+        flags = np.where(np.maximum(conv_U, conv_V) <= tol)[0]
+        if flags.size == 0:
+            print('EB-PCA failed to converge in %i iterations. (tol=%.1e)' % (iters , tol))
+        else:
+            print('EB-PCA converged in %i iterations. (tol=%.1e)' % (np.min(flags) + 1, tol))
+
+        if not return_conv:
+            # don't swap u,v
+            return U,V
+        else:
+            return U,V,np.maximum(conv_U, conv_V)
 
 def ebamp_gaussian_rank_one(pcapack, iters = 5, udenoiser = NonparEB(), \
     vdenoiser = NonparEB(), figprefix = '', muteu = False):
