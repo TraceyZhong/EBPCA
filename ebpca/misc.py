@@ -205,31 +205,24 @@ def MeanFieldVB(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
     L = l_hat[:,:, np.newaxis]
     F = f_hat[:,:, np.newaxis]
 
-    # use the same scaling as EBMF
-    # initialize the first update with svd
-    # first denoise the loadings
+    # use sample outer product to initialize posterior second moment
     Omega_mat = f_hat.T @ f_hat
     Sigma_mat = np.linalg.pinv(Omega_mat)
-    l_hat = X @ f_hat @ Sigma_mat
-    sigma_sq = Sigma_mat / tau
 
     if ebpca_scaling:
         l_hat = X @ f_hat
         if ebpca_ini:
+            # initialize with compound decision model predicted by RMT
             mu = np.diag(init_aligns)
             sigma_sq = np.diag(1 - init_aligns ** 2)
-            #print('!!!!! mu comp:')
-            #print(mu)
-            #print((1 / tau) * np.diag(signals) @ Omega_mat)
-            #print('!!!!! sigma_sq comp:')
-            #print(sigma_sq)
-            #print((1 / tau) * Omega_mat)
-            #print('Initiate with EB-PCA ini')
         else:
-            mu = (1 / tau) * np.diag(signals) @ Omega_mat
+            # initialize with sample PCs based statistics
+            mu = (1 / tau) * Omega_mat @ np.diag(signals)
             sigma_sq = (1 / tau) * Omega_mat
     else:
+        l_hat = X @ f_hat @ Sigma_mat
         mu = mu_constant
+        sigma_sq = Sigma_mat / tau
 
     obj_funcs = []
     t = 0
@@ -255,15 +248,14 @@ def MeanFieldVB(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
         # Update the estimate of the factor
         Omega_bar_mat = El2
         Sigma_bar_mat = np.linalg.pinv(Omega_bar_mat)
-        f_hat = X.T @ El @ Sigma_bar_mat
-        sigma_bar_sq = Sigma_bar_mat / tau
-        # print('El2: %.2f' % np.sum(El2))
         if ebpca_scaling:
-            f_hat = X.T @ El # f_hat * np.sum(El2)
-            mu_bar = (1 / tau) * np.diag(signals) @ Omega_bar_mat # mu_bar * np.sum(El2)
+            f_hat = X.T @ El
+            mu_bar = (1 / tau) * Omega_bar_mat @ np.diag(signals) # mu_bar * np.sum(El2)
             sigma_bar_sq = (1 / tau) * Omega_bar_mat # sigma_bar_sq * np.sum(El2)**2
         else:
+            f_hat = X.T @ El @ Sigma_bar_mat
             mu_bar = mu_constant
+            sigma_bar_sq = Sigma_bar_mat / tau
         fdenoiser.fit(f_hat, mu_bar, sigma_bar_sq, figname='_%s_iter%02d.png' % (pc2, t))
         Ef = fdenoiser.denoise(f_hat, mu_bar, sigma_bar_sq)
         Ef2 = np.sum(fdenoiser.pos2m(f_hat, mu_bar, sigma_bar_sq), axis=0)
@@ -276,14 +268,14 @@ def MeanFieldVB(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
         # Update the estimate of the loading
         Omega_mat = Ef2
         Sigma_mat = np.linalg.pinv(Omega_mat)
-        l_hat = X @ Ef @ Sigma_mat
-        sigma_sq = Sigma_mat / tau
         if ebpca_scaling:
             l_hat = X @ Ef
-            mu = (1 / tau) * np.diag(signals) @ Omega_mat
+            mu = (1 / tau) * Omega_mat @ np.diag(signals)
             sigma_sq = (1 / tau) * Omega_mat
         else:
+            l_hat = X @ Ef @ Sigma_mat
             mu = mu_constant
+            sigma_sq = Sigma_mat / tau
         # Evaluate objective function
         # obj_func = get_cond_logl(El, El2, Ef, Ef2, X, tau) + KL_l + KL_f
         # obj_funcs.append(obj_func)
