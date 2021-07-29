@@ -8,7 +8,7 @@ from ebpca.empbayes import NonparEBChecker
 from ebpca.amp import ebamp_gaussian
 from ebpca.pca import get_pca
 
-from ebpca import ebpca_gaussian
+#from ebpca import ebpca_gaussian
 
 
 def normalize_pc(U):

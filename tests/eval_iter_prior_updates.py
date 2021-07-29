@@ -42,7 +42,8 @@ iters = iters_list[data_name]
 
 print('\n\ndataset: %s, subset size=%i, iters=%i' % (data_name, subset_size, iters))
 
-data_dir = '/Users/chang/PycharmProjects/generalAMP/examples'
+#data_dir = '/Users/chang/PycharmProjects/generalAMP/examples'
+data_dir = '../examples'
 norm_data = np.load('%s/results/%s/norm_data.npy' % (data_dir, data_name))
 
 joint_error_list = []
