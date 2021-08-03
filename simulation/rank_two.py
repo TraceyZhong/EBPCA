@@ -9,14 +9,15 @@ from ebpca.preprocessing import normalize_obs
 from ebpca.pca import get_pca
 from simulation.helpers import simulate_prior, signal_plus_noise_model, \
     get_marginal_alignment, get_joint_alignment, regress_out_top
-from ebpca.misc import ebmf, ebmf_multivar
+from ebpca.misc import MeanFieldVB
 
 # -----------------
 # rank-2 simulation
 # -----------------
 
 # define a general function to run EB-PCA with marginal estimation and joint estimation
-def run_rankK_EBPCA(method, X, rank, iters, optimizer="Mosek", pca_method='EB-PCA'):
+def run_rankK_EBPCA(method, X, rank, iters, optimizer="Mosek", pca_method='EB-PCA',
+                    ebpca_ini = False, mute_prior_updates=False):
     n, d = X.shape
     if method == 'joint':
         # prepare the PCA pack
@@ -28,15 +29,13 @@ def run_rankK_EBPCA(method, X, rank, iters, optimizer="Mosek", pca_method='EB-PC
         if pca_method == 'EB-PCA':
             U_est, V_est, conv = ebamp_gaussian(pcapack, iters=iters,
                                                 udenoiser=udenoiser, vdenoiser=vdenoiser,
-                                                return_conv=True)
+                                                return_conv=True, mute_prior_updates=mute_prior_updates)
             print('joint convergence ', conv)
         elif pca_method == 'MF-VB':
-            U_est, V_est, conv = ebmf_multivar(pcapack,
-                                               ldenoiser=udenoiser,
-                                               fdenoiser=vdenoiser,
-                                                    update_family='nonparametric',
-                                                    ebpca_scaling=True,
-                                                    iters=iters)
+            V_est, U_est, conv = MeanFieldVB(pcapack,
+                                             ldenoiser=udenoiser, fdenoiser=vdenoiser,
+                                             ebpca_scaling=True, ebpca_ini=ebpca_ini,
+                                             iters=iters, start_from_v=True)
     elif method == 'marginal':
         U_est = np.empty([n, rank, iters + 1])
         V_est = np.empty([d, rank, iters + 1])
@@ -61,9 +60,10 @@ def run_rankK_EBPCA(method, X, rank, iters, optimizer="Mosek", pca_method='EB-PC
                 print('marginal dim %i convergence ' % (j + 1), conv)
             elif pca_method == 'MF-VB':
                 # run Mean field VB
-                U_mar_est, V_mar_est, conv = ebmf(pcapack, iters=iters,
-                                           ldenoiser=udenoiser, fdenoiser=vdenoiser,
-                                           ebpca_scaling=True)
+                V_mar_est, U_mar_est, conv = MeanFieldVB(pcapack,
+                                                         ldenoiser=udenoiser, fdenoiser=vdenoiser,
+                                                         ebpca_scaling=True, ebpca_ini=ebpca_ini,
+                                                         iters=iters, start_from_v=True)
             if U_mar_est.shape[2] < (iters + 1):
                 pad_est = lambda est, ol, sl: np.pad(est, [(0, 0), (0,0), (0, ol-sl)], 'constant', constant_values=np.nan)
                 U_mar_est = pad_est(U_mar_est, iters + 1, U_mar_est.shape[2])
