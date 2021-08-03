@@ -125,10 +125,11 @@ def eval_align_stats(data_name, method, s_star, ind=-1):
     print('\t mean:', np.mean(aligns, axis=0))
     print('\t mean:', np.std(aligns, axis=0))
 
-def match_scale(U):
-    tmp = U[:, :, -1]
-    for i in range(4):
-        U[:, i, -1] = tmp[:, i] / np.sqrt(np.sum(tmp[:, i] ** 2)) * np.sqrt(np.sum(U[:, i, 0] ** 2))
+def match_scale(U, U_star):
+    n, k = U.shape
+    for i in range(k):
+        tmp = U[:, i]
+        U[:, i] = tmp / np.sqrt(np.sum(tmp ** 2)) * np.sqrt(np.sum(U_star[:, i] ** 2)) * np.sqrt(n)
     return U
 
 if __name__ == '__main__':
@@ -145,7 +146,7 @@ if __name__ == '__main__':
 
     # ---Subset size---
     # The size of the random subsets
-    subset_size = {'1000G': 1000, 'UKBB': 2000, 'PBMC': 13711, 'GTEx': 2000, 'Hapmap3': 1000,
+    subset_size_list = {'1000G': 1000, 'UKBB': 2000, 'PBMC': 13711, 'GTEx': 2000, 'Hapmap3': 5000,
                    '1000G_African': 10000, '1000G_Caucasian': 5000,
                    '1000G_East-Asian': 5000, '1000G_Hispanic': 5000,
                    '1000G_South-Asian': 10000
@@ -231,11 +232,13 @@ if __name__ == '__main__':
     parser.add_argument("--to_plot", type=str, help="whether or not to plot",
                         default='no', const='no', nargs='?')
     parser.add_argument("--subset_size", type=int, help="subset size",
-                        default=5000, const=5000, nargs='?')
+                        default=1000, const=1000, nargs='?')
     parser.add_argument("--optimizer", type=str, help="EM optimizer",
                         default='Mosek', const='Mosek', nargs='?')
     parser.add_argument("--pca_method", type=str, help="which pca method to use: EB-PCA or MF-VB",
                         default='EB-PCA', const='EB-PCA', nargs='?')
+    parser.add_argument("--ebpca_ini", type=str, help="whether to initiate with RMT",
+                        default='yes', const='yes', nargs='?')
     args = parser.parse_args()
     data_name = args.data_name
     n_copy = args.n_copy
@@ -245,9 +248,11 @@ if __name__ == '__main__':
         to_plot = (n_copy == 1)
     optimizer = args.optimizer
     subset_size = args.subset_size
+    # subset_size = subset_size_list[data_name]
 
     pca_method = args.pca_method
-    print('Run %s method' % pca_method)
+    ebpca_ini = (args.ebpca_ini == 'yes')
+    print('Run %s method with ebpca_ini %s' % (pca_method, ebpca_ini))
     print('on dataset: %s, #replications = %i' % (data_name, n_copy))
     print('Parameters: subset size=%i, optimizer=%s' % (subset_size, optimizer))
 
@@ -352,6 +357,9 @@ if __name__ == '__main__':
             # del norm_data
 
         # load generated subsets
+        # n_copy = 2
+        # prep_subsets(norm_data, subset_size, data_name, subset_size,
+        #              seeds[:2], real_data_rank[data_name], n_rep=2)
         X = np.load('results/%s/subset_size_%i_n_copy_%i.npy' % (data_name, subset_size, n_copy))
 
         # get pca estimates
@@ -410,12 +418,16 @@ if __name__ == '__main__':
     # ----------------------------------------
     est_dir = 'results/%s/PC_estimates_iters_%i_size_%i_n_copy_%i' % (data_name, iters_list[data_name], subset_size, n_copy)
 
-    if not os.path.exists(est_dir + '_%s.npy' % pca_method):
+    if pca_method == 'MF-VB':
+        method_name = '%s_RMT_%s' % (pca_method, ebpca_ini)
+    else:
+        method_name = pca_method
+    if not os.path.exists(est_dir + '_%s.npy' % method_name):
         # run EB-PCA with joint estimation (by default)
         _, V_joint, _ = run_rankK_EBPCA('joint', X, real_data_rank[data_name], iters_list[data_name],
                                         optimizer = optimizer, pca_method = pca_method,
-                                        ebpca_ini=True)
-        np.save(est_dir + '.npy', V_joint, allow_pickle=False)
+                                        ebpca_ini=ebpca_ini)
+        np.save(est_dir + '_%s.npy' % method_name, V_joint, allow_pickle=False)
         # evaluate error
         joint_error = [get_space_distance(V_joint[:, [j], -1], V_star[:, [j]])
                        for j in range(real_data_rank[data_name])]
@@ -425,7 +437,7 @@ if __name__ == '__main__':
     # also run EB-PCA with marginal estimation for visualization purpose
     if to_plot:
         # load joint alignment
-        V_joint = np.load(est_dir + '.npy')
+        V_joint = np.load(est_dir + '_%s.npy' % method_name)
         # joint_align = np.load('results/%s/joint_alignment_n_copy_%i.npy' % (data_name, n_copy),
         #                       allow_pickle=False)
 
@@ -447,6 +459,7 @@ if __name__ == '__main__':
         # evaluate joint error
         joint_error = [get_space_distance(V_joint[:, [j], -1], V_star[:, [j]])
                        for j in range(real_data_rank[data_name])]
+        joint_joint_error = get_space_distance(V_joint[:, :, -1], V_star)
 
         # test sqrt(1-align^2)
         # print('marginal sqrt(1-alignments): ', np.sqrt(1 - np.power(mar_align, 2)))
@@ -454,6 +467,7 @@ if __name__ == '__main__':
 
         # align the direction and scale of sample PCs with the true PC
         # V_mar_est = align_pc(V_mar[:, :, -1], V_star)
+
         V_joint_est = redirect_pc(V_joint[:, :, -1], V_star)
 
         # loop over plots
@@ -472,13 +486,18 @@ if __name__ == '__main__':
             pc2 = pcs[data_name][i][1]
             print(pcs[data_name][i])
             if pca_method == 'MF-VB':
-                V_joint_est = match_scale(V_joint_est)
+                V_joint_est = match_scale(V_joint_est, V_star)
                 print('Rescale the MF-VB estimates to match with PC scaling')
+                method_name = '%s_RMT_%s (%i SNPs)' % (pca_method, ebpca_ini, subset_size)
+            else:
+                method_name = '%s (%i SNPs)' % (pca_method, subset_size)
             ax = vis_2dim_subspace(V_joint_est[:, pc1:(pc2+1)], joint_error[pc1:(pc2+1)],
-                                   data_name, pca_method,
+                                   data_name, method_name,
                                    xRange=xRange, yRange=yRange,
                                    data_dir='data', to_save=True,
-                                   PC1=pc1+1, PC2=pc2+1, legend_loc=legend_pos[data_name][i])
+                                   PC1=pc1+1, PC2=pc2+1, legend_loc=legend_pos[data_name][i],
+                                   joint_error = joint_joint_error)
 
     end_time = time.time()
     print('Simulation takes %.2f s' % (end_time - start_time))
+    print([get_space_distance(V_joint[:, :, j], V_star) for j in range(iters_list[data_name]+1)])
