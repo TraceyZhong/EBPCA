@@ -91,6 +91,23 @@ def simulate_prior(prior, n=2000, seed=1, rank=1):
             theta_choice = np.random.choice([i for i in range(3)],
                                              size=n, replace=True, p=np.array([1 / 4, 1 / 2, 1 / 4]))
             theta = np.array([Three_points[i] for i in theta_choice])
+        elif prior == 'Two_points_normal':
+            Three_points = [[-1, 1], [1, -1/3]]
+            theta_choice = np.random.choice([i for i in range(2)],
+                                             size=n, replace=True, p=np.array([1 / 4, 3 / 4]))
+            # scale = (1, 2, 3)
+            mean = (0, 0)
+            cov = [[[1, 0.99], [0.99, 1]],
+                   [[1, -0.98], [-0.98, 1]]]
+            # scale = [0.5, 1.5, 1]
+            theta_points = np.array([Three_points[i] for i in theta_choice])
+            gnoise = np.empty([n, 2]) # np.random.multivariate_normal(mean, cov, (n))
+            for i in range(n):
+                gnoise[i, :] = np.random.multivariate_normal(mean, cov[theta_choice[i]])
+                if i < 2:
+                    print(gnoise[i, :])
+            theta = theta_points + gnoise
+            # theta = np.random.multivariate_normal(mean, cov, (n))
         theta = normalize_pc(theta)
     return theta
 

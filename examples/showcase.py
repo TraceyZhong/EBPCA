@@ -3,12 +3,13 @@
 Real data showcase
 ==================
 
-This script includes the demonstration of EB-PCA method on four real datasets.
-For each dataset, we will compare four sets of PCs:
+This script includes the demonstration of EB-PCA method on four real datasets,
+as well as the comparison with MF-VB on real datasets.
+For each dataset, we can compare three sets of PCs:
     1. 'Ground truth' estimated from full data
     2. PCA estimates from a subset
-    3. EB-PCA estimates with marginal estimation of bivariate priors
-    3. EB-PCA estimates with joint estimation of bivariate priors
+    3. EB-PCA / MF-VB estimates with joint estimation of multivariate priors
+by both PC scatter plots and quantitative subspace alignment measures.
 The cleaning procedure for these datasets are included in ./data/.
 
 '''
@@ -125,13 +126,6 @@ def eval_align_stats(data_name, method, s_star, ind=-1):
     print('\t mean:', np.mean(aligns, axis=0))
     print('\t mean:', np.std(aligns, axis=0))
 
-def match_scale(U, U_star):
-    n, k = U.shape
-    for i in range(k):
-        tmp = U[:, i]
-        U[:, i] = tmp / np.sqrt(np.sum(tmp ** 2)) * np.sqrt(np.sum(U_star[:, i] ** 2)) * np.sqrt(n)
-    return U
-
 if __name__ == '__main__':
     # set parameters for different datasets
 
@@ -227,7 +221,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_name", type=str, help="which dataset to show",
                         default='PBMC', const='PBMC', nargs='?')
-    parser.add_argument("--n_copy", type=int, help="which replication to run",
+    parser.add_argument("--n_copy", type=int, help="which data subset to run EB-PCA / MF-VB on",
                         default=1, const=1, nargs='?')
     parser.add_argument("--to_plot", type=str, help="whether or not to plot",
                         default='no', const='no', nargs='?')
@@ -271,7 +265,7 @@ if __name__ == '__main__':
 
         # transpose the data such that the data is #samples * #features
         # the right PCs (V) will be the vectors of interests
-        # e.g. population identity, cell type identity
+        # e.g. population stratifcation, cell type identity
         # and the left PCs (U) are the samples from which we extract information to infer the left PCs
         full_data = np.transpose(full_data)
         print('full %s dataset have #samples=%i, #features=%i' % (data_name, full_data.shape[0], full_data.shape[1]))
@@ -331,7 +325,7 @@ if __name__ == '__main__':
     # -------------------------------------------
     # By subsetting we get noisy observations of the ground truth PCs,
     # and show EB-PCA successfully recovers the ground truth,
-    # both quantitatively (alignments) and qualitatively (visualization of PC)
+    # both quantitatively (alignments / subspace distance) and qualitatively (visualization of PC)
 
     if data_name == 'PBMC':
         # use the full PBMC data as an example of applying EB-PCA
@@ -356,15 +350,14 @@ if __name__ == '__main__':
             # remove normalized data
             # del norm_data
 
-        # load generated subsets
-        # n_copy = 2
-        # prep_subsets(norm_data, subset_size, data_name, subset_size,
-        #              seeds[:2], real_data_rank[data_name], n_rep=2)
+        # load one of the generated subsets
+        # with id given by n_copy
         X = np.load('results/%s/subset_size_%i_n_copy_%i.npy' % (data_name, subset_size, n_copy))
 
         # get pca estimates
         sub_pcapack = get_pca(X, real_data_rank[data_name])
 
+        # codes for sub-population analyses for 1000G
         # popu_label = load_sample_labels(data_name)
         # purple_cluster = popu_label == sub_popu[data_name]
         # print('========================')
@@ -414,7 +407,7 @@ if __name__ == '__main__':
                         to_show=False, to_save=True, fig_prefix='%s/' % data_name)
 
     # ----------------------------------------
-    # step 4: Run EB-PCA
+    # step 4: Run EB-PCA / MF-VB
     # ----------------------------------------
     est_dir = 'results/%s/PC_estimates_iters_%i_size_%i_n_copy_%i' % (data_name, iters_list[data_name], subset_size, n_copy)
 
@@ -423,7 +416,7 @@ if __name__ == '__main__':
     else:
         method_name = pca_method
     if not os.path.exists(est_dir + '_%s.npy' % method_name):
-        # run EB-PCA with joint estimation (by default)
+        # run EB-PCA / MF-VB with joint estimation (by default)
         _, V_joint, _ = run_rankK_EBPCA('joint', X, real_data_rank[data_name], iters_list[data_name],
                                         optimizer = optimizer, pca_method = pca_method,
                                         ebpca_ini=ebpca_ini)
@@ -436,47 +429,21 @@ if __name__ == '__main__':
 
     # also run EB-PCA with marginal estimation for visualization purpose
     if to_plot:
-        # load joint alignment
+        # load V estimates
         V_joint = np.load(est_dir + '_%s.npy' % method_name)
-        # joint_align = np.load('results/%s/joint_alignment_n_copy_%i.npy' % (data_name, n_copy),
-        #                       allow_pickle=False)
 
-        # if not os.path.exists(est_dir + '_marginal.npy'):
-        #     _, V_mar, _ = run_rankK_EBPCA('marginal', X, real_data_rank[data_name], iters_list[data_name])
-        #     np.save(est_dir + '_marginal.npy', V_mar, allow_pickle=False)
-        # else:
-        #     V_mar = np.load(est_dir + '_marginal.npy')
     # ----------------------------------------
     # step 5: Visualize estimated PC
     # ----------------------------------------
     if to_plot:
-        # evaluate alignments
-        # mar_align = [get_alignment(V_mar[:, [j], -1], V_star[:, [j]]) \
-        #              for j in range(real_data_rank[data_name])]
-        # joint_align = [get_alignment(V_joint[:, [j], -1], V_star[:, [j]]) \
-        #                for j in range(real_data_rank[data_name])]
-
-        # evaluate joint error
+        # evaluate estimation error for joint estimation
+        # by PC
         joint_error = [get_space_distance(V_joint[:, [j], -1], V_star[:, [j]])
                        for j in range(real_data_rank[data_name])]
+        # by subspace
         joint_joint_error = get_space_distance(V_joint[:, :, -1], V_star)
 
-        # test sqrt(1-align^2)
-        # print('marginal sqrt(1-alignments): ', np.sqrt(1 - np.power(mar_align, 2)))
-        # print('marginal sqrt(1-alignments): ', [get_error(a) for a in PCA_error])
-
-        # align the direction and scale of sample PCs with the true PC
-        # V_mar_est = align_pc(V_mar[:, :, -1], V_star)
-
         V_joint_est = redirect_pc(V_joint[:, :, -1], V_star)
-
-        # loop over plots
-        # V_est = [V_mar_est, V_joint_est]
-        # method_name = ['EB-PCA_marginal', 'EB-PCA_joint']
-        # aligns = [mar_align, joint_align]
-
-        # loop over methods
-        # for i in range(2):
 
         # loop over sets of PCs
         for i in range(npc[data_name]):
@@ -485,9 +452,7 @@ if __name__ == '__main__':
             pc1 = pcs[data_name][i][0]
             pc2 = pcs[data_name][i][1]
             print(pcs[data_name][i])
-            if pca_method == 'MF-VB':
-                V_joint_est = match_scale(V_joint_est, V_star)
-                print('Rescale the MF-VB estimates to match with PC scaling')
+            if pca_method == 'MF-VB' and ebpca_ini:
                 method_name = '%s_RMT_%s (%i SNPs)' % (pca_method, ebpca_ini, subset_size)
             else:
                 method_name = '%s (%i SNPs)' % (pca_method, subset_size)

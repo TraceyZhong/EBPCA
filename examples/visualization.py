@@ -57,7 +57,7 @@ def load_sample_labels(data_name, data_dir = 'data'):
 
 def vis_2dim_subspace(u, errors, data_name, method_name, xRange, yRange,
                       data_dir = 'data', to_save=True, plot_error=True, legend_loc='lower right',
-                      plot_legend=True, **kwargs):
+                      plot_legend=True,joint_error=0, **kwargs):
     plt.rcParams['axes.labelsize'] = 28
     plt.rcParams['axes.titlesize'] = 30
     plt.rcParams['xtick.labelsize'] = 23
@@ -79,6 +79,7 @@ def vis_2dim_subspace(u, errors, data_name, method_name, xRange, yRange,
     for name, group in groups:
         ax.scatter(group.x, group.y, marker='o', s=3, label=name) # linestyle='',
     # add title
+    # ax.set_title('%s, %.2f' % (method_name, joint_error))
     ax.set_title('%s' % method_name)
     # add quantitative evaluation
     if method_name == 'Ground truth PCs' or data_name == 'PBMC':
