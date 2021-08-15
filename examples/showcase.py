@@ -426,9 +426,7 @@ if __name__ == '__main__':
                        for j in range(real_data_rank[data_name])]
         print('errors: ')
         print(joint_error)
-
-    # also run EB-PCA with marginal estimation for visualization purpose
-    if to_plot:
+    else:
         # load V estimates
         V_joint = np.load(est_dir + '_%s.npy' % method_name)
 
