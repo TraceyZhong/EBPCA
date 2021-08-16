@@ -125,7 +125,7 @@ def get_pca(X, K=0, s = None):
     
     sample_align = np.sqrt(1- (1 + s**2)/(s**2*(aspect_ratio*s**2 + 1)))
     feature_align = np.sqrt(1- (1 + aspect_ratio*s**2) /(aspect_ratio*s**2*(s**2 + 1)))
-    pca_pack = PcaPack(X = X, U = U, V = Vh.transpose(), mu = Lambdas, \
+    pca_pack = PcaPack(X = X, U = U, V = Vh.transpose(), mu = Lambda, \
         n_samples = n_samples, n_features = n_features, \
         K = K, signals = s, sample_aligns= sample_align, \
             feature_aligns= feature_align)
