@@ -126,6 +126,15 @@ def eval_align_stats(data_name, method, s_star, ind=-1):
     print('\t mean:', np.mean(aligns, axis=0))
     print('\t mean:', np.std(aligns, axis=0))
 
+# if the method is MF-VB, the estimates will be scaled
+# provide this function to rescale MF-VB estimates and enable uniform plotting
+def match_scale(U, U_star):
+    n, k = U.shape
+    for i in range(k):
+        tmp = U[:, i]
+        U[:, i] = tmp / np.sqrt(np.sum(tmp ** 2)) * np.sqrt(np.sum(U_star[:, i] ** 2)) * np.sqrt(n)
+    return U
+
 if __name__ == '__main__':
     # set parameters for different datasets
 
@@ -247,7 +256,7 @@ if __name__ == '__main__':
     pca_method = args.pca_method
     ebpca_ini = (args.ebpca_ini == 'yes')
     print('Run %s method with ebpca_ini %s' % (pca_method, ebpca_ini))
-    print('on dataset: %s, #replications = %i' % (data_name, n_copy))
+    print('on dataset: %s, subset id = %i' % (data_name, n_copy))
     print('Parameters: subset size=%i, optimizer=%s' % (subset_size, optimizer))
 
     start_time = time.time()
@@ -309,16 +318,17 @@ if __name__ == '__main__':
             plot_pc(full_pcapack.X, label=data_name + '_full', nPCs=real_data_rank[data_name],
                     to_show=False, to_save=True, fig_prefix='%s/' % data_name)
         # visualize the joint structure of PCs
-        for i in range(npc[data_name]):
-            xRange = [l * np.sqrt(n) for l in xRange_list[data_name][i]]
-            yRange = [l * np.sqrt(n) for l in yRange_list[data_name][i]]
-            pc1 = pcs[data_name][i][0]
-            pc2 = pcs[data_name][i][1]
-            ax = vis_2dim_subspace(V_star[:, pc1 : (pc2+1)] * np.sqrt(n), [1,1], data_name, fullPC[data_name],
-                                   xRange=xRange, yRange=yRange,
-                                   data_dir='data/', to_save=True,
-                                    PC1=pc1 + 1, PC2=pc2 + 1,
-                                    legend_loc=legend_pos[data_name][i])
+        if not os.path.exists('figures/%s/Ground_truth_PCs_1000G_PC_3_4' % data_name):
+            for i in range(npc[data_name]):
+                xRange = [l * np.sqrt(n) for l in xRange_list[data_name][i]]
+                yRange = [l * np.sqrt(n) for l in yRange_list[data_name][i]]
+                pc1 = pcs[data_name][i][0]
+                pc2 = pcs[data_name][i][1]
+                ax = vis_2dim_subspace(V_star[:, pc1: (pc2 + 1)] * np.sqrt(n), [1, 1], data_name, fullPC[data_name],
+                                       xRange=xRange, yRange=yRange,
+                                       data_dir='data/', to_save=True,
+                                       PC1=pc1 + 1, PC2=pc2 + 1,
+                                       legend_loc=legend_pos[data_name][i])
 
     # -------------------------------------------
     # step 3: Get random subset(s) from full data
@@ -341,11 +351,11 @@ if __name__ == '__main__':
             norm_data = np.load('results/%s/norm_data.npy' % data_name)
             if not to_plot:
                 print('Making 50 random subsets')
-                prep_subsets(norm_data, subset_size, data_name, subset_size,
+                prep_subsets(norm_data, subset_size, data_name,
                              seeds, real_data_rank[data_name], n_rep=50)
             else:
                 print('Making 1 random subset')
-                prep_subsets(norm_data, subset_size, data_name, subset_size,
+                prep_subsets(norm_data, subset_size, data_name,
                              [seeds[0]], real_data_rank[data_name], n_rep=1)
             # remove normalized data
             # del norm_data
@@ -383,17 +393,19 @@ if __name__ == '__main__':
             sub_PCs = sub_pcapack.V
             sub_PCs = redirect_pc(sub_PCs, V_star)
 
-            # loop over pairs of PCs
-            for i in range(npc[data_name]):
-                xRange = [l * np.sqrt(n) for l in xRange_list[data_name][i]]
-                yRange = [l * np.sqrt(n) for l in yRange_list[data_name][i]]
-                pc1 = pcs[data_name][i][0]
-                pc2 = pcs[data_name][i][1]
-                ax = vis_2dim_subspace(sub_PCs[:, pc1:(pc2+1)] * np.sqrt(n), PCA_error[pc1:(pc2+1)],
-                                       data_name, 'Sample PCs (%i %s)' % (subset_size, sample_name[data_name]),
-                                       xRange=xRange, yRange=yRange,
-                                       data_dir='data/', to_save=True, legend_loc=legend_pos[data_name][i],
-                                       PC1=pc1+1, PC2=pc2+1)
+            if not os.path.exists('figures/%s/Sample_PCs_(%s_SNPs)_1000G_PC_1_2.png' % \
+                                  (data_name, subset_size)):
+                # loop over pairs of PCs
+                for i in range(npc[data_name]):
+                    xRange = [l * np.sqrt(n) for l in xRange_list[data_name][i]]
+                    yRange = [l * np.sqrt(n) for l in yRange_list[data_name][i]]
+                    pc1 = pcs[data_name][i][0]
+                    pc2 = pcs[data_name][i][1]
+                    ax = vis_2dim_subspace(sub_PCs[:, pc1:(pc2 + 1)] * np.sqrt(n), PCA_error[pc1:(pc2 + 1)],
+                                           data_name, 'Sample PCs (%i %s)' % (subset_size, sample_name[data_name]),
+                                           xRange=xRange, yRange=yRange,
+                                           data_dir='data/', to_save=True, legend_loc=legend_pos[data_name][i],
+                                           PC1=pc1 + 1, PC2=pc2 + 1)
             # visualize spectrum of the residual matrix (noise)
             if not os.path.exists('figures/%s/singvals_dist_%s.png' % (data_name, data_name)):
                 check_residual_spectrum(sub_pcapack, xmin=sv_lim[data_name][0], xmax=sv_lim[data_name][1],
@@ -413,22 +425,22 @@ if __name__ == '__main__':
 
     if pca_method == 'MF-VB':
         method_name = '%s_RMT_%s' % (pca_method, ebpca_ini)
+        res_path = est_dir + '_%s.npy' % method_name
     else:
-        method_name = pca_method
-    if not os.path.exists(est_dir + '_%s.npy' % method_name):
+        method_name = ''
+        res_path = est_dir + '.npy'
+    if not os.path.exists(res_path):
         # run EB-PCA / MF-VB with joint estimation (by default)
         _, V_joint, _ = run_rankK_EBPCA('joint', X, real_data_rank[data_name], iters_list[data_name],
                                         optimizer = optimizer, pca_method = pca_method,
                                         ebpca_ini=ebpca_ini)
-        np.save(est_dir + '_%s.npy' % method_name, V_joint, allow_pickle=False)
+        np.save(res_path, V_joint, allow_pickle=False)
         # evaluate error
         joint_error = [get_space_distance(V_joint[:, [j], -1], V_star[:, [j]])
                        for j in range(real_data_rank[data_name])]
-        print('errors: ')
-        print(joint_error)
     else:
         # load V estimates
-        V_joint = np.load(est_dir + '_%s.npy' % method_name)
+        V_joint = np.load(res_path)
 
     # ----------------------------------------
     # step 5: Visualize estimated PC
@@ -442,6 +454,10 @@ if __name__ == '__main__':
         joint_joint_error = get_space_distance(V_joint[:, :, -1], V_star)
 
         V_joint_est = redirect_pc(V_joint[:, :, -1], V_star)
+
+        if pca_method == 'MF-VB':
+            V_joint_est = match_scale(V_joint_est, V_star)
+            print('Rescale the MF-VB estimates to match with PC scaling')
 
         # loop over sets of PCs
         for i in range(npc[data_name]):
