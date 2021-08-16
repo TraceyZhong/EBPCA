@@ -17,7 +17,7 @@ from ebpca.misc import MeanFieldVB
 
 # define a general function to run EB-PCA with marginal estimation and joint estimation
 def run_rankK_EBPCA(method, X, rank, iters, optimizer="Mosek", pca_method='EB-PCA',
-                    ebpca_ini = False, mute_prior_updates=False):
+                    ebpca_ini = False, mute_prior_updates=False, muteu=False):
     n, d = X.shape
     if method == 'joint':
         # prepare the PCA pack
@@ -29,7 +29,9 @@ def run_rankK_EBPCA(method, X, rank, iters, optimizer="Mosek", pca_method='EB-PC
         if pca_method == 'EB-PCA':
             U_est, V_est, conv = ebamp_gaussian(pcapack, iters=iters,
                                                 udenoiser=udenoiser, vdenoiser=vdenoiser,
-                                                return_conv=True, mute_prior_updates=mute_prior_updates)
+                                                return_conv=True, mute_prior_updates=mute_prior_updates,
+                                                muteu=muteu)
+
             print('joint convergence ', conv)
         elif pca_method == 'MF-VB':
             V_est, U_est, conv = MeanFieldVB(pcapack,
