@@ -4,9 +4,12 @@ import sys
 sys.path.extend(['../../generalAMP'])
 from simulation.helpers import get_space_distance
 import numpy as np
+import os
 
 subset_sizes = [100, 1000, 10000]
 data_name = '1000G'
+
+os.chdir('../examples')
 
 V_star = np.load('results/%s/ground_truth_PC.npy' % data_name)
 d = V_star.shape[1]
