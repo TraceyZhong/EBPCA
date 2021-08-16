@@ -141,14 +141,12 @@ class NonparEB(_BaseEmpiricalBayes):
         self.nsample = len(f)
         # set upper limit of #support points to be 2000
         if self.nsupp_ratio * self.nsample >= 2000:
-            pass
-            #  print('The number of support points is greater than 2000. \n'
-            #       'For computational efficiency, set it to 2000 instead.')
-            # self.nsupp = 2000
-            # self.nsupp_ratio = 2000 / self.nsample
+            print('The number of support points is greater than 2000. \n'
+                  'For computational efficiency, set it to 2000 instead.')
+            self.nsupp = 2000
+            self.nsupp_ratio = 2000 / self.nsample
         else:
-            pass
-        self.nsupp = int(self.nsupp_ratio * self.nsample)
+            self.nsupp = int(self.nsupp_ratio * self.nsample)
         if self.nsupp_ratio < 1:
             print('nsupp_ratio is %.1f' % self.nsupp_ratio)
             print(self.nsupp)
