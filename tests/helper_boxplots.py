@@ -8,7 +8,7 @@ def set_box_color(bp, color):
     plt.setp(bp['caps'], color=color)
     plt.setp(bp['medians'], color=color)
 
-def plot_boxplot_series(stats, color_panel = ['tab:red', 'tab:grey'],
+def plot_boxplot_series(stats, ax, color_panel = ['tab:red', 'tab:grey'],
                         sep_width = [-0.15, 0.15], labels = ['iter NPMLE off', 'iter NPMLE on'],
                         title = 'Estimation error (subspace distance)'):
     plt.rcParams['axes.titlesize'] = 20
@@ -19,7 +19,8 @@ def plot_boxplot_series(stats, color_panel = ['tab:red', 'tab:grey'],
     n_iters = len(stats[0])
     colors = color_panel[:n_groups]
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 4), constrained_layout=True)
+    if ax is None:
+        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 4), constrained_layout=True)
     # plot boxplots with specified separation widths and colors
     bp_list = []
     for i in range(n_groups):
