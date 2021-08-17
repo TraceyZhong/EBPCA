@@ -11,6 +11,7 @@ from simulation.helpers import get_space_distance
 import time
 from ebpca.empbayes import NonparEB as NonparEB
 from ebpca.amp import ebamp_gaussian as ebamp_gaussian
+from tests.helper_boxplots import plot_boxplot_series, set_box_color
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--data_name", type=str, help="which dataset to show",
@@ -19,10 +20,13 @@ parser.add_argument("--n_copy_total", type = int, help="number of total copies",
                     default=2, const=2, nargs="?")
 parser.add_argument("--subset_size", type = int, help="subset size",
                     default=1000, const=1000, nargs="?")
+parser.add_argument("--muteu", type = str, help="whether or not to mute u",
+                    default='yes', const='yes', nargs="?")
 args = parser.parse_args()
 data_name = args.data_name
 n_copy_total = args.n_copy_total
 subset_size = args.subset_size
+muteu = (args.muteu == 'yes')
 
 # fixed parameters
 optimizer = 'Mosek'
@@ -43,16 +47,10 @@ iters_list = {'1000G': 5, 'UKBB': 5, 'PBMC': 5, 'GTEx': 5, 'Hapmap3': 5}
 
 iters = iters_list[data_name]
 
-print('\n\ndataset: %s, subset size=%i, iters=%i' % (data_name, subset_size, iters))
+print('\n\ndataset: %s, subset size=%i, iters=%i, muteu=%s' % (data_name, subset_size, iters, muteu))
 
-<<<<<<< HEAD
-#data_dir = '/Users/chang/PycharmProjects/generalAMP/examples'
 data_dir = '../examples'
-=======
-data_dir = '/Users/chang/PycharmProjects/generalAMP/examples'
-output_dir = '/Users/chang/PycharmProjects/generalAMP/tests'
->>>>>>> e983e1be40275cd55154d8bdab5783e45afb6bbe
-norm_data = np.load('%s/results/%s/norm_data.npy' % (data_dir, data_name))
+output_dir = '.'
 
 joint_error_list = []
 time_list = []
@@ -67,15 +65,14 @@ if not os.path.exists('%s/results/%s/subset_size_%i_n_copy_%i.npy' % (data_dir, 
     prep_subsets(norm_data, subset_size, data_name, subset_size,
                  seeds[:n_copy_total], real_data_rank[data_name], n_rep=n_copy_total)
 
-error_file = '%s/result/iterates/%s_subset_size_%i_update_prior_errors_n_copy_%i.npy' % \
-             (output_dir, data_name, subset_size, n_copy_total)
+error_file = '%s/result/iterates/%s_subset_size_%i_update_prior_errors_n_copy_%i_muteu_%s.npy' % \
+             (output_dir, data_name, subset_size, n_copy_total, muteu)
 if not os.path.exists(error_file):
+    # load PC 'truth'
+    V_star = np.load('%s/results/%s/ground_truth_PC.npy' % (data_dir, data_name))
     for n_copy in range(1, n_copy_total + 1, 1):
         # load generated subsets
         X = np.load('%s/results/%s/subset_size_%i_n_copy_%i.npy' % (data_dir, data_name, subset_size, n_copy))
-
-        # load PC 'truth'
-        V_star = np.load('%s/results/%s/ground_truth_PC.npy' % (data_dir, data_name))
 
         # run EB-PCA with or without iteratively updating priors
         joint_error_by_mute = []
@@ -91,7 +88,7 @@ if not os.path.exists(error_file):
             start_time = time.time()
             _, V_joint, _ = ebamp_gaussian(pcapack, iters=iters,
                                            udenoiser=udenoiser, vdenoiser=vdenoiser,
-                                           muteu=True,
+                                           muteu=muteu,
                                            return_conv=True, mute_prior_updates=mute_prior_updates)
             end_time = time.time()
             time_by_mute.append(end_time - start_time)
@@ -102,59 +99,40 @@ if not os.path.exists(error_file):
         joint_error_list.append(joint_error_by_mute)
         time_list.append(time_by_mute)
 
-    np.save(
-        error_file,
-        joint_error_list, allow_pickle=False)
-    np.save(
-        'result/iterates/%s_subset_size_%i_update_prior_elapsed_n_copy_%i.npy' % (data_name, subset_size, n_copy_total),
+    np.save(error_file, joint_error_list, allow_pickle=False)
+    np.save('result/iterates/%s_subset_size_%i_update_prior_elapsed_n_copy_%i_muteu_%s.npy' % \
+        (data_name, subset_size, n_copy_total, muteu),
         time_list, allow_pickle=False)
 
 else:
     joint_error_list = np.load(error_file)
-    time_list = np.load('%s/result/iterates/%s_subset_size_%i_update_prior_elapsed_n_copy_%i.npy' %
-                        (output_dir, data_name, subset_size, n_copy_total))
+    time_list = np.load('%s/result/iterates/%s_subset_size_%i_update_prior_elapsed_n_copy_%i_muteu_%s.npy' %
+                        (output_dir, data_name, subset_size, n_copy_total, muteu))
 
-print(time_list)
+# plot accuracies along iterations and elapsed time
 
 import matplotlib.pyplot as plt
-
-def set_box_color(bp, color):
-    plt.setp(bp['boxes'], color=color)
-    plt.setp(bp['whiskers'], color=color)
-    plt.setp(bp['caps'], color=color)
-    plt.setp(bp['medians'], color=color)
+fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(12, 5), constrained_layout=True)
+plt.rcParams['axes.titlesize'] = 20
+plt.rcParams['axes.labelsize'] = 18
+plt.rcParams['font.size'] = 18
 
 update_on_errors = [[joint_error_list[j][0][i] for j in range(n_copy_total)] for i in range(iters+1)]
-update_mute_errors = [[joint_error_list[j][0][i] for j in range(n_copy_total)] for i in range(iters+1)]
-colors = ['tab:red', 'tab:grey']
-fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(8, 4.3), constrained_layout=True)
-bp1 = ax[0].boxplot(update_on_errors, positions=np.array([i - 0.15 for i in range(1, iters+2, 1)]),
-              widths=0.2)
-bp2 = ax[0].boxplot(update_mute_errors, positions=np.array([i + 0.15 for i in range(1, iters+2, 1)]),
-              widths=0.2)
+update_mute_errors = [[joint_error_list[j][1][i] for j in range(n_copy_total)] for i in range(iters+1)]
+ax[0] = plot_boxplot_series([update_on_errors, update_mute_errors], ax[0])
 
-set_box_color(bp1, colors[0])
-set_box_color(bp2, colors[1])
-
-ax[0].plot([i - 0.15 for i in range(1, iters+2, 1)],
-           [np.median(err) for err in update_on_errors], '-', alpha=0.5,  c=colors[0], label='iter NPMLE off')
-ax[0].plot([i + 0.15 for i in range(1, iters+2, 1)],
-           [np.median(err) for err in update_on_errors], '-', alpha=0.5, c=colors[1], label='iter NPMLE on')
-ax[0].legend()
-ax[0].set_xticks([i for i in range(1, iters+2, 1)])
-ax[0].set_xticklabels([i for i in range(1, iters+2, 1)])
-ax[0].set_title('Estimation error (subspace distance)')
+elapsed_time_list = [[time_list[i][j] for i in range(n_copy_total)] for j in range(2)]
 
 bins = np.linspace(0, 35, 1)
-bp1 = ax[1].boxplot([time_list[i][0] for i in range(n_copy_total)], positions=[1])
-bp2 = ax[1].boxplot([time_list[i][1] for i in range(n_copy_total)], positions=[2])
+bp1 = ax[1].boxplot(elapsed_time_list[0], positions=[1])
+bp2 = ax[1].boxplot(elapsed_time_list[1], positions=[2])
 ax[1].set_xticks([1,2])
 ax[1].set_xticklabels(['iter NPMLE off', 'iter NPMLE on'])
 ax[1].set_title('Elapsed time (seconds)')
-set_box_color(bp1, colors[0])
-set_box_color(bp2, colors[1])
+set_box_color(bp1, 'tab:red')
+set_box_color(bp2, 'tab:grey')
 fig.suptitle('%s with %i SNPs, 20 experiments, 5 iterations' % (data_name, subset_size),
              size = 'x-large')
 #plt.title('time diff: %.2f' % (time_list[-1][1] - time_list[-1][0]))
-plt.savefig('figures/iterates/%s_subset_size_%i_n_copy_%i.png' %
-            (data_name, subset_size, n_copy_total))
+plt.savefig('figures/iterates/%s_subset_size_%i_n_copy_%i_muteu_%s.png' %
+            (data_name, subset_size, n_copy_total, muteu))
