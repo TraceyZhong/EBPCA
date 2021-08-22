@@ -78,7 +78,8 @@ def make_iter_plot(prior, PCname, iters, plot_seps = [-0.5, 0.5],
     res = group_alignments(prior, PCname, False, prefix=prefix, suffix=data_suffix)
     ax = alignment_boxplots(res, [i for i in range(iters + 1)], plot_seps, bp_colors)
     add_line_to_boxplots(ax, res, plot_seps, bp_colors)
-    plt.title('Alignment across iterations, %s (s=%.1f)' % (PCname, s))
+    prior_name = prior_names[prior]
+    plt.title('%s, %s (s=%.1f)' % (prior_name, PCname.title(), s))
 
 
 if __name__ == '__main__':
@@ -95,7 +96,8 @@ if __name__ == '__main__':
               'n_1000': [1.1, 1.3, 1.5, 2.0],
               'MOSEK_pilot': [1.1, 1.3, 1.5],
                'MOSEK_exper': [1.1, 1.3, 1.5, 2.0]}
-
+    prior_names = {'Uniform_centered': 'Uniform',
+                   'Two_points': 'Two points'}
     exper_name = 'MOSEK_exper'
     prefix = prefixes[exper_name]
     n_rep = n_reps[exper_name]

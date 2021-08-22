@@ -27,7 +27,8 @@ def load_dePC(prior, method, s_star, n_copy=0):
     return X
 
 def plot_rank2_dePC(star, mar, joint, prior, s_star, enlarge_star=False,
-                    fig_prefix='figures/bivariate', pca_method='EB-PCA'):
+                    fig_prefix='figures/bivariate', pca_method='EB-PCA',
+                    plot_lim = 2):
     # tune aesthetics
     plt.rcParams['font.size'] = 14
 
@@ -69,8 +70,8 @@ def plot_rank2_dePC(star, mar, joint, prior, s_star, enlarge_star=False,
             ax.set_title('%s \n' % (plot_method[i]))
             ax.set_xlabel('PC 1')
             ax.set_ylabel('PC 2')
-        ax.set_xlim(-2, 2)
-        ax.set_ylim(-2, 2)
+        ax.set_xlim(-plot_lim, plot_lim)
+        ax.set_ylim(-plot_lim, plot_lim)
         plt.savefig('%s/%s_%s_s_%.1f_%.1f.png' % \
                     (fig_prefix, prior, plot_method[i].replace(' ', '_'), s_star[0], s_star[1]))
         plt.close()

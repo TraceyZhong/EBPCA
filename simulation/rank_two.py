@@ -37,7 +37,7 @@ def run_rankK_EBPCA(method, X, rank, iters, optimizer="Mosek", pca_method='EB-PC
             V_est, U_est, conv = MeanFieldVB(pcapack,
                                              ldenoiser=udenoiser, fdenoiser=vdenoiser,
                                              ebpca_scaling=True, ebpca_ini=ebpca_ini,
-                                             iters=iters, start_from_v=True)
+                                             iters=iters, start_from_f=True)
     elif method == 'marginal':
         U_est = np.empty([n, rank, iters + 1])
         V_est = np.empty([d, rank, iters + 1])
