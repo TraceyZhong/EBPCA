@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from ebpca.preprocessing import normalize_obs
 from showcase import normalize_samples
+from visualization import load_sample_labels
 
 # load ground truth of 1000G African
 data_name = '1000G_African'
@@ -34,11 +35,6 @@ popu_label = popu_label[Af_outlier]
 # full data
 norm_data = np.load('results/%s/norm_data.npy' % data_name) # normalized
 full_pcapack = get_pca(norm_data, 2)
-# 5000 SNPs
-X = np.load('results/%s/subset_size_%i_n_copy_%i.npy' % (data_name, 5000, 1)) # normalized
-# X = normalize_samples(X)
-# X = normalize_obs(X, 2)
-sub_pcapack = get_pca(X, 2)
 
 # - evaluate variance estimates
 # - full data
@@ -48,20 +44,46 @@ full_theo_var = (1 - full_pcapack.feature_aligns**2)
 print('\t estimated noise var:', full_theo_var)
 
 # empirical
-purple_cluster = [(V_star[i, 0] >= -1 and V_star[i, 0] <= 0) and (V_star[i, 1] <= -1 and V_star[i, 1] >= -2.5) \
-                  for i in range(V_star.shape[0])]
+popu_label = load_sample_labels(data_name)
+sub_popu = 'GWD'
+purple_cluster = popu_label == sub_popu
 full_emp_var = [np.var(full_pcapack.V[purple_cluster, i]) * V_star.shape[0] for i in range(2)]
 print('\t emp var of the purple cluster: ', full_emp_var)
 
-# - 5000 SNPs
-print('============ \n 5000SNPs \n============')
-# theoretical
-subset_theo_var = (1 - sub_pcapack.feature_aligns**2)
-print('\t estimated noise var:', subset_theo_var)
+# 5000 SNPs
+var_diff = []
+for j in range(10):
+    X = np.load('results/%s/subset_size_%i_n_copy_%i.npy' % (data_name, 5000, j + 1))  # normalized
+    # X = normalize_samples(X)
+    # X = normalize_obs(X, 2)
+    sub_pcapack = get_pca(X, 2)
 
-# empirical
-subset_emp_var = [np.var(sub_pcapack.V[purple_cluster, i]) * V_star.shape[0] for i in range(2)]
-print('\t emp var of the purple cluster: ', subset_emp_var)
+    # - 5000 SNPs
+    print('============ \n 5000SNPs \n============')
+    # theoretical
+    subset_theo_var = (1 - sub_pcapack.feature_aligns ** 2)
+    print('\t estimated noise var:', subset_theo_var)
+
+    # empirical
+    subset_emp_var = [np.var(sub_pcapack.V[purple_cluster, i]) * V_star.shape[0] for i in range(2)]
+    print('\t emp var of the purple cluster: ', subset_emp_var)
+
+    var_diff.append(np.array(subset_emp_var) - subset_theo_var)
+
+print('\nfull vars:')
+print('theo: ', full_theo_var)
+print('emp: ', full_emp_var)
+print(np.array(var_diff))
+
+fig, axes = plt.subplots(ncols=2, nrows=1, figsize = (6, 3), constrained_layout=True)
+for i in range(2):
+    axes[i].boxplot(np.array(var_diff)[:, i])
+    axes[i].axhline(full_emp_var[i], color = 'red')
+    axes[i].set_title('PC %i' % (i+1))
+plt.suptitle("emp var - theo var in 50 random subsets (5k SNPs) \n red line: emp var in full data")
+plt.savefig('figures/overest_var_noise_in_subsets_%s.png' % sub_popu)
+plt.close()
+# exit()
 
 # visualize PCs with estimated variances
 Vs = [V_star, sub_pcapack.V[:, :2] * np.sqrt(V_star.shape[0])]
@@ -108,16 +130,19 @@ V_re = V_est.dot(Mu) + np.random.multivariate_normal([0, 0], Sigma, V_star.shape
 
 Vs = [V_star, noisy_V, V_est, V_re]
 names = ['ground truth', 'noisy V', 'NPMLE', 'reconstructed V']
-fig, axes = plt.subplots(ncols=1, nrows=4, figsize = (3, 3.5*4), constrained_layout=True)
+fig, axes = plt.subplots(ncols=2, nrows=2, figsize = (6, 3.5*2), constrained_layout=True)
 plt.setp(axes, xlim=[-5, 2], ylim=[-3, 3])
 # mpl.rcParams.update(mpl.rcParamsDefault)
-for i in range(4):
-    df = pd.DataFrame(dict(x=list(Vs[i][:, 0]), y=list(Vs[i][:, 1]), label=popu_label))
-    # make scatter plot
-    groups = df.groupby('label')
-    for name, group in groups:
-        axes[i].scatter(group.x, group.y, marker='o', s=3, label=name)
-    axes[i].set_title(names[i])
+t = 0
+for i in range(2):
+    for j in range(2):
+        df = pd.DataFrame(dict(x=list(Vs[t][:, 0]), y=list(Vs[t][:, 1]), label=popu_label))
+        # make scatter plot
+        groups = df.groupby('label')
+        for name, group in groups:
+            axes[i, j].scatter(group.x, group.y, marker='o', s=3, label=name)
+        axes[i, j].set_title(names[t])
+        t = t + 1
 plt.savefig('figures/shrinkage_NPMLE_var_%.2f_cov_%.2f.png' % (var, cov))
 
 # -
