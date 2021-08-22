@@ -1,46 +1,64 @@
 '''
 ==========
-EBMF method
+Mean-field Variational Bayes method
 ==========
-This module includes an implementation of the method in https://arxiv.org/abs/1802.06931 ,
-  which estimates PCs with a Variational Bayes method.
-We include it here to compare with EB-PCA method.
+This module includes implementations of the method in https://arxiv.org/abs/1802.06931 ,
+  which denoises PCs with a variational Bayes method.
+We include it here to compare with EB-PCA.
 
-The specific function ebmf() here runs for designated number of iterations.
-Note that we also implement evaluation of objective function,
-  which can be used to determined if ebmf is converged or not within maximum iterations.
-
-Input:
-    pcapack: output from pca.get_pca
-    ldenoiser: a PointNormalEB or NonparEB denoiser
-    fdenoiser: a PointNormalEB or NonparEB denoiser
-    update_family: use Point Normal model or nonparametric model to evaluate objective function,
-                    corresponding to the choice of denoiser
-    iters: maximum number of iterations
-    tol: 1e-2, the same as the default setting in flashr
-    ebpca_scaling: whether or not apply scaling to make observations on the same scale with EB-PCA
-                   for plotting purpose (Figure 2) only;
-                   Note that re-scaling doesn't affect the estimates of EBMF, as EBMF model does not
-                   impose any assumption on the scaling of initialization right / left PC
-
-Remarks:
-    1. This implementation support nonparametric priors besides parametric priors.
-    2. A test showing that this implementation is the same as flashr R package is in #???
-
-Reference:
-    https://arxiv.org/abs/1802.06931
-    https://github.com/stephenslab/flashr
-
-Typical usage example:
-    L, F = ebmf(pcapack, update_family = 'nonparametric', iters=50)
+There are two functions:
+1. ebmf:
+    This function is an exact implementation of the EBMF method for rank-1 model. When
+    supplied appropriate parametric MLE methodS, it produces exactly the same results
+    as the original implementation of EBMF in R (flashr: https://github.com/stephenslab/flashr).
+2. MeanFieldVB
+    This function is an extension of the EBMF method for rank-k models in the following
+    two aspects: 1. It applies NPMLE for prior estimation; 2. It estimates multivariate
+    priors jointly and performs joint update for k PCs. Both of these extensions are
+    to remove subtle differences between EB-PCA and mean-field VB and to focus on the
+    distinction between AMP and CAVI updates.
 '''
 
 import numpy as np
 from ebpca.empbayes import _gaussian_pdf, NonparEB
 
 def ebmf(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
-         update_family = 'nonparametric', iters = 50, tol=1e-1,
+         update_family = 'nonparametric', iters = 5, tol=1e-1,
          ebpca_scaling=True, tau_by_row=True):
+    """
+    Implement Empirical Bayes Matrix Factorization as described in Wang and Stephens, 2021.
+
+    Args:
+        pcapack (tuple): output from pca.get_pca, containing normalized data and signal strength
+        estimates
+        ldenoiser (_BaseEmpiricalBayes): a PointNormalEB or NonparEB denoiser
+        fdenoiser (_BaseEmpiricalBayes): a PointNormalEB or NonparEB denoiser
+        update_family (str): use Point Normal or nonparametric distributions to model prior,
+        denoise PCs and evaluate objective function.
+        iters (int): maximum number of iterations
+        tol (float): 1e-2, the same as the default setting in flashr
+        ebpca_scaling (bool): whether or not to apply the same scaling as EB-PCA, i.e. satisfy
+        (2.5) on Zhong et al., 2019. If True, the correspondence
+        between EBMF and EB-PCA can be described by the equations on P11, Zhong et al., 2019.
+        If False, the scaling is consistent with the original EBMF method.
+        Note that re-scaling doesn't affect the estimates of EBMF, as EBMF model does not
+        impose any assumption on the scaling of initialization right / left PC
+
+    Returns:
+        left PC estimates, right PC estimates, objective function
+
+    Reference:
+        Wang, Wei, and Matthew Stephens. "Empirical bayes matrix factorization." Journal of Machine Learning Research 22.120 (2021): 1-40.
+        https://github.com/stephenslab/flashr
+
+    Remarks:
+        1. This implementation supportS both parametric and nonparametric priors. We implemented PointNormalEB
+        in empbayes.PY as an example for parametric denoiser.
+        2. A test showing that this implementation is the same as flashr R package is in ???
+
+    Example:
+        L, F = ebmf(pcapack, update_family = 'nonparametric', iters=5)
+    """
 
     X = pcapack.X
     u, v = pcapack.U, pcapack.V
@@ -100,11 +118,10 @@ def ebmf(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
     while t < iters:
         old_flag = new_flag
         print("at ebmf iter {}".format(t))
-        # Denoise l_hat to get l
         ldenoiser.fit(l_hat, mu, sigma_sq, figname='_%s_iter%02d.png' % (pc1, t))
         El = ldenoiser.denoise(l_hat, mu, sigma_sq)
         Varl = ldenoiser.ddenoise(l_hat, mu, sigma_sq) * (sigma_sq / mu)
-        El2 = El**2 + Varl.reshape(-1,1) #[:,:,0]
+        El2 = El**2 + Varl.reshape(-1,1)
         L = np.dstack((L, np.reshape(El,(-1,1,1))))
         # Evaluate log likelihood
         [par1, par2] = ldenoiser.get_estimate()
@@ -115,15 +132,11 @@ def ebmf(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
         f_hat = X.T.dot(El) / np.sum(El2)
         mu_bar = np.diag([mu_constant])
         sigma_bar_sq = np.diag([1 / (np.sum(El2) * tau)])
-        # print('El2: %.2f' % np.sum(El2))
         if ebpca_scaling:
             f_hat = f_hat * np.sum(El2)
             mu_bar = mu_bar * np.sum(El2)
             sigma_bar_sq = sigma_bar_sq * np.sum(El2)**2
-        # print('mu_bar=%.4f' % mu_bar)
-        # print('sigma_bar_sq=%.4f' % sigma_bar_sq)
-        print('sigma2_bar/mu_bar**2 %.2f' % (sigma_bar_sq / np.power(mu_bar,2)))
-        # print('SNR: %.4f' % (np.power(mu_bar,2) / sigma_bar_sq))
+        # print('sigma2_bar/mu_bar**2 %.2f' % (sigma_bar_sq / np.power(mu_bar,2)))
         fdenoiser.fit(f_hat, mu_bar, sigma_bar_sq, figname='_%s_iter%02d.png' % (pc2, t))
         Ef = fdenoiser.denoise(f_hat, mu_bar, sigma_bar_sq)
         Varf = fdenoiser.ddenoise(f_hat, mu_bar, sigma_bar_sq) * (sigma_bar_sq / mu_bar)
@@ -138,15 +151,11 @@ def ebmf(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
         l_hat = X.dot(Ef) / np.sum(Ef2)
         mu = np.diag([mu_constant])
         sigma_sq = np.diag([1 / (np.sum(Ef2) * tau)])
-        # print('Ef2: %.2f' % np.sum(Ef2))
         if ebpca_scaling:
             l_hat = l_hat * np.sum(Ef2)
             mu = mu * np.sum(Ef2)
             sigma_sq = sigma_sq * np.sum(Ef2)**2
-        # print('mu=%.4f' % mu)
-        # print('sigma_sq=%.4f' % sigma_sq)
-        print('sigma2/mu**2 %.2f' % (sigma_sq / np.power(mu, 2)))
-        # print('SNR: %.4f' % (np.power(mu, 2) / sigma_sq))
+        # print('sigma2/mu**2 %.2f' % (sigma_sq / np.power(mu, 2)))
         # Evaluate objective function
         obj_func = get_cond_logl(El, El2, Ef, Ef2, X, tau) + KL_l + KL_f
         obj_funcs.append(obj_func)
@@ -166,9 +175,41 @@ def ebmf(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
     return L, F, obj_funcs
 
 def MeanFieldVB(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
-                iters = 50, tol=1e-1, ebpca_scaling=True, start_from_v=False,
+                iters = 5, ebpca_scaling=True, start_from_f=False,
                 ebpca_ini = False):
+    """
+    Run the naive mean-field variational Bayes algorithm as described in Zhong et al., 2021
+    for a fixed number of iterations.
 
+    Args:
+        pcapack (tuple): output from pca.get_pca, containing normalized data and signal strength
+        estimates
+        ldenoiser (_BaseEmpiricalBayes): a PointNormalEB or NonparEB denoiser
+        fdenoiser (_BaseEmpiricalBayes): a PointNormalEB or NonparEB denoiser
+        iters (int): maximum number of iterations
+        ebpca_scaling (bool): whether or not to apply the same scaling as EB-PCA, i.e. satisfy
+        (2.5) on Zhong et al., 2019. If True, the correspondence
+        between EBMF and EB-PCA can be described by the equations on P11, Zhong et al., 2019.
+        If False, the scaling is consistent with the original EBMF method.
+        Note that re-scaling doesn't affect the estimates of EBMF, as EBMF model does not
+        impose any assumption on the scaling of initialization right / left PC.
+        start_from_f (bool): if True, initiate the algorithm from denoising the right PC (f); if False,
+        initiate from the left PC (g). EB-PCA starts from the right PC, so setting
+        start_from_f=True aligns this algorithm better with EB-PCA. Yet the original
+        implementation of EBMF starts from the left PC.
+        ebpca_ini (bool): if True, initialize mean-field VB with the same initialization as EB-PCA;
+        if False, initialize with the same sample PC based statistics as EBMF.
+
+    Returns:
+        left PC estimates, right PC estimates, objective function
+
+    Reference:
+        Wang, Wei, and Matthew Stephens. "Empirical bayes matrix factorization." Journal of Machine Learning Research 22.120 (2021): 1-40.
+        https://github.com/stephenslab/flashr
+
+    Example:
+        L, F = ebmf(pcapack, iters=5)
+    """
     X = pcapack.X
     u, v = pcapack.U, pcapack.V
     # get dimension
@@ -187,7 +228,7 @@ def MeanFieldVB(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
         mu_constant = np.diag(np.repeat(1, k))
 
     # initialize parameter tau
-    if start_from_v:
+    if start_from_f:
         # re-label u, v with l, f, to be consistent with EBMF notations
         l_hat = v
         f_hat = u
@@ -207,7 +248,6 @@ def MeanFieldVB(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
     L = l_hat[:,:, np.newaxis]
     F = f_hat[:,:, np.newaxis]
 
-    # use sample outer product to initialize posterior second moment
     Omega_mat = f_hat.T @ f_hat
     if ebpca_scaling:
         l_hat = X @ f_hat
@@ -219,12 +259,9 @@ def MeanFieldVB(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
             mu = np.sqrt(alpha) * np.diag(init_aligns) * pcapack.mu
             sigma_sq = alpha * \
                        np.diag(1 - init_aligns ** 2) * (pcapack.mu)**2
-            print('ebpca ini')
-            print(mu)
-            print(sigma_sq)
-            print(signals)
         else:
             # initialize with sample PCs based statistics
+            # as Algorithm 2, step 1-2 in Wang and Stephens, 2021
             mu = (1 / tau) * Omega_mat * signals
             sigma_sq = (1 / tau) * Omega_mat
     else:
@@ -233,33 +270,25 @@ def MeanFieldVB(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
         mu = mu_constant
         sigma_sq = Sigma_mat / tau
 
-    obj_funcs = []
     t = 0
-    new_flag = False
     while t < iters:
-        old_flag = new_flag
         print("at Mean Field VB iter {}".format(t))
         # Denoise l_hat to get l
         ldenoiser.fit(l_hat, mu, sigma_sq)
         El = ldenoiser.denoise(l_hat, mu, sigma_sq)
         # Two equivalent way of evaluating posterior 2nd moment: var+sq first moment
-        # or directly
         # b  = ldenoiser.ddenoise(l_hat, mu, sigma_sq)
         # Varl = b @ sigma_sq @ np.linalg.pinv(mu).T
-        # El2 = El.T @ El + np.sum(Varl, axis=0) # El**2 + Varl.reshape(-1,1) #[:,:,0]
+        # El2 = El.T @ El + np.sum(Varl, axis=0) # El**2 + Varl.reshape(-1,1)
+        # or directly
         El2 = np.sum(ldenoiser.pos2m(l_hat, mu, sigma_sq), axis=0)
         L = np.dstack((L, np.reshape(El,(-1,k,1))))
-        # Evaluate log likelihood
-        # [par1, par2] = ldenoiser.get_estimate()
-        # KL_l = marginal_lik_F_func([par1, par2.reshape(-1)],
-        #                            l_hat, np.sqrt(sigma_sq), mu, update_family) - \
-        #        NM_posterior_e_loglik(l_hat, mu, sigma_sq, El, El2)
         # Update the estimate of the factor
         Omega_bar_mat = El2
         if ebpca_scaling:
             f_hat = X.T @ El
-            mu_bar = (1 / tau) * Omega_bar_mat * signals # mu_bar * np.sum(El2)
-            sigma_bar_sq = (1 / tau) * Omega_bar_mat # sigma_bar_sq * np.sum(El2)**2
+            mu_bar = (1 / tau) * Omega_bar_mat * signals
+            sigma_bar_sq = (1 / tau) * Omega_bar_mat
         else:
             Sigma_bar_mat = np.linalg.pinv(Omega_bar_mat)
             f_hat = X.T @ El @ Sigma_bar_mat
@@ -269,11 +298,6 @@ def MeanFieldVB(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
         Ef = fdenoiser.denoise(f_hat, mu_bar, sigma_bar_sq)
         Ef2 = np.sum(fdenoiser.pos2m(f_hat, mu_bar, sigma_bar_sq), axis=0)
         F = np.dstack((F, np.reshape(Ef, (-1,k,1))))
-        # Evaluate log likelihood
-        # [par1, par2] = fdenoiser.get_estimate()
-        # KL_f = marginal_lik_F_func([par1, par2.reshape(-1)],
-        #                           f_hat, np.sqrt(sigma_bar_sq), mu_bar, update_family) - \
-        #       NM_posterior_e_loglik(f_hat, mu_bar, sigma_bar_sq, Ef, Ef2)
         # Update the estimate of the loading
         Omega_mat = Ef2
         if ebpca_scaling:
@@ -285,24 +309,9 @@ def MeanFieldVB(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
             l_hat = X @ Ef @ Sigma_mat
             mu = mu_constant
             sigma_sq = Sigma_mat / tau
-        # Evaluate objective function
-        # obj_func = get_cond_logl(El, El2, Ef, Ef2, X, tau) + KL_l + KL_f
-        # obj_funcs.append(obj_func)
-        # print('Objective F function: {:.5f}'.format(obj_func))
         t += 1
-        if t == 1:
-            new_flag = False
-        else:
-            # Use change in objective function as convergence threshold
-            new_flag = False
-            # new_flag = abs(obj_funcs[-1] - obj_funcs[-2]) < tol
-            # if new_flag == True and old_flag == False:
-            #     print('EBMF converged in {} iterations, tol={:.1e}.'.format(t, tol))
 
-    if not new_flag:
-        print('EBMF failed to converge in {} iterations.'.format(iters))
-
-    return L, F, obj_funcs
+    return L, F
 
 
 # -------------------------
