@@ -11,7 +11,7 @@ from .empbayes import NonparEB
 from .pca import PcaPack
 
 def ebamp_gaussian(pcapack, amp_iters = 5, udenoiser = NonparEB(), warm_start = False, \
-    vdenoiser = NonparEB(), figprefix = '', muteu = False, mutev = False):
+    vdenoiser = NonparEB(), muteu = False, mutev = False):
     '''HD ebamp gaussian
     If u has shape (n, k)
     U has shape (n, k, iters+1) # with the additional init PCA u.

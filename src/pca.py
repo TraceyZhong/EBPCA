@@ -13,12 +13,9 @@ Input:
 Remarks:
     1. We standardize along the sample axis 
 '''
-import os
 from collections import namedtuple
 
 import numpy as np
-import scipy.stats
-from scipy.optimize import fsolve
 import matplotlib.pyplot as plt
 
 PcaPack = namedtuple("PCAPack", ["X", "U", "V", "mu", "K", \

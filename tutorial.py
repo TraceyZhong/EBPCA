@@ -149,7 +149,8 @@ def test():
     udenoiser = NonparEBChecker(ustar, optimizer = "EM", nsupp_ratio = 1, to_save=False)
     vdenoiser = NonparEBChecker(vstar, optimizer = "Mosek", nsupp_ratio = 1, to_save = False)
 
-    U, _ = ebamp_gaussian(pcapack, amp_iters=3, udenoiser=udenoiser, vdenoiser= vdenoiser, figprefix="tutorial", muteu = False)
+    U, _ = ebamp_gaussian(pcapack, amp_iters=3, udenoiser=udenoiser, vdenoiser= vdenoiser, \
+        muteu = False, warm_start = True)
 
     iters = U.shape[-1]
 

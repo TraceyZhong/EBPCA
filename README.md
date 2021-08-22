@@ -27,7 +27,7 @@ $ python setup.py install
 # Test
 $ python tutorial.py
 # To uninstall:
-pip uninstall ebpca
+$ pip uninstall ebpca
 ```
 
 ## Sample Usage 

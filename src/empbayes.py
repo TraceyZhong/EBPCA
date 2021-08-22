@@ -211,6 +211,13 @@ class NonparEB(_BaseEmpiricalBayes):
         E2 = np.einsum("ijk, kl -> ijl" ,matrix_outer(E2a, E2a.dot(mu.T)), covInv)  # shape (I * rank)
         return E1 - E2
 
+    def pos2m(self, f, mu, cov):
+        covInv = np.linalg.inv(cov)
+        P = _get_P(f, self.Z, mu, covInv, self.pi)
+        ZouterMZ = matrix_outer(self.Z, self.Z)
+        E1 = np.einsum("ij, jkl -> ikl", P, ZouterMZ)
+        return E1
+
 class NonparEBChecker(NonparEB):
     def __init__(self, truePriorLoc, truePriorWeight = None,\
         optimizer = "EM", max_nsupp = 2000 , \
