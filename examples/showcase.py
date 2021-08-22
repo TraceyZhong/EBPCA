@@ -104,12 +104,12 @@ def generate_subset(X_full_norm, n_sub, seed = 32423):
     X_sub = X_full_norm[np.random.choice([i for i in range(m)], n_sub, replace=False), :]
     return X_sub
 
-def prep_subsets(X_norm, n_sub, data_name, subset_size, seeds, rank, n_rep=50):
+def prep_subsets(X_norm, n_sub, data_name, seeds, rank, n_rep=50):
     for i in range(n_rep):
         X = generate_subset(X_norm, n_sub, seed=seeds[i])
         # normalize data to satisfy the EB-PCA assumption
         X = normalize_obs(X, rank)
-        np.save('results/%s/subset_size_%i_n_copy_%i.npy' % (data_name, subset_size, i + 1), X)
+        np.save('results/%s/subset_size_%i_n_copy_%i.npy' % (data_name, n_sub, i + 1), X)
 
 def eval_align_stats(data_name, method, s_star, ind=-1):
     align_dir = 'results/%s' % data_name
@@ -470,6 +470,13 @@ if __name__ == '__main__':
                 method_name = '%s_RMT_%s (%i SNPs)' % (pca_method, ebpca_ini, subset_size)
             else:
                 method_name = '%s (%i SNPs)' % (pca_method, subset_size)
+            if pca_method == 'MF-VB':
+                if ebpca_ini:
+                    method_name = '%s_RMT_%s (%i SNPs)' % (pca_method, ebpca_ini, subset_size)
+                elif subset_size == 1000:
+                    method_name = 'Mean-field VB'
+                else:
+                    method_name = 'Mean-field VB (%i SNPs)' % subset_size
             ax = vis_2dim_subspace(V_joint_est[:, pc1:(pc2+1)], joint_error[pc1:(pc2+1)],
                                    data_name, method_name,
                                    xRange=xRange, yRange=yRange,
