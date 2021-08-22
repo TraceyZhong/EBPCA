@@ -11,16 +11,20 @@ def set_box_color(bp, color):
 def plot_boxplot_series(stats, ax, color_panel = ['tab:red', 'tab:grey'],
                         sep_width = [-0.15, 0.15], labels = ['iter NPMLE off', 'iter NPMLE on'],
                         title = 'Estimation error (subspace distance)'):
-    plt.rcParams['axes.titlesize'] = 20
-    plt.rcParams['axes.labelsize'] = 18
-    plt.rcParams['font.size'] = 18
+    plt.rcParams['font.size'] = 25
+
+    plt.rcParams['axes.labelsize'] = 28
+    plt.rcParams['axes.titlesize'] = 30
+    plt.rcParams['xtick.labelsize'] = 23
+    plt.rcParams['ytick.labelsize'] = 23
+    plt.rcParams['axes.linewidth'] = 2
 
     n_groups = len(stats)
     n_iters = len(stats[0])
     colors = color_panel[:n_groups]
 
     if ax is None:
-        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 4), constrained_layout=True)
+        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8, 6), constrained_layout=True)
     # plot boxplots with specified separation widths and colors
     bp_list = []
     for i in range(n_groups):

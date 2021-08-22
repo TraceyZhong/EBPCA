@@ -17,7 +17,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--data_name", type=str, help="which dataset to show",
                     default='1000G', const='1000G', nargs='?')
 parser.add_argument("--n_copy_total", type = int, help="number of total copies",
-                    default=2, const=2, nargs="?")
+                    default=50, const=50, nargs="?")
 parser.add_argument("--subset_size", type = int, help="subset size",
                     default=1000, const=1000, nargs="?")
 parser.add_argument("--muteu", type = str, help="whether or not to mute u",
@@ -112,27 +112,27 @@ else:
 # plot accuracies along iterations and elapsed time
 
 import matplotlib.pyplot as plt
-fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(12, 5), constrained_layout=True)
-plt.rcParams['axes.titlesize'] = 20
-plt.rcParams['axes.labelsize'] = 18
-plt.rcParams['font.size'] = 18
+plt.rcParams['font.size'] = 25
 
+plt.rcParams['axes.labelsize'] = 28
+plt.rcParams['axes.titlesize'] = 30
+plt.rcParams['xtick.labelsize'] = 23
+plt.rcParams['ytick.labelsize'] = 23
+plt.rcParams['axes.linewidth'] = 2
+
+fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8, 6), constrained_layout=True)
 update_on_errors = [[joint_error_list[j][0][i] for j in range(n_copy_total)] for i in range(iters+1)]
 update_mute_errors = [[joint_error_list[j][1][i] for j in range(n_copy_total)] for i in range(iters+1)]
-ax[0] = plot_boxplot_series([update_on_errors, update_mute_errors], ax[0])
+plot_boxplot_series([update_on_errors, update_mute_errors], ax,
+                    title = 'Estimation error',
+                    color_panel = ['tab:grey', 'tab:red'])
+plt.savefig('figures/iterates/iterNPMLE_subset_size_%i_n_copy_%i_muteu_%s.png' %
+            (subset_size, n_copy_total, muteu))
 
 elapsed_time_list = [[time_list[i][j] for i in range(n_copy_total)] for j in range(2)]
 
-bins = np.linspace(0, 35, 1)
-bp1 = ax[1].boxplot(elapsed_time_list[0], positions=[1])
-bp2 = ax[1].boxplot(elapsed_time_list[1], positions=[2])
-ax[1].set_xticks([1,2])
-ax[1].set_xticklabels(['iter NPMLE off', 'iter NPMLE on'])
-ax[1].set_title('Elapsed time (seconds)')
-set_box_color(bp1, 'tab:red')
-set_box_color(bp2, 'tab:grey')
-fig.suptitle('%s with %i SNPs, 20 experiments, 5 iterations' % (data_name, subset_size),
-             size = 'x-large')
-#plt.title('time diff: %.2f' % (time_list[-1][1] - time_list[-1][0]))
-plt.savefig('figures/iterates/%s_subset_size_%i_n_copy_%i_muteu_%s.png' %
-            (data_name, subset_size, n_copy_total, muteu))
+# print summary statistics on elapsed time:
+status = ['off', 'on']
+for i in range(2):
+    print('iterative NPMLE %s: %.2f s (%.2f)' %
+          (status[i], np.mean(elapsed_time_list[i]), np.std(elapsed_time_list[i])))

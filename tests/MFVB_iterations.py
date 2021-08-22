@@ -36,7 +36,7 @@ V_star = np.load('%s/results/%s/ground_truth_PC.npy' % (data_dir, data_name))
 est = [ebpca, mfvb_RMT, mfvb]
 
 error_groups = [[0,2], [1,2]]
-label_groups = [['EB-PCA', 'MF-VB'], ['MF-VB', 'MF-VB (RMT init)']]
+label_groups = [['EB-PCA', 'Mean-field VB'], ['Mean-field VB', 'Mean-field VB (RMT)']]
 color_groups = [['tab:red', 'tab:blue'], ['tab:blue', 'tab:cyan']]
 for i_group in range(2):
     joint_error = []
@@ -47,8 +47,8 @@ for i_group in range(2):
         joint_error.append(tmp)
     # plot boxplots of estimation error across iterations
     # contrasting different methods
-    plot_boxplot_series(joint_error, color_panel = color_groups[i_group],
+    plot_boxplot_series(joint_error, None, color_panel = color_groups[i_group],
                         labels = label_groups[i_group],
-                        title = '1000 Genomes (1000 SNPs)')
+                        title = '1000 Genomes (%i SNPs)' % subset_size)
     plt.savefig('%s/figures/%s/error_across_iterations_%s_%s_subset_size_%i.png' % \
                 (data_dir, data_name, label_groups[i_group][0], label_groups[i_group][1], subset_size))

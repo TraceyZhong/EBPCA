@@ -17,7 +17,7 @@ parser.add_argument("--par_setting", type=int, help="which parameter setting",
                     default=1, const=1, nargs='?')
 parser.add_argument("--iters", type=int, help="number of iterations",
                     default=1, const=1, nargs='?')
-parser.add_argument("--prior", type=int, help="prior",
+parser.add_argument("--prior", type=str, help="prior",
                     default='Two_points_normal', const='Two_points_normal', nargs='?')
 args = parser.parse_args()
 
@@ -47,7 +47,12 @@ iters = args.iters
 prior = args.prior
 rank = 2
 
-signal_iter_prefix = 's_%i_%i/iter_%s' % (s_star[0], s_star[1], iters)
+signal_iter_prefix = 's_%i_%i/iter_%s/%s' % (s_star[0], s_star[1], iters, prior)
+
+import os
+if not os.path.exists('figures/EBMF/rank_two/%s' % signal_iter_prefix):
+    print('make dir to save figures')
+    os.mkdir('figures/EBMF/rank_two/%s' % signal_iter_prefix)
 
 print(signal_iter_prefix)
 
