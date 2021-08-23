@@ -11,11 +11,11 @@
 # -
 # 1000 Genome
 # -
-python make_1000G.py
-bash bin_to_npy.py 1000G 
+bash make_1000G.sh
+python bin_to_npy.py 1000G 
 
 # -
 # Hapmap3
 # -
-python make_hapmap3.py
-bash bin_to_npy.py hapmap3
+bash make_hapmap3.sh
+python bin_to_npy.py hapmap3

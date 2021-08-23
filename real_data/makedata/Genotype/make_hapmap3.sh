@@ -16,7 +16,7 @@
 # - https://www.biostars.org/p/335605/
 
 # - Step 0: download data from
-# - ftp://ftp.ncbi.nlm.nih.gov/hapmap/genotypes/2010-05_phaseIII/plink_format/
+wget ftp://ftp.ncbi.nlm.nih.gov/hapmap/genotypes/2010-05_phaseIII/plink_format/
 
 # - Remove duplicated SNPs
 # -
@@ -76,6 +76,7 @@ mv plink.eigenval plink.eigenval.full
 mv plink.eigenvec plink.eigenvec.full
 
 # - extract subsets
+# - perform PCA 
 
 cut -f 2 hapmap3.map > snps.map
 

@@ -1,10 +1,10 @@
 # -
-# For either 1000 Genomes or Hapmap3
-# load genotype data in bed
+# For either 1000 Genomes or Hapmap3,
+# load genotype data in .bed
 # normalize it by 
 # (1) centering and scaling under Binomial model
 # (2) removing SNPs with low variation
-# and output Python files
+# and output .npy files
 #
 # Chang Su
 # c.su@yale.edu
@@ -41,9 +41,9 @@ args = parser.parse_args()
 data_name = args.data_name
 size = args.size
 
-genotype_100k = read_plink_genotype('%s.subset.%i'  % (data_name, size))
+genotype_100k = read_plink_genotype('Processed/%s.subset.%i'  % (data_name, size))
 
 # create a size 1e5 subset
 norm_100k= normalize_genotype(genotype_100k) 
 
-np.save('normalized_%s_%i.npy' % (data_name, size))
+np.save('Processed/normalized_%s_%i.npy' % (data_name, size))

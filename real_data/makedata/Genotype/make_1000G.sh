@@ -16,7 +16,7 @@
 
 # - Note
 # - Step 1-8 are from https://www.biostars.org/p/335605/. One can refer to the link for detailed comments.
-# - Step 9 is on 
+# - Step 9 is on subsampling SNPs and evaluate PCA
 
 # - Step 1: Download data
 # -
@@ -41,11 +41,12 @@ wget ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/human_g1k_v37.
 gunzip human_g1k_v37.fasta.gz ;
 
 # - Step 4: Convert the 1000 Genomes files to BCF
+# - takes ~one hour to convert each chromosome
 # -
 for chr in {12..17}; do
     echo ${chr}
     bcftools norm -m-any --check-ref w -f human_g1k_v37.fasta \
-      "${G1000dir}"ALL.chr"${chr}".phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz | \
+      ALL.chr"${chr}".phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz | \
       bcftools annotate -x ID -I +'%CHROM:%POS:%REF:%ALT' | \
         bcftools norm -Ob --rm-dup both \
           > output/ALL.chr"${chr}".phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.bcf ;
@@ -92,12 +93,15 @@ sed -i 's/.bim//g' ForMerge.list ;
 
 # - Step 8:
 # - Merge all projects into a single PLINK file
-plink --merge-list ForMerge.list --out Merge ;
+mkdir Processed
+plink --merge-list ForMerge.list --out Processed/1000G ;
 
 # - Step 9: 
 # - Create random subsets and perform PCA on random subsets
 
-cut -f 2 Merge.map > snps.map
+cd Processed
+
+cut -f 2 1000G.map > snps.map
 
 for size in 1000 10000 100000
 do 

@@ -7,9 +7,6 @@
 # Dec 15, 2020
 # -
 
-# Download data from
-# 
-
 library(Seurat)
 pbmc <- readRDS('pbmc3k_final.rds')
 
