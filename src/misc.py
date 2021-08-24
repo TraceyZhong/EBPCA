@@ -218,8 +218,10 @@ def MeanFieldVB(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
         mu_constant = np.diag(np.repeat(1, k))
 
     # initialize parameter tau
+    # re-label u, v with l, f, to be consistent with EBMF notations
     if start_from_f:
-        # re-label u, v with l, f, to be consistent with EBMF notations
+        # the original EBMF implementation starts from l
+        # to start from f, we flip left and right PCs
         l_hat = v
         f_hat = u
         tau = d
@@ -301,6 +303,8 @@ def MeanFieldVB(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
             sigma_sq = Sigma_mat / tau
         t += 1
 
+        if start_from_f:
+            F, L = L,F 
     return L, F
 
 
