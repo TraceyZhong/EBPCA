@@ -41,5 +41,5 @@ if(!file.exists('Popu_labels.txt')){
   PED$Population_broad[PED$Population %in% c("CEU","FIN","GBR","IBS","TSI")] = 'Caucasian'
   PED$Population_broad[PED$Population %in% c("BEB","GIH","ITU","PJL","STU")] = 'South Asian'
 
-  write.table(PED, 'Popu_labels.txt')
+  write.table(PED, 'Processed/1000G_popu_labels.txt')
 }

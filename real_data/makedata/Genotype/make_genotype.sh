@@ -24,8 +24,8 @@ Rscript label_1000G.R
 # -
 
 # Step 1: download, clean and subset genotypes; store in bed
-bash make_hapmap3.sh
+bash make_Hapmap3.sh
 # Step 2: convert .bed files to .npy files; normalize genotypes
-python bed_to_npy.py hapmap3
+python bed_to_npy.py Hapmap3
 # Step 3: obtain population labels 
-Python label_hapmap3.py
+Python label_Hapmap3.py
