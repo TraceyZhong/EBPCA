@@ -1,0 +1,5 @@
+This folder includes the following codes:
+1. makedata/GeneExpression/make_pbmc.sh and makedata/Genotype/make_genotype.sh 
+to download and preprocess 1000 Genome, Hapmap3 and PBMC data.
+2. run_method.py to run EB-PCA method (or Mean-field VB), evaluate errors
+and visualize PCs.

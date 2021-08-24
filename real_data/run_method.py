@@ -34,7 +34,8 @@ data_name = args.data_name
 method = args.method
 
 # Make directories to save results
-make_dir(data_name)
+make_dir(data_name, 'results')
+make_dir(data_name, 'figures')
 res_prefix = 'results/%s' % data_name
 fig_prefix = 'figures/%s' % data_name
 

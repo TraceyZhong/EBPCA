@@ -28,13 +28,16 @@ def load_data(data_name, size):
 	return full_data
 
 # Make directories to save figures
-def make_dir(data_name):
-    if not os.path.exists('figures/{}'.format(data_name)):
+def make_dir(data_name, prefix):
+    target_dir = '{}/{}'.format(prefix, data_name)
+    if not os.path.exists(target_dir):
         print('Creating directories for saving {} figures and results'.format(data_name))
-        os.makedirs('results/{}'.format(data_name))
-        os.makedirs('figures/{}'.format(data_name))
+        if not os.path.exists(prefix):
+            os.makedirs(target_dir)
+        else:
+            os.mkdir(target_dir)
     else:
-        print('Directories for {} already exist'.format(data_name))
+        print('{}/{} already exist'.format(prefix, data_name))
 
 # - Helper functions for loading labels
 def load_sample_labels(data_name):
