@@ -15,8 +15,16 @@
 # - https://www.biostars.org/p/271694/
 # - https://www.biostars.org/p/335605/
 
-# - Step 0: download data from
-wget ftp://ftp.ncbi.nlm.nih.gov/hapmap/genotypes/2010-05_phaseIII/plink_format/
+# - Step 0: download hapmap3 data
+hapmap3_link="ftp://ftp.ncbi.nlm.nih.gov/hapmap/genotypes/2010-05_phaseIII"
+wget ${hapmap3_link}/relationships_w_pops_041510.txt
+for ext in map ped
+do 
+	wget ${hapmap3_link}/plink_format/hapmap3_r3_b36_fwd.consensus.qc.poly.${ext}.gz
+	unzip hapmap3_r3_b36_fwd.consensus.qc.poly.${ext}.gz
+done
+# - For detailed comments on data,
+# - see README at ${hapmap3_link}/plink_format/00README.txt
 
 # - Remove duplicated SNPs
 # -
