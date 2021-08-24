@@ -82,12 +82,12 @@ if data_name == '1000G' or data_name == 'Hapmap3':
 		Y = np.load(subset_path)
 		# Load 'ground truth' PCs
 		V_star = np.load(V_star_path)
-
-	print('subsetted data have #samples=%i, #features=%i' % (Y.shape[0], Y.shape[1]))
+	print('subsetted %s has #SNPs=%i, #individuals=%i' % (data_name, Y.shape[0], Y.shape[1]))
 elif data_name == 'PBMC':
 	Y = load_data(data_name, None)
 	# Normalize data such that the noise level satisfy our model assumption
 	Y = normalize_obs(Y, rank)
+	print('PBMC has #genes=%i, #cells=%i' % (Y.shape[0], Y.shape[1]))
 
 # -
 # Step 2: Run EB-PCA or Mean-field VB

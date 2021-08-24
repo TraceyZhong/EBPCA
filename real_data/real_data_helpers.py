@@ -37,7 +37,7 @@ def make_dir(data_name, prefix):
         else:
             os.mkdir(target_dir)
     else:
-        print('{}/{} already exist'.format(prefix, data_name))
+        print('{}/{} already existed'.format(prefix, data_name))
 
 # - Helper functions for loading labels
 def load_sample_labels(data_name):
