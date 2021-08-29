@@ -226,9 +226,11 @@ def MeanFieldVB(pcapack, ldenoiser = NonparEB(), fdenoiser = NonparEB(),
         f_hat = u
         tau = d
         init_aligns = pcapack.feature_aligns
-        X = X.T
+        X = X.T * np.sqrt(n / d)
         pc2 = 'u'
         alpha = n/d
+        if ebpca_scaling:
+            signals = signals * np.sqrt(d / n)
     else:
         l_hat = u
         f_hat = v
