@@ -2,13 +2,20 @@
 
 This library is a Python implementation of the algorithms described in ``Empirical Bayes PCA for high-dimensional data``. You can cite this work by
 ```
-@misc{zhong2020empirical,
-      title={Empirical Bayes PCA in high dimensions}, 
-      author={Xinyi Zhong and Chang Su and Zhou Fan},
-      year={2020},
-      eprint={2012.11676},
-      archivePrefix={arXiv},
-      primaryClass={stat.ME}
+@article{10.1111/rssb.12490,
+    author = {Zhong, Xinyi and Su, Chang and Fan, Zhou},
+    title = {Empirical Bayes PCA in High Dimensions},
+    journal = {Journal of the Royal Statistical Society Series B: Statistical Methodology},
+    volume = {84},
+    number = {3},
+    pages = {853-878},
+    year = {2022},
+    month = {01},
+    abstract = {When the dimension of data is comparable to or larger than the number of data samples, principal components analysis (PCA) may exhibit problematic high-dimensional noise. In this work, we propose an empirical Bayes PCA method that reduces this noise by estimating a joint prior distribution for the principal components. EB-PCA is based on the classical Kiefer–Wolfowitz non-parametric maximum likelihood estimator for empirical Bayes estimation, distributional results derived from random matrix theory for the sample PCs and iterative refinement using an approximate message passing (AMP) algorithm. In theoretical ‘spiked’ models, EB-PCA achieves Bayes-optimal estimation accuracy in the same settings as an oracle Bayes AMP procedure that knows the true priors. Empirically, EB-PCA significantly improves over PCA when there is strong prior structure, both in simulation and on quantitative benchmarks constructed from the 1000 Genomes Project and the International HapMap Project. An illustration is presented for analysis of gene expression data obtained by single-cell RNA-seq.},
+    issn = {1369-7412},
+    doi = {10.1111/rssb.12490},
+    url = {https://doi.org/10.1111/rssb.12490},
+    eprint = {https://academic.oup.com/jrsssb/article-pdf/84/3/853/49322184/jrsssb\_84\_3\_853.pdf},
 }
 ```
 
